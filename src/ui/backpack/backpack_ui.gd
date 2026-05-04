@@ -50,7 +50,8 @@ func get_slot_center_position(grid_pos: Vector2i) -> Vector2:
 func get_grid_pos_at(global_pos: Vector2) -> Vector2i:
 	var closest_pos = Vector2i(-1, -1)
 	var min_dist = 99999.0
-	var threshold = 60.0
+	var threshold = 120.0 # 提高阈值，让吸附更灵敏
+	
 	for i in range(grid_container.get_child_count()):
 		var slot = grid_container.get_child(i) as Control
 		var slot_center = slot.global_position + (slot.size / 2.0)
@@ -58,6 +59,9 @@ func get_grid_pos_at(global_pos: Vector2) -> Vector2i:
 		if dist < min_dist and dist < threshold:
 			min_dist = dist
 			closest_pos = Vector2i(i % manager.grid_width, i / manager.grid_width)
+	
+	if closest_pos != Vector2i(-1, -1):
+		print("[BackpackUI] 捕捉到最近格子: ", closest_pos, " 距离: ", min_dist)
 	return closest_pos
 
 ## 将物品 UI 添加并对齐到网格

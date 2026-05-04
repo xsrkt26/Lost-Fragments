@@ -97,6 +97,25 @@ texture = ExtResource("4_av")
 expand_mode = 1
 stretch_mode = 6
 
+[node name="TrashBin" type="ColorRect" parent="HBoxContainer/LeftPanel/BottomRow/AvatarArea"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 8
+color = Color(0.8, 0.2, 0.2, 0.4)
+
+[node name="Label" type="Label" parent="HBoxContainer/LeftPanel/BottomRow/AvatarArea/TrashBin"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 10
+text = "垃圾桶"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="SanityArea" type="PanelContainer" parent="HBoxContainer/LeftPanel/BottomRow"]
 layout_mode = 2
 size_flags_horizontal = 3

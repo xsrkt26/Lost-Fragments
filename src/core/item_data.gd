@@ -8,6 +8,7 @@ enum Direction { UP, DOWN, LEFT, RIGHT }
 
 @export var id: String
 @export var item_name: String
+@export var tags: Array[String] = [] # 类别词条，如 ["运动", "神秘"]
 @export var runtime_id: int = -1 # 运行时唯一 ID，用于逻辑与 UI 绑定
 @export var icon: Texture2D
 @export var shape: Array[Vector2i] = [Vector2i(0, 0)] # 占用的格子相对偏移

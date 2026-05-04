@@ -60,7 +60,10 @@ func _gui_input(event: InputEvent):
 				if is_dragging:
 					is_dragging = false
 					z_index = 0
-					dropped.emit(global_position + size / 2.0)
+					# 核心修复：吸附点不再是整个 UI 的中心，而是第一个格子 (0,0) 的中心
+					# 假设格子 64x64，偏移 32 像素
+					var root_tile_center = global_position + Vector2(34, 34)
+					dropped.emit(root_tile_center)
 
 func _process(_delta):
 	if is_dragging:
