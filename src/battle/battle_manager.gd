@@ -6,6 +6,7 @@ extends Node
 
 signal turn_started
 signal turn_finished
+signal item_drawn(item_data: ItemData)
 
 var backpack_manager: BackpackManager
 var context: GameContext
@@ -17,18 +18,24 @@ var context: GameContext
 			backpack_ui.setup(backpack_manager)
 
 func _init():
+	print("[BattleManager] 正在初始化逻辑数据...")
 	# 初始化逻辑数据
 	backpack_manager = BackpackManager.new()
 	backpack_manager.setup_grid(5, 5)
 
 func _ready():
+	print("[BattleManager] 节点就绪")
 	# 初始化上下文（依赖注入）
 	var gs = get_node_or_null("/root/GameState")
 	context = GameContext.new(gs, self)
 	
 	# 如果 UI 已经注入，确保它被初始化
 	if backpack_ui:
+		print("[BattleManager] 正在初始化已绑定的 UI...")
 		backpack_ui.setup(backpack_manager)
+
+func _exit_tree():
+	print("[BattleManager] 正在卸载...")
 
 ## 处理玩家放置物品的逻辑请求
 func request_place_item(item_ui: Control, grid_pos: Vector2i):
@@ -78,3 +85,27 @@ func _remove_item_from_logic(item_data: ItemData):
 	var old_pos = _find_item_old_pos(item_data)
 	if old_pos != Vector2i(-1, -1):
 		backpack_manager.remove_item_at(old_pos)
+
+## 模拟抽卡逻辑：生成一个随机物品并通知 UI
+func request_draw():
+	# 这里后续可以从 data/items 目录随机加载 .tres
+	var item = ItemData.new()
+	var type = randi() % 3 # 增加到 3 种类型
+	if type == 0:
+		item.item_name = "棒球"
+		item.direction = ItemData.Direction.RIGHT
+		item.effects.append(ScoreEffect.new())
+	elif type == 1:
+		item.item_name = "诅咒箱"
+		item.direction = ItemData.Direction.DOWN
+		item.effects.append(SanityEffect.new())
+	else:
+		item.item_name = "长木板"
+		item.direction = ItemData.Direction.RIGHT
+		item.shape.clear()
+		item.shape.append(Vector2i(0, 0))
+		item.shape.append(Vector2i(1, 0))
+		item.effects.append(ScoreEffect.new())
+	
+	item.runtime_id = randi()
+	item_drawn.emit(item)

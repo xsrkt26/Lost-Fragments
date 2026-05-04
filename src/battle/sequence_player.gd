@@ -24,6 +24,7 @@ func _execute_action(action: GameAction):
 		var rid = action.item_instance.data.runtime_id
 		if node_map.has(rid):
 			target_ui = node_map[rid]
+			print("[Seq Debug] 执行动作: ", action.description, " | 目标 UI: ", target_ui.name, " (", target_ui.item_data.item_name, ")")
 		else:
 			# 只有当确实应该有节点却没找到时才打印调试信息
 			print("[Seq Debug] 找不到映射关系! RID: ", rid, " | Action: ", action.description)

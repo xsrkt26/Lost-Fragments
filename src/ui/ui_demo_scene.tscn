@@ -1,15 +1,9 @@
 [gd_scene load_steps=3 format=3 uid="uid://ui_demo_01"]
 
 [ext_resource type="Script" path="res://src/ui/ui_demo_scene.gd" id="1_script"]
-[ext_resource type="PackedScene" uid="uid://backpack_ui_01" path="res://src/ui/backpack/backpack_ui.tscn" id="2_ui"]
+[ext_resource type="PackedScene" uid="uid://main_game_ui_01" path="res://src/ui/main_game_ui.tscn" id="2_main_ui"]
 
 [node name="UIDemo" type="Node2D"]
 script = ExtResource("1_script")
 
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
-
-[node name="BackpackUI" parent="CanvasLayer" instance=ExtResource("2_ui")]
-offset_left = 50.0
-offset_top = 50.0
-offset_right = 50.0
-offset_bottom = 50.0
+[node name="MainGameUI" parent="." instance=ExtResource("2_main_ui")]

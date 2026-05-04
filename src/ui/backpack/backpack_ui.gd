@@ -12,11 +12,16 @@ var manager: BackpackManager # 仅用于读取网格尺寸等基础信息
 var item_ui_map: Dictionary = {}
 
 func setup(p_manager: BackpackManager):
+	print("[BackpackUI] 接收到 Manager，正在执行 setup...")
 	manager = p_manager
 	_refresh_grid()
 
 func _refresh_grid():
-	if not manager: return
+	if not manager: 
+		print("[BackpackUI] 警告: manager 为空，无法刷新网格")
+		return
+	
+	print("[BackpackUI] 正在生成网格: ", manager.grid_width, "x", manager.grid_height)
 	for child in grid_container.get_children():
 		child.queue_free()
 	
@@ -31,6 +36,8 @@ func _refresh_grid():
 		border.editor_only = false
 		slot.add_child(border)
 		grid_container.add_child(slot)
+	
+	print("[BackpackUI] 网格刷新完成，子节点数: ", grid_container.get_child_count())
 
 func get_slot_center_position(grid_pos: Vector2i) -> Vector2:
 	if not manager or grid_pos.x < 0 or grid_pos.y < 0: return Vector2.ZERO
@@ -66,19 +73,21 @@ func add_item_visual(item_ui: Control, grid_pos: Vector2i):
 	
 	grid_container.force_update_transform()
 	await get_tree().process_frame
-	var target_center = get_slot_center_position(grid_pos)
-	item_ui.position = target_center - (item_ui.custom_minimum_size / 2.0)
+	
+	# --- 核心修复：多格物品对齐 ---
+	# 不再将 UI 中心对齐到格子中心，而是将 UI 的左上角对齐到起始格子的左上角
+	var index = grid_pos.y * manager.grid_width + grid_pos.x
+	var slot = grid_container.get_child(index) as Control
+	item_ui.position = slot.position
 
 ## 同步最新的映射关系（当 Data 被克隆后调用）
 func update_item_mapping(old_data: ItemData, new_data: ItemData):
-	# 如果使用 runtime_id，则此处其实不需要频繁更新 map，
-	# 除非 runtime_id 在 duplicate(true) 时被改变（实际上 runtime_id 不是 @export 应该会被保留，但为了保险我们手动处理）
 	if item_ui_map.has(old_data.runtime_id):
 		var ui = item_ui_map[old_data.runtime_id]
-		item_ui_map.erase(old_data.runtime_id)
-		# 确保新数据继承旧数据的 ID
-		new_data.runtime_id = old_data.runtime_id
+		# 如果新旧 ID 一致（由于 @export 已经保留了），我们只需确保 map 指向最新数据即可
+		# 如果项目逻辑需要更严谨，可以保留这个手动同步
 		item_ui_map[new_data.runtime_id] = ui
+		print("[BackpackUI] 映射关系已同步. RID: ", new_data.runtime_id)
 
 ## UI 层的松手处理：不再直接计算逻辑，而是发出信号
 func handle_item_dropped(item_ui: Control, drop_center_pos: Vector2):

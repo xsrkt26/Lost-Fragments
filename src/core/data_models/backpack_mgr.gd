@@ -77,12 +77,18 @@ func get_next_item_pos(start_pos: Vector2i, direction: ItemData.Direction) -> Ve
 		ItemData.Direction.LEFT: step = Vector2i(-1, 0)
 		ItemData.Direction.RIGHT: step = Vector2i(1, 0)
 	
+	# 获取起始位置的物品实例（如果有），搜索时应跳过它
+	var source_instance = grid.get(start_pos)
+	
 	var current_pos = start_pos + step
 	# 沿方向搜索直到撞到物品或出界
 	while current_pos.x >= 0 and current_pos.x < grid_width and \
 		  current_pos.y >= 0 and current_pos.y < grid_height:
 		if grid.has(current_pos):
-			return current_pos
+			var hit_instance = grid[current_pos]
+			# 核心修复：只有撞到的不是自己时，才算有效击中
+			if hit_instance != source_instance:
+				return current_pos
 		current_pos += step
 		
 	return Vector2i(-1, -1) # 表示未击中

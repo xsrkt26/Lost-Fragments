@@ -29,12 +29,14 @@ func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions:
 	var next_item_pos = backpack.get_next_item_pos(current_pos, dir)
 	
 	if next_item_pos == Vector2i(-1, -1):
-		return # 未击中任何物品
+		print("[Resolver Debug] 搜索结束，未撞击到任何物品。起始点: ", current_pos)
+		return
 		
 	var instance = backpack.grid[next_item_pos]
+	print("[Resolver Debug] 发现撞击! 目标: ", instance.data.item_name, " 坐标: ", next_item_pos, " RID: ", instance.data.runtime_id)
 	
-	# 防止循环触发（虽然在目前的线性逻辑中不太可能）
 	if instance in visited:
+		print("[Resolver Debug] 忽略已访问过的物品: ", instance.data.item_name)
 		return
 	visited.append(instance)
 	
@@ -53,5 +55,7 @@ func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions:
 				effect_action.item_instance = instance
 			actions.append(effect_action)
 			
-	# 5. TODO: 检查是否需要继续传播撞击（例如穿透、折射等逻辑）
-	# 目前暂定简单的单次触发，后续可扩展
+	# 5. 核心修复：连锁反应
+	# 以被撞击的物品为新起点，沿着它的朝向继续传播撞击
+	print("[Resolver Debug] 连锁传播: ", instance.data.item_name, " 向方向 ", instance.data.direction, " 发起新撞击")
+	_resolve_recursive(next_item_pos, instance.data.direction, actions, visited)

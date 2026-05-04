@@ -22,6 +22,17 @@ func _update_visuals():
 	if label:
 		label.text = item_data.item_name
 	
+	# 根据形状计算 UI 大小 (假设格子大小 64 + 间隔 4 = 68)
+	var min_x = 0; var max_x = 0
+	var min_y = 0; var max_y = 0
+	for p in item_data.shape:
+		min_x = min(min_x, p.x); max_x = max(max_x, p.x)
+		min_y = min(min_y, p.y); max_y = max(max_y, p.y)
+	
+	var grid_step = 68.0
+	custom_minimum_size = Vector2((max_x - min_x + 1) * grid_step - 4, (max_y - min_y + 1) * grid_step - 4)
+	size = custom_minimum_size
+
 	if arrow:
 		# 根据朝向旋转箭头
 		match item_data.direction:
