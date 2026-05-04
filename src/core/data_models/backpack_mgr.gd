@@ -10,8 +10,8 @@ class ItemInstance:
 		data = p_data
 		root_pos = p_pos
 
-var grid_width: int = 3
-var grid_height: int = 3
+var grid_width: int = 5
+var grid_height: int = 5
 
 ## 核心网格字典：Key 是 Vector2i 坐标，Value 是 ItemInstance
 var grid: Dictionary = {}
@@ -20,6 +20,7 @@ func setup_grid(w: int, h: int) -> void:
 	grid_width = w
 	grid_height = h
 	grid.clear()
+	print("[BackpackManager] 网格已初始化: ", w, "x", h)
 
 ## 检查指定位置是否可以放置该物品
 func can_place_item(item_data: ItemData, root_pos: Vector2i) -> bool:
@@ -28,10 +29,12 @@ func can_place_item(item_data: ItemData, root_pos: Vector2i) -> bool:
 		
 		# 边界检查
 		if target_pos.x < 0 or target_pos.x >= grid_width or target_pos.y < 0 or target_pos.y >= grid_height:
+			print("[BackpackManager] 放置拒绝: 坐标 ", target_pos, " 超出边界 (", grid_width, "x", grid_height, ")")
 			return false
 			
 		# 重叠检查
 		if grid.has(target_pos):
+			print("[BackpackManager] 放置拒绝: 坐标 ", target_pos, " 已有物品: ", grid[target_pos].data.item_name)
 			return false
 			
 	return true
@@ -52,6 +55,21 @@ func place_item(item_data: ItemData, root_pos: Vector2i) -> bool:
 		grid[target_pos] = instance
 		
 	return true
+
+## 替换指定位置物品的数据 (用于变身、进化等逻辑)
+func replace_item_data(pos: Vector2i, new_data: ItemData):
+	if not grid.has(pos): return
+	
+	var instance: ItemInstance = grid[pos]
+	var root_pos = instance.root_pos
+	
+	# 如果形状改变，需要先清理旧网格，再重新放置
+	# 如果形状一致，直接修改 data 即可
+	if instance.data.shape == new_data.shape:
+		instance.data = new_data.duplicate(true)
+	else:
+		remove_item_at(root_pos)
+		place_item(new_data, root_pos)
 
 ## 移除并返回指定位置的物品数据
 func remove_item_at(pos: Vector2i) -> ItemData:

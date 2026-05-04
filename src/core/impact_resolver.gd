@@ -25,7 +25,7 @@ func resolve_impact(start_pos: Vector2i, dir: ItemData.Direction) -> Array[GameA
 	
 	return actions
 
-func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions: Array[GameAction], visited: Array):
+func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions: Array[GameAction], visited: Array, source_instance: BackpackManager.ItemInstance = null):
 	var next_item_pos = backpack.get_next_item_pos(current_pos, dir)
 	
 	if next_item_pos == Vector2i(-1, -1):
@@ -46,9 +46,9 @@ func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions:
 	hit_action.value = {"pos": next_item_pos}
 	actions.append(hit_action)
 	
-	# 4. 触发物品的效果
+	# 4. 触发物品的效果 (现在传入撞击来源 source_instance)
 	for effect in instance.data.effects:
-		var effect_action = effect.execute(instance, self, context)
+		var effect_action = effect.on_hit(instance, source_instance, self, context)
 		if effect_action:
 			# 确保效果动作也携带实例引用，以便播放动画
 			if effect_action.item_instance == null:
@@ -58,4 +58,4 @@ func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions:
 	# 5. 核心修复：连锁反应
 	# 以被撞击的物品为新起点，沿着它的朝向继续传播撞击
 	print("[Resolver Debug] 连锁传播: ", instance.data.item_name, " 向方向 ", instance.data.direction, " 发起新撞击")
-	_resolve_recursive(next_item_pos, instance.data.direction, actions, visited)
+	_resolve_recursive(next_item_pos, instance.data.direction, actions, visited, instance)

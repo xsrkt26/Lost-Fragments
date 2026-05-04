@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://src/core/effects/alarm_clock_effect.gd" id="1_effect"]
+[ext_resource type="Script" path="res://src/core/item_data.gd" id="2_item"]
+
+[sub_resource type="Resource" id="1"]
+script = ExtResource("1_effect")
+base_score = 3
+extra_score = 8
+threshold = 10
+
+[resource]
+script = ExtResource("2_item")
+id = "alarm_clock"
+item_name = "破旧闹钟"
+tags = Array[String](["日常物品"])
+price = 5
+base_cost = -1
+can_draw = true
+runtime_id = -1
+shape = Array[Vector2i]([Vector2i(0, 0)])
+direction = 2
+effects = [SubResource("1")]

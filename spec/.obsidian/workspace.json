@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "GamePlay/Architecture_Blueprint.md",
+                "file": "GamePlay/Card Design.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Architecture_Blueprint"
+              "title": "Card Design"
             }
           }
         ]
@@ -185,10 +185,10 @@
   },
   "active": "3a863a8929fb1a20",
   "lastOpenFiles": [
+    "GamePlay/Architecture_Blueprint.md",
     "GamePlay/Card Design.md",
     "GamePlay/Review.md",
     "GamePlay/design.md20316501694.tmp",
-    "GamePlay/Architecture_Blueprint.md",
     "GamePlay/design.md",
     "GamePlay/Technical_Design.md"
   ]

@@ -85,7 +85,11 @@ func trigger_impact_at(pos: Vector2i):
 ## 处理丢弃逻辑
 func request_discard_item(item_ui: Control):
 	print("[BattleManager] 物品丢弃请求: ", item_ui.item_data.item_name)
-	# TODO: 触发 on_discard 效果
+	
+	# 触发 on_discard 效果
+	for effect in item_ui.item_data.effects:
+		effect.on_discard(item_ui.item_data, context)
+	
 	# 清理 UI 映射
 	if backpack_ui and backpack_ui.item_ui_map.has(item_ui.item_data.runtime_id):
 		backpack_ui.item_ui_map.erase(item_ui.item_data.runtime_id)
@@ -118,39 +122,33 @@ func _remove_item_from_logic(item_data: ItemData):
 	if old_pos != Vector2i(-1, -1):
 		backpack_manager.remove_item_at(old_pos)
 
-## 模拟抽卡逻辑：生成一个随机物品并通知 UI
+## 模拟抽卡逻辑：从数据库生成一个随机物品并通知 UI
 func request_draw():
-	# 1. 计算并扣除阶梯式 San 值 (5 + 1 * n)
-	var cost = 5 + 1 * draw_count
+	# 1. 获取物品数据 (动态加载)
+	var item_db = get_node_or_null("/root/ItemDatabase")
+	if not item_db:
+		print("[BattleManager] 错误: 未找到 ItemDatabase Autoload")
+		return
+		
+	var item = item_db.get_random_item()
+	if not item: return
+
+	# 2. 计算并扣除 San 值
+	# 如果物品有自定义消耗则使用自定义值，否则使用阶梯式公式
+	var cost = item.base_cost
+	if cost < 0:
+		cost = 5 + 1 * draw_count
+		
 	if context and context.state:
 		context.state.consume_sanity(cost)
 		print("[BattleManager] 抽卡消耗 San 值: ", cost, " (当前次数: ", draw_count, ")")
 	
 	draw_count += 1
-
-	# 2. 生成随机物品
-	var item = ItemData.new()
-	var type = randi() % 3
-	if type == 0:
-		item.item_name = "棒球"
-		item.tags = ["运动"] as Array[String]
-		item.direction = ItemData.Direction.RIGHT
-		item.effects.append(ScoreEffect.new())
-	elif type == 1:
-		item.item_name = "诅咒箱"
-		item.tags = ["神秘"] as Array[String]
-		item.direction = ItemData.Direction.DOWN
-		item.effects.append(SanityEffect.new())
-	else:
-		item.item_name = "长木板"
-		item.tags = ["工具"] as Array[String]
-		item.direction = ItemData.Direction.RIGHT
-		item.shape.clear()
-		item.shape.append(Vector2i(0, 0))
-		item.shape.append(Vector2i(1, 0))
-		item.effects.append(ScoreEffect.new())
-	
 	item.runtime_id = randi()
+	
+	# 触发 on_draw 效果
+	for effect in item.effects:
+		effect.on_draw(item, context)
 	
 	# 3. 特殊逻辑：同名卡连锁触发 (目前仅 棒球 具备该特性)
 	# 先通知 UI 创建新物品，再触发旧物品撞击（符合“抽到卡时，旧卡撞击”的直觉）

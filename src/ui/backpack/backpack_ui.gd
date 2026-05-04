@@ -58,7 +58,7 @@ func get_grid_pos_at(global_pos: Vector2) -> Vector2i:
 		var dist = global_pos.distance_to(slot_center)
 		if dist < min_dist and dist < threshold:
 			min_dist = dist
-			closest_pos = Vector2i(i % manager.grid_width, i / manager.grid_width)
+			closest_pos = Vector2i(i % manager.grid_width, int(float(i) / manager.grid_width))
 	
 	if closest_pos != Vector2i(-1, -1):
 		print("[BackpackUI] 捕捉到最近格子: ", closest_pos, " 距离: ", min_dist)
@@ -79,10 +79,17 @@ func add_item_visual(item_ui: Control, grid_pos: Vector2i):
 	await get_tree().process_frame
 	
 	# --- 核心修复：多格物品对齐 ---
-	# 不再将 UI 中心对齐到格子中心，而是将 UI 的左上角对齐到起始格子的左上角
+	# 计算形状的最小偏移量（防止形状不是从 (0,0) 开始的情况）
+	var min_offset = Vector2i(0, 0)
+	for p in item_ui.item_data.shape:
+		min_offset.x = min(min_offset.x, p.x)
+		min_offset.y = min(min_offset.y, p.y)
+	
+	# UI 的位置应基于起始格子的位置，并减去形状的最小偏移（转换为像素）
+	var grid_step = 68.0 # 64 + 4 间隔
 	var index = grid_pos.y * manager.grid_width + grid_pos.x
 	var slot = grid_container.get_child(index) as Control
-	item_ui.position = slot.position
+	item_ui.position = slot.position + Vector2(min_offset) * grid_step
 
 ## 同步最新的映射关系（当 Data 被克隆后调用）
 func update_item_mapping(old_data: ItemData, new_data: ItemData):

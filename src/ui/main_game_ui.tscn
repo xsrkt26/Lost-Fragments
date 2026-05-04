@@ -1,16 +1,16 @@
-[gd_scene load_steps=10 format=3 uid="uid://main_game_ui_01"]
+[gd_scene format=3 uid="uid://22rxu8r6t76v"]
 
-[ext_resource type="Script" path="res://src/ui/main_game_ui.gd" id="1_script"]
-[ext_resource type="Texture2D" path="res://assets/ui/draw_panel.png" id="2_draw"]
-[ext_resource type="Texture2D" path="res://assets/ui/dreamcatcher.png" id="3_dc"]
-[ext_resource type="Texture2D" path="res://assets/ui/avatar_panel.png" id="4_av"]
-[ext_resource type="Texture2D" path="res://assets/ui/sanity_panel.png" id="5_san"]
-[ext_resource type="Texture2D" path="res://assets/ui/eye_icon.png" id="6_eye"]
-[ext_resource type="Texture2D" path="res://assets/ui/backpack_panel.png" id="7_bp"]
-[ext_resource type="PackedScene" uid="uid://backpack_ui_01" path="res://src/ui/backpack/backpack_ui.tscn" id="8_backpack"]
-[ext_resource type="Texture2D" path="res://assets/ui/ornaments_panel.png" id="9_orn"]
+[ext_resource type="Script" uid="uid://bl5rpy55tugiv" path="res://src/ui/main_game_ui.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://c8guy13woixl" path="res://assets/ui/draw_panel.png" id="2_draw"]
+[ext_resource type="Texture2D" uid="uid://x5cnc8hxvkv1" path="res://assets/ui/dreamcatcher.png" id="3_dc"]
+[ext_resource type="Texture2D" uid="uid://dtr8tfaotflrf" path="res://assets/ui/avatar_panel.png" id="4_av"]
+[ext_resource type="Texture2D" uid="uid://l3igiwghgfp0" path="res://assets/ui/sanity_panel.png" id="5_san"]
+[ext_resource type="Texture2D" uid="uid://cxh0id6b3fowu" path="res://assets/ui/eye_icon.png" id="6_eye"]
+[ext_resource type="Texture2D" uid="uid://ekp4a18snin3" path="res://assets/ui/backpack_panel.png" id="7_bp"]
+[ext_resource type="PackedScene" path="res://src/ui/backpack/backpack_ui.tscn" id="8_backpack"]
+[ext_resource type="Texture2D" uid="uid://gjydyaw3mnl3" path="res://assets/ui/ornaments_panel.png" id="9_orn"]
 
-[node name="MainGameUI" type="Control"]
+[node name="MainGameUI" type="Control" unique_id=1610933950]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -19,7 +19,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_script")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="ColorRect" parent="." unique_id=960567295]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -28,7 +28,7 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.05, 0.07, 0.1, 1)
 
-[node name="HBoxContainer" type="HBoxContainer" parent="."]
+[node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=1708951944]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -41,23 +41,23 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 30
 
-[node name="LeftPanel" type="VBoxContainer" parent="HBoxContainer"]
+[node name="LeftPanel" type="VBoxContainer" parent="HBoxContainer" unique_id=1796763403]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 0.9
 theme_override_constants/separation = 25
 
-[node name="DrawArea" type="PanelContainer" parent="HBoxContainer/LeftPanel"]
+[node name="DrawArea" type="PanelContainer" parent="HBoxContainer/LeftPanel" unique_id=762027180]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="PaperBG" type="TextureRect" parent="HBoxContainer/LeftPanel/DrawArea"]
+[node name="PaperBG" type="TextureRect" parent="HBoxContainer/LeftPanel/DrawArea" unique_id=2080292092]
 layout_mode = 2
 texture = ExtResource("2_draw")
 expand_mode = 1
 stretch_mode = 6
 
-[node name="Label" type="Label" parent="HBoxContainer/LeftPanel/DrawArea"]
+[node name="Label" type="Label" parent="HBoxContainer/LeftPanel/DrawArea" unique_id=1524027360]
 visible = false
 layout_mode = 2
 size_flags_vertical = 0
@@ -65,46 +65,46 @@ theme_override_colors/font_color = Color(1, 0.9, 0.7, 1)
 text = "抽卡"
 horizontal_alignment = 1
 
-[node name="Center" type="CenterContainer" parent="HBoxContainer/LeftPanel/DrawArea"]
+[node name="Center" type="CenterContainer" parent="HBoxContainer/LeftPanel/DrawArea" unique_id=227723175]
 layout_mode = 2
 
-[node name="DreamCatcherMock" type="TextureRect" parent="HBoxContainer/LeftPanel/DrawArea/Center"]
+[node name="DreamCatcherMock" type="TextureRect" parent="HBoxContainer/LeftPanel/DrawArea/Center" unique_id=724689555]
 custom_minimum_size = Vector2(250, 250)
 layout_mode = 2
 texture = ExtResource("3_dc")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="DrawButton" type="Button" parent="HBoxContainer/LeftPanel/DrawArea"]
+[node name="DrawButton" type="Button" parent="HBoxContainer/LeftPanel/DrawArea" unique_id=179843010]
 custom_minimum_size = Vector2(120, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 8
 text = "点击捕梦"
 
-[node name="BottomRow" type="HBoxContainer" parent="HBoxContainer/LeftPanel"]
+[node name="BottomRow" type="HBoxContainer" parent="HBoxContainer/LeftPanel" unique_id=440077100]
 custom_minimum_size = Vector2(0, 220)
 layout_mode = 2
 theme_override_constants/separation = 20
 
-[node name="AvatarArea" type="PanelContainer" parent="HBoxContainer/LeftPanel/BottomRow"]
+[node name="AvatarArea" type="PanelContainer" parent="HBoxContainer/LeftPanel/BottomRow" unique_id=1907901445]
 custom_minimum_size = Vector2(180, 0)
 layout_mode = 2
 
-[node name="PaperBG" type="TextureRect" parent="HBoxContainer/LeftPanel/BottomRow/AvatarArea"]
+[node name="PaperBG" type="TextureRect" parent="HBoxContainer/LeftPanel/BottomRow/AvatarArea" unique_id=1822353696]
 layout_mode = 2
 texture = ExtResource("4_av")
 expand_mode = 1
 stretch_mode = 6
 
-[node name="TrashBin" type="ColorRect" parent="HBoxContainer/LeftPanel/BottomRow/AvatarArea"]
+[node name="TrashBin" type="ColorRect" parent="HBoxContainer/LeftPanel/BottomRow/AvatarArea" unique_id=1126962491]
 custom_minimum_size = Vector2(60, 60)
 layout_mode = 2
 size_flags_horizontal = 8
 size_flags_vertical = 8
 color = Color(0.8, 0.2, 0.2, 0.4)
 
-[node name="Label" type="Label" parent="HBoxContainer/LeftPanel/BottomRow/AvatarArea/TrashBin"]
+[node name="Label" type="Label" parent="HBoxContainer/LeftPanel/BottomRow/AvatarArea/TrashBin" unique_id=713747811]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -116,68 +116,68 @@ text = "垃圾桶"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="SanityArea" type="PanelContainer" parent="HBoxContainer/LeftPanel/BottomRow"]
+[node name="SanityArea" type="PanelContainer" parent="HBoxContainer/LeftPanel/BottomRow" unique_id=241147327]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="PaperBG" type="TextureRect" parent="HBoxContainer/LeftPanel/BottomRow/SanityArea"]
+[node name="PaperBG" type="TextureRect" parent="HBoxContainer/LeftPanel/BottomRow/SanityArea" unique_id=1881219325]
 layout_mode = 2
 texture = ExtResource("5_san")
 expand_mode = 1
 stretch_mode = 6
 
-[node name="VBox" type="VBoxContainer" parent="HBoxContainer/LeftPanel/BottomRow/SanityArea"]
+[node name="VBox" type="VBoxContainer" parent="HBoxContainer/LeftPanel/BottomRow/SanityArea" unique_id=92584613]
 layout_mode = 2
 alignment = 1
 
-[node name="EyeIcon" type="TextureRect" parent="HBoxContainer/LeftPanel/BottomRow/SanityArea/VBox"]
+[node name="EyeIcon" type="TextureRect" parent="HBoxContainer/LeftPanel/BottomRow/SanityArea/VBox" unique_id=56131205]
 custom_minimum_size = Vector2(0, 80)
 layout_mode = 2
 texture = ExtResource("6_eye")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Value" type="Label" parent="HBoxContainer/LeftPanel/BottomRow/SanityArea/VBox"]
+[node name="Value" type="Label" parent="HBoxContainer/LeftPanel/BottomRow/SanityArea/VBox" unique_id=1899929071]
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
 text = "100 / 0"
 horizontal_alignment = 1
 
-[node name="RightPanel" type="VBoxContainer" parent="HBoxContainer"]
+[node name="RightPanel" type="VBoxContainer" parent="HBoxContainer" unique_id=402500538]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 25
 
-[node name="BackpackArea" type="PanelContainer" parent="HBoxContainer/RightPanel"]
+[node name="BackpackArea" type="PanelContainer" parent="HBoxContainer/RightPanel" unique_id=989337792]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="PaperBG" type="TextureRect" parent="HBoxContainer/RightPanel/BackpackArea"]
+[node name="PaperBG" type="TextureRect" parent="HBoxContainer/RightPanel/BackpackArea" unique_id=1857811049]
 layout_mode = 2
 texture = ExtResource("7_bp")
 expand_mode = 1
 stretch_mode = 6
 
-[node name="Center" type="CenterContainer" parent="HBoxContainer/RightPanel/BackpackArea"]
+[node name="Center" type="CenterContainer" parent="HBoxContainer/RightPanel/BackpackArea" unique_id=2041203153]
 layout_mode = 2
 mouse_filter = 2
 
-[node name="BackpackUI" parent="HBoxContainer/RightPanel/BackpackArea/Center" instance=ExtResource("8_backpack")]
+[node name="BackpackUI" parent="HBoxContainer/RightPanel/BackpackArea/Center" unique_id=1459642464 instance=ExtResource("8_backpack")]
 layout_mode = 2
 
-[node name="OrnamentsArea" type="PanelContainer" parent="HBoxContainer/RightPanel"]
+[node name="OrnamentsArea" type="PanelContainer" parent="HBoxContainer/RightPanel" unique_id=717055823]
 custom_minimum_size = Vector2(0, 160)
 layout_mode = 2
 
-[node name="PaperBG" type="TextureRect" parent="HBoxContainer/RightPanel/OrnamentsArea"]
+[node name="PaperBG" type="TextureRect" parent="HBoxContainer/RightPanel/OrnamentsArea" unique_id=1189565678]
 layout_mode = 2
 texture = ExtResource("9_orn")
 expand_mode = 1
 stretch_mode = 6
 
-[node name="Slots" type="HBoxContainer" parent="HBoxContainer/RightPanel/OrnamentsArea"]
+[node name="Slots" type="HBoxContainer" parent="HBoxContainer/RightPanel/OrnamentsArea" unique_id=1327475088]
 layout_mode = 2
-alignment = 1
 theme_override_constants/separation = 15
+alignment = 1
 
 [connection signal="pressed" from="HBoxContainer/LeftPanel/DrawArea/DrawButton" to="." method="_on_draw_button_pressed"]
