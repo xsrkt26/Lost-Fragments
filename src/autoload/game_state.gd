@@ -1,0 +1,37 @@
+extends Node
+
+# 全局游戏状态管理 (GameState)
+# 建议在 Godot 的 Project Settings -> Autoload 中将其注册为 "GS" 或 "GameState"
+
+signal sanity_changed(new_value: int)
+signal score_changed(new_value: int)
+signal game_over
+
+@export var max_sanity: int = 100
+var current_sanity: int = 100:
+	set(v):
+		current_sanity = clamp(v, 0, max_sanity)
+		sanity_changed.emit(current_sanity)
+		if current_sanity <= 0:
+			game_over.emit()
+
+var current_score: int = 0:
+	set(v):
+		current_score = v
+		score_changed.emit(current_score)
+
+func reset_game():
+	current_sanity = max_sanity
+	current_score = 0
+
+func add_score(amount: int):
+	current_score += amount
+	print("[GS] 分数 +", amount, " | 当前总分: ", current_score)
+
+func consume_sanity(amount: int):
+	current_sanity -= amount
+	print("[GS] San值 -", amount, " | 当前San值: ", current_sanity)
+
+func heal_sanity(amount: int):
+	current_sanity += amount
+	print("[GS] San值 +", amount, " | 当前San值: ", current_sanity)

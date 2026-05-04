@@ -6,6 +6,6 @@
 [node name="Main" type="Node2D" unique_id=1259500115]
 
 [node name="Icon" type="Sprite2D" parent="." unique_id=1174854775]
-position = Vector2(642, 349)
+position = Vector2(555, 324)
 texture = ExtResource("1_ig7tw")
 script = ExtResource("2_0xm2m")
