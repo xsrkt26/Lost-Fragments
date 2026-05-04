@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://src/core/effects/score_effect.gd" id="1_effect"]
+[ext_resource type="Script" path="res://src/core/item_data.gd" id="2_item"]
+
+[sub_resource type="Resource" id="1"]
+script = ExtResource("1_effect")
+score_amount = 8
+
+[resource]
+script = ExtResource("2_item")
+id = "large_gear"
+item_name = "锈大齿轮"
+tags = Array[String](["机械"])
+price = 5
+base_cost = -5
+can_draw = true
+runtime_id = -1
+shape = Array[Vector2i]([Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)])
+direction = 3
+transmission_mode = 1
+effects = [SubResource("1")]

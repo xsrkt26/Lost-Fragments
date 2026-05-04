@@ -62,6 +62,11 @@ func request_place_item(item_ui: Control, grid_pos: Vector2i):
 	# 1. 逻辑层：放置新位置
 	backpack_manager.place_item(item_ui.item_data, grid_pos)
 	
+	# 发出全局信号：物品已放置
+	var bus = get_node_or_null("/root/GlobalEventBus")
+	if bus:
+		bus.item_placed.emit(backpack_manager.grid[grid_pos])
+	
 	# 2. 表现层：更新 UI 位置
 	var old_data = item_ui.item_data
 	var new_instance = backpack_manager.grid[grid_pos]
@@ -85,6 +90,11 @@ func trigger_impact_at(pos: Vector2i):
 ## 处理丢弃逻辑
 func request_discard_item(item_ui: Control):
 	print("[BattleManager] 物品丢弃请求: ", item_ui.item_data.item_name)
+	
+	# 发出全局信号
+	var bus = get_node_or_null("/root/GlobalEventBus")
+	if bus:
+		bus.item_discarded.emit(item_ui.item_data)
 	
 	# 触发 on_discard 效果
 	for effect in item_ui.item_data.effects:
@@ -126,32 +136,72 @@ func _remove_item_from_logic(item_data: ItemData):
 func request_draw():
 	# 1. 获取物品数据 (动态加载)
 	var item_db = get_node_or_null("/root/ItemDatabase")
-	if not item_db:
-		print("[BattleManager] 错误: 未找到 ItemDatabase Autoload")
-		return
+	if not item_db: return
 		
 	var item = item_db.get_random_item()
 	if not item: return
 
 	# 2. 计算并扣除 San 值
-	# 如果物品有自定义消耗则使用自定义值，否则使用阶梯式公式
 	var cost = item.base_cost
 	if cost < 0:
 		cost = 5 + 1 * draw_count
 		
 	if context and context.state:
 		context.state.consume_sanity(cost)
-		print("[BattleManager] 抽卡消耗 San 值: ", cost, " (当前次数: ", draw_count, ")")
 	
+	# 3. 进入通用处理流
+	_process_new_item_acquisition(item)
+
+## 调试接口：直接根据 ID 获得物品
+func debug_get_item(item_id: String):
+	var item_db = get_node_or_null("/root/ItemDatabase")
+	var item = item_db.get_item_by_id(item_id)
+	if item:
+		print("[BattleManager] 调试获取物品: ", item.item_name)
+		_process_new_item_acquisition(item)
+
+## 彻底清空所有物品 (仅用于调试)
+func debug_clear_all():
+	print("[BattleManager] 正在执行全量清理...")
+	
+	# 1. 逻辑层清理
+	if backpack_manager:
+		backpack_manager.grid.clear()
+	
+	draw_count = 0
+	
+	# 2. 状态清理
+	var gs = get_node_or_null("/root/GameState")
+	if gs:
+		gs.reset_game()
+	
+	# 3. 表现层清理
+	if backpack_ui:
+		backpack_ui.item_ui_map.clear()
+	
+	# 4. 彻底删除场景中所有的物品 UI (不论在背包内还是外)
+	var all_item_uis = get_tree().get_nodes_in_group("items")
+	for item_ui in all_item_uis:
+		if is_instance_valid(item_ui):
+			item_ui.queue_free()
+					
+	print("[BattleManager] 全量清理完成。")
+
+## 通用处理流：处理新获得物品后的所有连锁反应（信号、效果触发等）
+func _process_new_item_acquisition(item: ItemData):
 	draw_count += 1
 	item.runtime_id = randi()
+	
+	# 发出全局信号
+	var bus = get_node_or_null("/root/GlobalEventBus")
+	if bus:
+		bus.item_drawn.emit(item)
 	
 	# 触发 on_draw 效果
 	for effect in item.effects:
 		effect.on_draw(item, context)
 	
-	# 3. 特殊逻辑：同名卡连锁触发 (目前仅 棒球 具备该特性)
-	# 先通知 UI 创建新物品，再触发旧物品撞击（符合“抽到卡时，旧卡撞击”的直觉）
+	# 特殊逻辑：同名卡连锁触发 (目前仅 棒球 具备该特性)
 	if item.item_name == "棒球":
 		_check_same_name_trigger(item.item_name)
 	

@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://cwr6k5ehvrj4e"]
+
+[ext_resource type="Script" uid="uid://c3udynqniumea" path="res://src/ui/debug/debug_sandbox.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://22rxu8r6t76v" path="res://src/ui/main_game_ui.tscn" id="2_ui"]
+[ext_resource type="PackedScene" path="res://src/ui/debug/debug_item_list.tscn" id="3_debug"]
+
+[node name="DebugSandbox" type="Node2D" unique_id=1779491513]
+script = ExtResource("1_script")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1808060254]
+
+[node name="MainGameUI" parent="CanvasLayer" unique_id=1127783389 instance=ExtResource("2_ui")]
+
+[node name="DebugItemList" parent="CanvasLayer" unique_id=505042344 instance=ExtResource("3_debug")]
+offset_right = 250.0

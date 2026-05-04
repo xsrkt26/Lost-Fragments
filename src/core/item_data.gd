@@ -5,6 +5,7 @@ extends Resource
 ## 定义物品的静态属性、形状以及携带的效果
 
 enum Direction { UP, DOWN, LEFT, RIGHT }
+enum TransmissionMode { NORMAL, OMNI, NONE }
 
 @export var id: String
 @export var item_name: String
@@ -16,4 +17,6 @@ enum Direction { UP, DOWN, LEFT, RIGHT }
 @export var icon: Texture2D
 @export var shape: Array[Vector2i] = [Vector2i(0, 0)] # 占用的格子相对偏移
 @export var direction: Direction = Direction.RIGHT
+@export var transmission_mode: TransmissionMode = TransmissionMode.NORMAL
+@export var hit_filter_tags: Array[String] = [] # 仅能撞击包含这些标签的物品 (为空则撞击所有)
 @export var effects: Array[ItemEffect] = [] # 物品携带的效果列表

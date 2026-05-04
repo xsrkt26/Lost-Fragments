@@ -26,7 +26,12 @@ func resolve_impact(start_pos: Vector2i, dir: ItemData.Direction) -> Array[GameA
 	return actions
 
 func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions: Array[GameAction], visited: Array, source_instance: BackpackManager.ItemInstance = null):
-	var next_item_pos = backpack.get_next_item_pos(current_pos, dir)
+	# 如果 source_instance 存在且有过滤器，则应用它
+	var filters = []
+	if source_instance:
+		filters = source_instance.data.hit_filter_tags
+		
+	var next_item_pos = backpack.get_next_item_pos(current_pos, dir, filters)
 	
 	if next_item_pos == Vector2i(-1, -1):
 		print("[Resolver Debug] 搜索结束，未撞击到任何物品。起始点: ", current_pos)
@@ -47,15 +52,36 @@ func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions:
 	actions.append(hit_action)
 	
 	# 4. 触发物品的效果 (现在传入撞击来源 source_instance)
+	# 同时发出全局信号，通知“梦境燃料罐”等监听者
+	var bus = context.state.get_node_or_null("/root/GlobalEventBus")
+	if bus:
+		bus.item_impacted.emit(instance, source_instance)
+		
 	for effect in instance.data.effects:
+		# 触发基础效果
 		var effect_action = effect.on_hit(instance, source_instance, self, context)
 		if effect_action:
-			# 确保效果动作也携带实例引用，以便播放动画
 			if effect_action.item_instance == null:
 				effect_action.item_instance = instance
 			actions.append(effect_action)
+		
+		# 特殊：如果来源物品有“后续干预”逻辑（如数学课本的双重触发）
+		if source_instance:
+			for s_effect in source_instance.data.effects:
+				if s_effect.has_method("execute_after_hit"):
+					s_effect.execute_after_hit(instance, source_instance, self, context)
 			
-	# 5. 核心修复：连锁反应
-	# 以被撞击的物品为新起点，沿着它的朝向继续传播撞击
-	print("[Resolver Debug] 连锁传播: ", instance.data.item_name, " 向方向 ", instance.data.direction, " 发起新撞击")
-	_resolve_recursive(next_item_pos, instance.data.direction, actions, visited, instance)
+	# 5. 连锁反应
+	# 根据物品的传导模式决定下一步
+	match instance.data.transmission_mode:
+		ItemData.TransmissionMode.NORMAL:
+			print("[Resolver Debug] 连锁传播: ", instance.data.item_name, " 向方向 ", instance.data.direction, " 发起新撞击")
+			_resolve_recursive(next_item_pos, instance.data.direction, actions, visited, instance)
+		
+		ItemData.TransmissionMode.OMNI:
+			print("[Resolver Debug] 全向传播: ", instance.data.item_name, " 向四个方向发起撞击")
+			for d in [ItemData.Direction.UP, ItemData.Direction.DOWN, ItemData.Direction.LEFT, ItemData.Direction.RIGHT]:
+				_resolve_recursive(next_item_pos, d, actions, visited, instance)
+		
+		ItemData.TransmissionMode.NONE:
+			print("[Resolver Debug] 传播停止: ", instance.data.item_name, " 不具备传导能力")

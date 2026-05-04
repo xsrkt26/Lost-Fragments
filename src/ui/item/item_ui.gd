@@ -1,3 +1,4 @@
+class_name ItemUI
 extends Control
 
 ## 物品 UI 脚本：负责物品的视觉表现和拖拽信号
@@ -14,6 +15,7 @@ func setup(p_data: ItemData):
 		_update_visuals()
 
 func _ready():
+	add_to_group("items")
 	_update_visuals()
 
 func _update_visuals():

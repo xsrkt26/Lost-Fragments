@@ -1,0 +1,27 @@
+extends Node2D
+
+## 调试沙盒：集成环境
+
+@onready var main_ui = $CanvasLayer/MainGameUI
+@onready var debug_list = $CanvasLayer/DebugItemList
+var battle_manager: BattleManager
+
+func _ready():
+	# 1. 创建逻辑中枢
+	battle_manager = BattleManager.new()
+	add_child(battle_manager)
+	
+	# 2. 初始化主 UI
+	if main_ui:
+		main_ui.setup(battle_manager)
+	
+	# 3. 初始化调试列表
+	if debug_list:
+		debug_list.setup(battle_manager)
+	
+	print("[Sandbox] 沙盒环境就绪。")
+
+func _input(event):
+	# F1 切换调试面板显示
+	if event.is_action_pressed("ui_focus_next"): # Tab 键默认映射
+		debug_list.visible = !debug_list.visible

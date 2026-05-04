@@ -86,8 +86,28 @@ func remove_item_at(pos: Vector2i) -> ItemData:
 		
 	return item_data
 
+## 寻找并返回所有空闲的格子坐标
+func get_empty_slots() -> Array[Vector2i]:
+	var empty_slots: Array[Vector2i] = []
+	for y in range(grid_height):
+		for x in range(grid_width):
+			var pos = Vector2i(x, y)
+			if not grid.has(pos):
+				empty_slots.append(pos)
+	return empty_slots
+
+## 查找一个足以放下指定形状物品的空闲 root 位置
+func find_available_pos(item_data: ItemData) -> Vector2i:
+	# 简单算法：从左上角开始扫描
+	for y in range(grid_height):
+		for x in range(grid_width):
+			var pos = Vector2i(x, y)
+			if can_place_item(item_data, pos):
+				return pos
+	return Vector2i(-1, -1)
+
 ## 获取特定方向上的邻居物品坐标（用于撞击算法）
-func get_next_item_pos(start_pos: Vector2i, direction: ItemData.Direction) -> Vector2i:
+func get_next_item_pos(start_pos: Vector2i, direction: ItemData.Direction, filter_tags: Array[String] = []) -> Vector2i:
 	var step = Vector2i.ZERO
 	match direction:
 		ItemData.Direction.UP: step = Vector2i(0, -1)
@@ -104,9 +124,22 @@ func get_next_item_pos(start_pos: Vector2i, direction: ItemData.Direction) -> Ve
 		  current_pos.y >= 0 and current_pos.y < grid_height:
 		if grid.has(current_pos):
 			var hit_instance = grid[current_pos]
-			# 核心修复：只有撞到的不是自己时，才算有效击中
+			# 只有撞到的不是自己时，才处理
 			if hit_instance != source_instance:
-				return current_pos
+				# 如果有过滤器，检查是否匹配
+				if filter_tags.is_empty():
+					return current_pos
+				else:
+					var matched = false
+					for tag in filter_tags:
+						if hit_instance.data.tags.has(tag):
+							matched = true
+							break
+					if matched:
+						return current_pos
+					else:
+						# 不匹配，跳过该物品继续向后搜索 (实现“穿透”非目标的效果)
+						print("[BackpackManager] 过滤器跳过物品: ", hit_instance.data.item_name)
 		current_pos += step
 		
 	return Vector2i(-1, -1) # 表示未击中

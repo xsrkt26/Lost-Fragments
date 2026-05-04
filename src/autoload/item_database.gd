@@ -35,6 +35,13 @@ func load_all_items():
 	
 	print("[ItemDatabase] 总计加载物品: ", items.size(), ", 可抽取的物品: ", drawable_items.size())
 
+## 获取所有已加载物品的列表 (用于调试 UI)
+func get_all_items() -> Array[ItemData]:
+	var list: Array[ItemData] = []
+	for key in items:
+		list.append(items[key])
+	return list
+
 ## 获取随机一个可抽取的物品
 func get_random_item() -> ItemData:
 	if drawable_items.is_empty():
