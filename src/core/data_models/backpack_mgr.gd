@@ -40,9 +40,14 @@ func can_place_item(item_data: ItemData, root_pos: Vector2i) -> bool:
 func place_item(item_data: ItemData, root_pos: Vector2i) -> bool:
 	if not can_place_item(item_data, root_pos):
 		return false
-		
-	var instance = ItemInstance.new(item_data, root_pos)
-	for offset in item_data.shape:
+	
+	# --- 核心重构：资源隔离 ---
+	# 每一个进入背包的物品都必须是唯一的副本，
+	# 这样修改这一张卡的属性（如强化、诅咒）才不会影响到其他同类卡。
+	var unique_data = item_data.duplicate(true)
+	
+	var instance = ItemInstance.new(unique_data, root_pos)
+	for offset in unique_data.shape:
 		var target_pos = root_pos + offset
 		grid[target_pos] = instance
 		

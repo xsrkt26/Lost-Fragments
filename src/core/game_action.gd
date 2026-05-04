@@ -15,6 +15,7 @@ enum Type {
 var type: Type = Type.NONE
 var source_node: Node        # 发起动作的物品 UI 节点
 var target_node: Node        # 受影响的物品 UI 节点
+var item_instance: Variant   # 逻辑层物品实例 (BackpackManager.ItemInstance)
 var value: Variant           # 携带的数值数据（如分数改变量）
 var description: String = ""
 

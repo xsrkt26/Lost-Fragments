@@ -54,3 +54,27 @@ func _gui_input(event: InputEvent):
 func _process(_delta):
 	if is_dragging:
 		global_position = get_global_mouse_position() - drag_offset
+
+# 播放被撞击时的抖动动画
+func play_impact_anim():
+	var tween = create_tween()
+	# 快速左右抖动
+	var original_pos = position
+	tween.tween_property(self, "position", original_pos + Vector2(10, 0), 0.05)
+	tween.tween_property(self, "position", original_pos - Vector2(10, 0), 0.05)
+	tween.tween_property(self, "position", original_pos + Vector2(5, 0), 0.05)
+	tween.tween_property(self, "position", original_pos, 0.05)
+	return tween.finished
+
+# 播放触发效果时的闪烁动画
+func play_effect_anim():
+	var tween = create_tween()
+	# 缩放并改变颜色
+	tween.set_parallel(true)
+	tween.tween_property(self, "scale", Vector2(1.2, 1.2), 0.1)
+	tween.tween_property(background, "color", Color.WHITE, 0.1)
+	
+	tween.set_parallel(false)
+	tween.tween_property(self, "scale", Vector2(1.0, 1.0), 0.1)
+	tween.tween_property(background, "color", Color(0.25, 0.45, 0.65, 1), 0.1)
+	return tween.finished

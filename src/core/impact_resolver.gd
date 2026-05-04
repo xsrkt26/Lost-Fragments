@@ -1,47 +1,57 @@
 class_name ImpactResolver
-extends Node
+extends RefCounted
 
-## 撞击解析器：现在负责生成 Action 序列，而不是直接执行逻辑
+## 撞击解析器：负责计算物理/逻辑上的撞击连锁反应
 
-var backpack_mgr: BackpackManager
+var backpack: BackpackManager
+var context: GameContext
 
-func _init(p_backpack_mgr: BackpackManager):
-	backpack_mgr = p_backpack_mgr
+func _init(p_backpack: BackpackManager, p_context: GameContext):
+	backpack = p_backpack
+	context = p_context
 
-## 执行解析并返回动作列表
+## 核心算法：解析从 start_pos 开始向 dir 方向的撞击链
+## 返回一个 GameAction 数组，按顺序记录发生的事件
 func resolve_impact(start_pos: Vector2i, dir: ItemData.Direction) -> Array[GameAction]:
-	var action_list: Array[GameAction] = []
-	var visited_instances: Array = []
+	var actions: Array[GameAction] = []
 	
-	_calculate_chain(start_pos, dir, action_list, visited_instances)
+	# 1. 记录初始撞击动作（即便没撞到东西，也可以作为起始动画）
+	var initial_impact = GameAction.new(GameAction.Type.IMPACT, "开始撞击")
+	initial_impact.value = {"pos": start_pos}
+	actions.append(initial_impact)
 	
-	return action_list
+	# 2. 递归/循环查找被撞击的物品
+	_resolve_recursive(start_pos, dir, actions, [])
+	
+	return actions
 
-func _calculate_chain(pos: Vector2i, dir: ItemData.Direction, action_list: Array[GameAction], visited: Array) -> void:
-	var hit_pos = backpack_mgr.get_next_item_pos(pos, dir)
+func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions: Array[GameAction], visited: Array):
+	var next_item_pos = backpack.get_next_item_pos(current_pos, dir)
 	
-	if hit_pos == Vector2i(-1, -1):
-		return
+	if next_item_pos == Vector2i(-1, -1):
+		return # 未击中任何物品
 		
-	var instance = backpack_mgr.grid[hit_pos]
+	var instance = backpack.grid[next_item_pos]
 	
-	if visited.has(instance):
+	# 防止循环触发（虽然在目前的线性逻辑中不太可能）
+	if instance in visited:
 		return
-		
 	visited.append(instance)
 	
-	# 1. 记录一个撞击动作
-	var impact_action = GameAction.new(GameAction.Type.IMPACT, "碰撞发生")
-	impact_action.value = {"pos": hit_pos}
-	# 注意：这里我们只存了逻辑数据，后续 UI 层会将其关联到具体的 Node
-	action_list.append(impact_action)
+	# 3. 记录“击中”动作
+	var hit_action = GameAction.new(GameAction.Type.IMPACT, "击中了 " + instance.data.item_name)
+	hit_action.item_instance = instance
+	hit_action.value = {"pos": next_item_pos}
+	actions.append(hit_action)
 	
-	# 2. 收集该物品产生的所有效果动作
+	# 4. 触发物品的效果
 	for effect in instance.data.effects:
-		if effect:
-			var action = effect.execute(instance, self)
-			if action:
-				action_list.append(action)
-	
-	# 3. 继续向下传导
-	_calculate_chain(hit_pos, instance.data.direction, action_list, visited)
+		var effect_action = effect.execute(instance, self, context)
+		if effect_action:
+			# 确保效果动作也携带实例引用，以便播放动画
+			if effect_action.item_instance == null:
+				effect_action.item_instance = instance
+			actions.append(effect_action)
+			
+	# 5. TODO: 检查是否需要继续传播撞击（例如穿透、折射等逻辑）
+	# 目前暂定简单的单次触发，后续可扩展

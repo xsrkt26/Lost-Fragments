@@ -1,0 +1,159 @@
+[gd_scene load_steps=4 format=3 uid="uid://main_game_ui_01"]
+
+[ext_resource type="Script" path="res://src/ui/main_game_ui.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://backpack_ui_01" path="res://src/ui/backpack/backpack_ui.tscn" id="2_backpack"]
+
+[node name="MainGameUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.1, 0.12, 0.15, 1)
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 30.0
+offset_top = 30.0
+offset_right = -30.0
+offset_bottom = -30.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 30
+
+[node name="LeftPanel" type="VBoxContainer" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.9
+theme_override_constants/separation = 25
+
+[node name="DrawArea" type="PanelContainer" parent="HBoxContainer/LeftPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="PaperBG" type="ColorRect" parent="HBoxContainer/LeftPanel/DrawArea"]
+layout_mode = 2
+color = Color(0.8, 0.3, 0.2, 1)
+
+[node name="Label" type="Label" parent="HBoxContainer/LeftPanel/DrawArea"]
+layout_mode = 2
+size_flags_vertical = 0
+theme_override_colors/font_color = Color(1, 0.9, 0.7, 1)
+text = "抽卡"
+horizontal_alignment = 1
+
+[node name="Center" type="CenterContainer" parent="HBoxContainer/LeftPanel/DrawArea"]
+layout_mode = 2
+
+[node name="DreamCatcherMock" type="ColorRect" parent="HBoxContainer/LeftPanel/DrawArea/Center"]
+custom_minimum_size = Vector2(200, 200)
+layout_mode = 2
+color = Color(1, 0.8, 0.4, 0.3)
+
+[node name="DrawButton" type="Button" parent="HBoxContainer/LeftPanel/DrawArea"]
+custom_minimum_size = Vector2(120, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 8
+text = "点击捕梦"
+
+[node name="BottomRow" type="HBoxContainer" parent="HBoxContainer/LeftPanel"]
+custom_minimum_size = Vector2(0, 180)
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="AvatarArea" type="PanelContainer" parent="HBoxContainer/LeftPanel/BottomRow"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+
+[node name="PaperBG" type="ColorRect" parent="HBoxContainer/LeftPanel/BottomRow/AvatarArea"]
+layout_mode = 2
+color = Color(0.25, 0.35, 0.45, 1)
+
+[node name="Label" type="Label" parent="HBoxContainer/LeftPanel/BottomRow/AvatarArea"]
+layout_mode = 2
+size_flags_vertical = 0
+text = "角色头像"
+horizontal_alignment = 1
+
+[node name="SanityArea" type="PanelContainer" parent="HBoxContainer/LeftPanel/BottomRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PaperBG" type="ColorRect" parent="HBoxContainer/LeftPanel/BottomRow/SanityArea"]
+layout_mode = 2
+color = Color(0.5, 0.45, 0.4, 1)
+
+[node name="VBox" type="VBoxContainer" parent="HBoxContainer/LeftPanel/BottomRow/SanityArea"]
+layout_mode = 2
+alignment = 1
+
+[node name="Title" type="Label" parent="HBoxContainer/LeftPanel/BottomRow/SanityArea/VBox"]
+layout_mode = 2
+text = "San值 / 分数"
+horizontal_alignment = 1
+
+[node name="Value" type="Label" parent="HBoxContainer/LeftPanel/BottomRow/SanityArea/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "100 / 0"
+horizontal_alignment = 1
+
+[node name="RightPanel" type="VBoxContainer" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 25
+
+[node name="BackpackArea" type="PanelContainer" parent="HBoxContainer/RightPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="PaperBG" type="ColorRect" parent="HBoxContainer/RightPanel/BackpackArea"]
+layout_mode = 2
+color = Color(0.65, 0.55, 0.45, 1)
+
+[node name="Label" type="Label" parent="HBoxContainer/RightPanel/BackpackArea"]
+layout_mode = 2
+size_flags_vertical = 0
+text = "背包"
+horizontal_alignment = 1
+
+[node name="Center" type="CenterContainer" parent="HBoxContainer/RightPanel/BackpackArea"]
+layout_mode = 2
+
+[node name="BackpackUI" parent="HBoxContainer/RightPanel/BackpackArea/Center" instance=ExtResource("2_backpack")]
+layout_mode = 2
+
+[node name="OrnamentsArea" type="PanelContainer" parent="HBoxContainer/RightPanel"]
+custom_minimum_size = Vector2(0, 140)
+layout_mode = 2
+
+[node name="PaperBG" type="ColorRect" parent="HBoxContainer/RightPanel/OrnamentsArea"]
+layout_mode = 2
+color = Color(0.45, 0.35, 0.25, 1)
+
+[node name="Label" type="Label" parent="HBoxContainer/RightPanel/OrnamentsArea"]
+layout_mode = 2
+size_flags_vertical = 0
+text = "饰品区"
+horizontal_alignment = 1
+
+[node name="Slots" type="HBoxContainer" parent="HBoxContainer/RightPanel/OrnamentsArea"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 15
+
+[connection signal="pressed" from="HBoxContainer/LeftPanel/DrawArea/DrawButton" to="." method="_on_draw_button_pressed"]
