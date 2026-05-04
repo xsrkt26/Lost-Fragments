@@ -21,13 +21,14 @@ func resolve_impact(start_pos: Vector2i, dir: ItemData.Direction) -> Array[GameA
 	actions.append(initial_impact)
 	
 	# 2. 递归/循环查找被撞击的物品
-	_resolve_recursive(start_pos, dir, actions, [])
+	var visited: Array = []
+	_resolve_recursive(start_pos, dir, actions, visited)
 	
 	return actions
 
 func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions: Array[GameAction], visited: Array, source_instance: BackpackManager.ItemInstance = null):
 	# 如果 source_instance 存在且有过滤器，则应用它
-	var filters = []
+	var filters: Array[String] = []
 	if source_instance:
 		filters = source_instance.data.hit_filter_tags
 		

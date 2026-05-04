@@ -5,7 +5,7 @@ extends Control
 @onready var backpack_ui = $HBoxContainer/RightPanel/BackpackArea/Center/BackpackUI
 @onready var sanity_label = $HBoxContainer/LeftPanel/BottomRow/SanityArea/VBox/Value
 @onready var draw_button = $HBoxContainer/LeftPanel/DrawArea/DrawButton
-@onready var trash_bin = $HBoxContainer/LeftPanel/BottomRow/AvatarArea/TrashBin
+@onready var trash_bin = $HBoxContainer/RightPanel/OrnamentsArea/TrashBin
 
 var battle_manager: BattleManager
 
