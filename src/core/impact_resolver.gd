@@ -22,7 +22,16 @@ func resolve_impact(start_pos: Vector2i, dir: ItemData.Direction) -> Array[GameA
 	
 	# 2. 递归/循环查找被撞击的物品
 	var visited: Array = []
-	_resolve_recursive(start_pos, dir, actions, visited)
+	
+	# --- 优化：支持多格起始物品 ---
+	# 如果起始位置是一个物品，则从该物品的所有格子同时发起撞击
+	var start_instance = backpack.grid.get(start_pos)
+	if start_instance:
+		for offset in start_instance.data.shape:
+			var slot_pos = start_instance.root_pos + offset
+			_resolve_recursive(slot_pos, dir, actions, visited, start_instance)
+	else:
+		_resolve_recursive(start_pos, dir, actions, visited)
 	
 	return actions
 
@@ -35,16 +44,17 @@ func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions:
 	var next_item_pos = backpack.get_next_item_pos(current_pos, dir, filters)
 	
 	if next_item_pos == Vector2i(-1, -1):
-		print("[Resolver Debug] 搜索结束，未撞击到任何物品。起始点: ", current_pos)
+		# print("[Resolver Debug] 搜索结束，未撞击到任何物品。起始点: ", current_pos)
 		return
 		
 	var instance = backpack.grid[next_item_pos]
-	print("[Resolver Debug] 发现撞击! 目标: ", instance.data.item_name, " 坐标: ", next_item_pos, " RID: ", instance.data.runtime_id)
 	
 	if instance in visited:
-		print("[Resolver Debug] 忽略已访问过的物品: ", instance.data.item_name)
+		# print("[Resolver Debug] 忽略已访问过的物品: ", instance.data.item_name)
 		return
 	visited.append(instance)
+	
+	print("[Resolver Debug] 发现撞击! 目标: ", instance.data.item_name, " 坐标: ", next_item_pos, " RID: ", instance.data.runtime_id)
 	
 	# 3. 记录“击中”动作
 	var hit_action = GameAction.new(GameAction.Type.IMPACT, "击中了 " + instance.data.item_name)
@@ -74,15 +84,20 @@ func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions:
 			
 	# 5. 连锁反应
 	# 根据物品的传导模式决定下一步
+	# --- 核心改进：多格物品从所有格子发起传导 ---
 	match instance.data.transmission_mode:
 		ItemData.TransmissionMode.NORMAL:
 			print("[Resolver Debug] 连锁传播: ", instance.data.item_name, " 向方向 ", instance.data.direction, " 发起新撞击")
-			_resolve_recursive(next_item_pos, instance.data.direction, actions, visited, instance)
+			for offset in instance.data.shape:
+				var slot_pos = instance.root_pos + offset
+				_resolve_recursive(slot_pos, instance.data.direction, actions, visited, instance)
 		
 		ItemData.TransmissionMode.OMNI:
 			print("[Resolver Debug] 全向传播: ", instance.data.item_name, " 向四个方向发起撞击")
 			for d in [ItemData.Direction.UP, ItemData.Direction.DOWN, ItemData.Direction.LEFT, ItemData.Direction.RIGHT]:
-				_resolve_recursive(next_item_pos, d, actions, visited, instance)
+				for offset in instance.data.shape:
+					var slot_pos = instance.root_pos + offset
+					_resolve_recursive(slot_pos, d, actions, visited, instance)
 		
 		ItemData.TransmissionMode.NONE:
 			print("[Resolver Debug] 传播停止: ", instance.data.item_name, " 不具备传导能力")

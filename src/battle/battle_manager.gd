@@ -91,16 +91,19 @@ func trigger_impact_at(pos: Vector2i):
 func request_discard_item(item_ui: Control):
 	print("[BattleManager] 物品丢弃请求: ", item_ui.item_data.item_name)
 	
-	# 发出全局信号
+	# 1. 逻辑层：如果物品已在背包中，先将其移除
+	_remove_item_from_logic(item_ui.item_data)
+	
+	# 2. 发出全局信号
 	var bus = get_node_or_null("/root/GlobalEventBus")
 	if bus:
 		bus.item_discarded.emit(item_ui.item_data)
 	
-	# 触发 on_discard 效果
+	# 3. 触发 on_discard 效果
 	for effect in item_ui.item_data.effects:
 		effect.on_discard(item_ui.item_data, context)
 	
-	# 清理 UI 映射
+	# 4. 清理 UI 映射
 	if backpack_ui and backpack_ui.item_ui_map.has(item_ui.item_data.runtime_id):
 		backpack_ui.item_ui_map.erase(item_ui.item_data.runtime_id)
 	

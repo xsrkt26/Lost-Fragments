@@ -44,7 +44,7 @@ func _update_visuals():
 			ItemData.Direction.RIGHT: arrow.rotation_degrees = 0
 
 signal drag_started
-signal dropped(global_pos: Vector2)
+signal dropped(snap_pos: Vector2, mouse_pos: Vector2)
 
 var is_dragging: bool = false
 var drag_offset: Vector2 = Vector2.ZERO
@@ -63,9 +63,8 @@ func _gui_input(event: InputEvent):
 					is_dragging = false
 					z_index = 0
 					# 核心修复：吸附点不再是整个 UI 的中心，而是第一个格子 (0,0) 的中心
-					# 假设格子 64x64，偏移 32 像素
 					var root_tile_center = global_position + Vector2(34, 34)
-					dropped.emit(root_tile_center)
+					dropped.emit(root_tile_center, get_global_mouse_position())
 
 func _process(_delta):
 	if is_dragging:

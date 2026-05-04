@@ -52,18 +52,18 @@ func _on_item_drawn(item_data: ItemData):
 	card.global_position = draw_center - card.custom_minimum_size / 2.0
 	
 	# 连接拖拽信号
-	card.dropped.connect(func(drop_pos): _handle_item_dropped(card, drop_pos))
+	card.dropped.connect(func(snap_pos, mouse_pos): _handle_item_dropped(card, snap_pos, mouse_pos))
 
-func _handle_item_dropped(item_ui: Control, drop_pos: Vector2):
-	# 1. 检查是否掉落在垃圾桶 (使用 global_rect 判定)
-	if trash_bin.get_global_rect().has_point(drop_pos):
+func _handle_item_dropped(item_ui: Control, snap_pos: Vector2, mouse_pos: Vector2):
+	# 1. 检查是否掉落在垃圾桶 (使用鼠标位置判定，更符合直觉)
+	if trash_bin.get_global_rect().has_point(mouse_pos):
 		print("[UI] 检测到物品掉入垃圾桶: ", item_ui.item_data.item_name)
 		if battle_manager:
 			battle_manager.request_discard_item(item_ui)
 		return
 	
-	# 2. 否则按原逻辑交给背包
-	backpack_ui.handle_item_dropped(item_ui, drop_pos)
+	# 2. 否则按原逻辑交给背包 (使用第一个格子的中心点进行吸附判定)
+	backpack_ui.handle_item_dropped(item_ui, snap_pos)
 
 func _on_draw_button_pressed():
 	# 触发抽卡逻辑
