@@ -12,8 +12,12 @@ func on_hit(instance, source_instance, resolver, context) -> GameAction:
 
 # 注意：数学课本的“只能撞击书籍”逻辑现在由 ItemData.hit_filter_tags = ["书籍"] 自动处理
 # 但“额外触发一次”需要我们在这里手动干预后续目标
-func execute_after_hit(hit_instance, source_instance, resolver, context):
+func execute_after_hit(hit_instance, source_instance, resolver, context, actions: Array[GameAction]):
 	if hit_instance.data.tags.has("书籍"):
 		print("[Effect] 书籍联动！额外触发一次: ", hit_instance.data.item_name)
 		for effect in hit_instance.data.effects:
-			effect.on_hit(hit_instance, source_instance, resolver, context)
+			var extra_action = effect.on_hit(hit_instance, source_instance, resolver, context)
+			if extra_action:
+				if extra_action.item_instance == null:
+					extra_action.item_instance = hit_instance
+				actions.append(extra_action)

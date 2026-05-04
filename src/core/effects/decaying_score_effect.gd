@@ -8,9 +8,6 @@ extends ItemEffect
 func on_hit(_instance, _source, _resolver, _context) -> GameAction:
 	var score_to_add = current_score
 	
-	if _context and _context.state:
-		_context.state.add_score(score_to_add)
-	
 	# 分数衰减 (修改实例中的数据)
 	if current_score > 0:
 		current_score -= 1

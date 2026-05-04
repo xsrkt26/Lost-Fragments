@@ -7,8 +7,4 @@ extends ItemEffect
 func on_hit(_instance, _source_instance, _resolver, _context) -> GameAction:
 	var action = GameAction.new(GameAction.Type.NUMERIC, "增加分数")
 	action.value = {"type": "score", "amount": score_amount}
-	
-	if _context and _context.state:
-		_context.state.add_score(score_amount)
-		
 	return action

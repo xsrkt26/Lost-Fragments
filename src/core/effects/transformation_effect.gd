@@ -33,7 +33,8 @@ func on_hit(instance, _source, _resolver, _context) -> GameAction:
 			new_instance.data.runtime_id = old_runtime_id # 保持 ID 连贯性，防止 UI 映射丢失
 			
 			# 触发加分
-			_context.state.add_score(bonus_score)
+			# _context.state.add_score(bonus_score) # 已移至 action
+			pass
 			
 	var action = GameAction.new(GameAction.Type.NUMERIC, "物品变身")
 	action.value = {"type": "score", "amount": bonus_score}

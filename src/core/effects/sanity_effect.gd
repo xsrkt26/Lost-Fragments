@@ -7,8 +7,4 @@ extends ItemEffect
 func on_hit(_instance, _source_instance, _resolver, _context) -> GameAction:
 	var action = GameAction.new(GameAction.Type.NUMERIC, "改变San值")
 	action.value = {"type": "sanity", "amount": sanity_change}
-	
-	if _context and _context.state:
-		_context.state.consume_sanity(-sanity_change)
-		
 	return action

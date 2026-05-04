@@ -80,7 +80,7 @@ func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions:
 		if source_instance:
 			for s_effect in source_instance.data.effects:
 				if s_effect.has_method("execute_after_hit"):
-					s_effect.execute_after_hit(instance, source_instance, self, context)
+					s_effect.execute_after_hit(instance, source_instance, self, context, actions)
 			
 	# 5. 连锁反应
 	# 根据物品的传导模式决定下一步

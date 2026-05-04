@@ -14,9 +14,6 @@ func on_hit(_instance, _source, _resolver, _context) -> GameAction:
 		final_score = book_bonus_score
 		print("[Effect] 课本联动！受到书籍撞击，加分翻倍: ", final_score)
 	
-	if _context and _context.state:
-		_context.state.add_score(final_score)
-		
 	var action = GameAction.new(GameAction.Type.NUMERIC, "阅读课本")
 	action.value = {"type": "score", "amount": final_score}
 	return action
