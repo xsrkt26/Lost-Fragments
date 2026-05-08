@@ -51,7 +51,8 @@ func _ready():
 	backpack.place_item(item_c, Vector2i(4, 0))
 	
 	# 5. 执行连锁撞击
-	var resolver = ImpactResolver.new(backpack)
+	var context = GameContext.new(GameState)
+	var resolver = ImpactResolver.new(backpack, context)
 	print("\n>>> 触发连锁动作: 从 A 向右撞击 >>>")
 	resolver.resolve_impact(Vector2i(0, 0), ItemData.Direction.RIGHT)
 	
