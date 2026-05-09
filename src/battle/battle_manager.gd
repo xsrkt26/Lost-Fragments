@@ -25,6 +25,9 @@ func _init():
 	add_child(backpack_manager)
 	backpack_manager.setup_grid(5, 5)
 
+# --- 运行相关的逻辑变量 ---
+var _current_battle_deck: Array[String] = []
+
 func _ready():
 	print("[BattleManager] 节点就绪")
 	# 初始化上下文（依赖注入）
@@ -35,9 +38,21 @@ func _ready():
 	if backpack_ui:
 		print("[BattleManager] 正在初始化已绑定的 UI...")
 		backpack_ui.setup(backpack_manager)
+		
+	_initialize_battle_data()
 
 func _exit_tree():
 	print("[BattleManager] 正在卸载...")
+
+func _initialize_battle_data():
+	print("[BattleManager] 正在从 RunManager 初始化战斗数据...")
+	var rm = get_node_or_null("/root/RunManager")
+	if rm:
+		_current_battle_deck = Array(rm.current_deck).duplicate()
+		_current_battle_deck.shuffle()
+		print("[BattleManager] 洗牌完成，当前战斗卡包大小: ", _current_battle_deck.size())
+	else:
+		print("[BattleManager] 警告: 未找到 RunManager，使用空卡包运行。")
 
 ## 处理玩家放置物品的逻辑请求
 func request_place_item(item_ui: Control, grid_pos: Vector2i):
@@ -168,14 +183,24 @@ func _remove_item_from_logic(item_data: ItemData):
 	if old_pos != Vector2i(-1, -1):
 		backpack_manager.remove_item_at(old_pos)
 
-## 模拟抽卡逻辑：从数据库生成一个随机物品并通知 UI
+## 请求捕梦 (抽卡)
 func request_draw():
-	# 1. 获取物品数据 (动态加载)
-	var item_db = get_node_or_null("/root/ItemDatabase")
-	if not item_db: return
+	if _current_battle_deck.is_empty():
+		print("[BattleManager] 卡包已抽空！正在重新洗牌...")
+		_initialize_battle_data()
 		
-	var item = item_db.get_random_item()
-	if not item: return
+	if _current_battle_deck.is_empty():
+		print("[BattleManager] 错误: 卡包依然为空，无法抽卡。")
+		return
+
+	# 1. 从当前战斗卡包取一张 ID
+	var item_id = _current_battle_deck.pop_back()
+	var item_db = get_node_or_null("/root/ItemDatabase")
+	var item = item_db.get_item_by_id(item_id)
+	
+	if not item:
+		print("[BattleManager] 错误: 无法加载物品: ", item_id)
+		return
 
 	# 2. 计算并扣除 San 值
 	var cost = 0

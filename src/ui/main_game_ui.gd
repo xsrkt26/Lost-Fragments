@@ -2,19 +2,30 @@ extends Control
 
 ## 主游戏 UI 控制器：负责将布局中的各个部分与逻辑层连接
 
-@onready var backpack_ui = $HBoxContainer/RightPanel/BackpackArea/Center/BackpackUI
-@onready var sanity_label = $HBoxContainer/LeftPanel/BottomRow/SanityArea/VBox/Value
-@onready var draw_button = $HBoxContainer/LeftPanel/DrawArea/DrawButton
-@onready var trash_bin = $HBoxContainer/RightPanel/OrnamentsArea/TrashBin
+@onready var backpack_ui = $ContentLayer/GridPanel/BackpackUI
+@onready var sanity_label = $ContentLayer/StatsPanel/Label
+@onready var draw_button = $ContentLayer/DreamcatcherPanel/DrawButton
+@onready var trash_bin = $ContentLayer/GridPanel/TrashBin
+@onready var ornaments_area = $ContentLayer/OrnamentsPanel/Slots
 
 var battle_manager: BattleManager
 
 func _ready():
-	print("[MainGameUI] 节点就绪")
-	# 容错：如果 0.1 秒后还没有被外部 setup，则尝试自动初始化（仅用于直接运行该场景调试）
+	print("[MainGameUI Debug] UI初始化开始...")
+	# 检查关键节点是否成功获取
+	if draw_button:
+		print("[MainGameUI Debug] 发现抽卡按钮节点: ", draw_button.get_path())
+		print("[MainGameUI Debug] 按钮当前 Mouse Filter: ", draw_button.mouse_filter)
+		print("[MainGameUI Debug] 按钮当前尺寸: ", draw_button.size)
+		# 强制确保按钮是可见的且接收鼠标
+		draw_button.visible = true
+	else:
+		print("[MainGameUI Debug] 警告: 未找到抽卡按钮节点！检查节点路径。")
+
+	# 容错：自动初始化逻辑
 	await get_tree().create_timer(0.1).timeout
 	if battle_manager == null:
-		print("[MainGameUI] 检测到未进行外部 setup，正在启动自初始化流程...")
+		print("[MainGameUI Debug] 正在启动自初始化...")
 		var mock_manager = BattleManager.new()
 		add_child(mock_manager)
 		setup(mock_manager)
@@ -48,7 +59,8 @@ func _on_item_drawn(item_data: ItemData):
 	card.setup(item_data)
 	
 	# 初始位置：抽卡区中心
-	var draw_center = $HBoxContainer/LeftPanel/DrawArea.global_position + $HBoxContainer/LeftPanel/DrawArea.size / 2.0
+	var dc_panel = $ContentLayer/DreamcatcherPanel
+	var draw_center = dc_panel.global_position + dc_panel.size / 2.0
 	card.global_position = draw_center - card.custom_minimum_size / 2.0
 	
 	# 连接拖拽信号
@@ -63,7 +75,6 @@ func _handle_item_dropped(item_ui: Control, snap_pos: Vector2, mouse_pos: Vector
 		return
 		
 	# 2. 检查是否掉落在饰品区 (且不是垃圾桶)
-	var ornaments_area = $HBoxContainer/RightPanel/OrnamentsArea
 	if ornaments_area.get_global_rect().has_point(mouse_pos):
 		print("[UI] 检测到物品试图装备到饰品区: ", item_ui.item_data.item_name)
 		if battle_manager and battle_manager.has_method("request_equip_ornament"):
@@ -74,9 +85,13 @@ func _handle_item_dropped(item_ui: Control, snap_pos: Vector2, mouse_pos: Vector
 	backpack_ui.handle_item_dropped(item_ui, snap_pos)
 
 func _on_draw_button_pressed():
-	# 触发抽卡逻辑
+	print("[MainGameUI Debug] >>> 捕梦按钮被物理点击了！信号接收成功 <<<")
+	
 	if battle_manager:
+		print("[MainGameUI Debug] 正在向 BattleManager 发起 request_draw...")
 		battle_manager.request_draw()
+	else:
+		print("[MainGameUI Debug] 错误: BattleManager 丢失，无法执行抽卡逻辑。")
 
 func _on_sanity_changed(new_val):
 	var gs = get_node("/root/GameState")

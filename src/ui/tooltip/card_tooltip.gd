@@ -29,23 +29,31 @@ func show_tooltip(item_data: ItemData, instance_data: Variant = null):
 	else:
 		status_label.hide()
 		
+	# 核心修复：在显示前立即更新位置，防止在上一轮位置闪现
+	_update_position()
 	panel.show()
 
 func hide_tooltip():
 	panel.hide()
+	# 清空内容，防止下一帧显示旧数据
+	title_label.text = ""
+	desc_label.text = ""
 
 func _process(_delta):
 	if panel.visible:
-		var mouse_pos = panel.get_global_mouse_position()
-		# 偏移量，避免挡住鼠标指针
-		var offset = Vector2(15, 15) 
-		var new_pos = mouse_pos + offset
+		_update_position()
+
+func _update_position():
+	var mouse_pos = panel.get_global_mouse_position()
+	# 偏移量，避免挡住鼠标指针
+	var offset = Vector2(15, 15) 
+	var new_pos = mouse_pos + offset
+	
+	# 简单的边界检查，防止悬浮窗跑出屏幕外
+	var viewport_size = get_viewport().get_visible_rect().size
+	if new_pos.x + panel.size.x > viewport_size.x:
+		new_pos.x = mouse_pos.x - panel.size.x - 10
+	if new_pos.y + panel.size.y > viewport_size.y:
+		new_pos.y = mouse_pos.y - panel.size.y - 10
 		
-		# 简单的边界检查，防止悬浮窗跑出屏幕外
-		var viewport_size = get_viewport().get_visible_rect().size
-		if new_pos.x + panel.size.x > viewport_size.x:
-			new_pos.x = mouse_pos.x - panel.size.x - 10
-		if new_pos.y + panel.size.y > viewport_size.y:
-			new_pos.y = mouse_pos.y - panel.size.y - 10
-			
-		panel.global_position = new_pos
+	panel.global_position = new_pos

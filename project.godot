@@ -18,8 +18,16 @@ config/icon="res://icon.svg"
 [autoload]
 
 GameState="*uid://dxekfekt4thuq"
+RunManager="*res://src/autoload/run_manager.gd"
 ItemDatabase="*uid://bg6qsm41jyvxw"
 GlobalEventBus="*uid://c2ec3e0atxdld"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
 
 [editor]
 
