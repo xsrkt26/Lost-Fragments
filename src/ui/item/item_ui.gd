@@ -17,6 +17,9 @@ func setup(p_data: ItemData):
 func _ready():
 	add_to_group("items")
 	_update_visuals()
+	
+	mouse_entered.connect(_on_mouse_entered)
+	mouse_exited.connect(_on_mouse_exited)
 
 func _update_visuals():
 	if not item_data or not is_inside_tree(): return
@@ -48,12 +51,63 @@ signal dropped(snap_pos: Vector2, mouse_pos: Vector2)
 
 var is_dragging: bool = false
 var drag_offset: Vector2 = Vector2.ZERO
+var hover_timer: SceneTreeTimer
+
+func _on_mouse_entered():
+	if is_dragging: return
+	
+	if hover_timer and hover_timer.timeout.is_connected(_on_hover_timeout):
+		hover_timer.timeout.disconnect(_on_hover_timeout)
+		
+	hover_timer = get_tree().create_timer(0.3)
+	hover_timer.timeout.connect(_on_hover_timeout)
+
+func _on_mouse_exited():
+	if hover_timer and hover_timer.timeout.is_connected(_on_hover_timeout):
+		hover_timer.timeout.disconnect(_on_hover_timeout)
+	hover_timer = null
+	_hide_tooltip()
+
+func _on_hover_timeout():
+	if not is_dragging:
+		_show_tooltip()
+
+func _show_tooltip():
+	var tooltip = get_tree().get_first_node_in_group("card_tooltip")
+	if not tooltip:
+		var tooltip_scene = load("res://src/ui/tooltip/card_tooltip.tscn")
+		tooltip = tooltip_scene.instantiate()
+		tooltip.add_to_group("card_tooltip")
+		get_tree().root.add_child(tooltip)
+	
+	var instance = _get_instance_data()
+	tooltip.show_tooltip(item_data, instance)
+
+func _hide_tooltip():
+	var tooltip = get_tree().get_first_node_in_group("card_tooltip")
+	if tooltip:
+		tooltip.hide_tooltip()
+
+func _get_instance_data():
+	var bm = get_tree().get_first_node_in_group("battle_manager")
+	if not bm:
+		var ui = get_tree().current_scene
+		if ui and "battle_manager" in ui:
+			bm = ui.battle_manager
+			
+	if bm and bm.backpack_manager:
+		for pos in bm.backpack_manager.grid.keys():
+			var inst = bm.backpack_manager.grid[pos]
+			if inst.data.runtime_id == item_data.runtime_id:
+				return inst
+	return null
 
 func _gui_input(event: InputEvent):
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
 				is_dragging = true
+				_hide_tooltip()
 				drag_offset = get_global_mouse_position() - global_position
 				# 置顶显示，防止被其他 UI 遮挡
 				z_index = 100

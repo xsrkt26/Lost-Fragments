@@ -20,9 +20,19 @@ var current_score: int = 0:
 		current_score = v
 		score_changed.emit(current_score)
 
+# 全局修饰器系统 (Global Modifiers)
+var modifiers: Dictionary = {}
+
+func set_modifier(key: String, value: Variant):
+	modifiers[key] = value
+
+func get_modifier(key: String, default_value: Variant = null) -> Variant:
+	return modifiers.get(key, default_value)
+
 func reset_game():
 	current_sanity = max_sanity
 	current_score = 0
+	modifiers.clear()
 
 func add_score(amount: int):
 	current_score += amount

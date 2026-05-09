@@ -5,10 +5,22 @@ extends Node
 class ItemInstance:
 	var data: ItemData
 	var root_pos: Vector2i
+	var current_pollution: int = 0:
+		set(val):
+			if is_preserved:
+				print("[BackpackManager] 物品 ", data.item_name, " 已防腐，拒绝修改污染 (", current_pollution, " -> ", val, ")")
+				return
+			current_pollution = max(0, val)
+	
+	var is_preserved: bool = false
 	
 	func _init(p_data: ItemData, p_pos: Vector2i):
 		data = p_data
 		root_pos = p_pos
+
+	func add_pollution(amount: int):
+		# 现在 setter 会自动处理 guard
+		current_pollution += amount
 
 var grid_width: int = 5
 var grid_height: int = 5
@@ -105,6 +117,32 @@ func find_available_pos(item_data: ItemData) -> Vector2i:
 			if can_place_item(item_data, pos):
 				return pos
 	return Vector2i(-1, -1)
+
+## 获取一个物品实例的所有相邻物品实例 (不含自己)
+func get_neighbor_instances(instance: ItemInstance) -> Array[ItemInstance]:
+	var neighbors: Array[ItemInstance] = []
+	
+	# 遍历该物品占据的所有格子
+	for offset in instance.data.shape:
+		var cell = instance.root_pos + offset
+		# 检查该格子周围的 4 个方向
+		for dir in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
+			var neighbor_cell = cell + dir
+			if grid.has(neighbor_cell):
+				var neighbor_instance = grid[neighbor_cell]
+				if neighbor_instance != instance and not neighbors.has(neighbor_instance):
+					neighbors.append(neighbor_instance)
+					
+	return neighbors
+
+## 获取背包中所有不重复的物品实例
+func get_all_instances() -> Array[ItemInstance]:
+	var instances: Array[ItemInstance] = []
+	for pos in grid.keys():
+		var instance = grid[pos]
+		if not instances.has(instance):
+			instances.append(instance)
+	return instances
 
 ## 获取特定方向上的邻居物品坐标（用于撞击算法）
 func get_next_item_pos(start_pos: Vector2i, direction: ItemData.Direction, filter_tags: Array[String] = []) -> Vector2i:

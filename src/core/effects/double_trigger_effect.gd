@@ -3,20 +3,26 @@ extends ItemEffect
 
 ## 双重触发效果：数学课本特有。被撞击的书籍额外触发一次。
 
-func on_hit(instance, source_instance, resolver, context) -> GameAction:
-	# 数学课本本身的加分逻辑（如果有的话，这里可以加上）
-	# 根据策划案，数学课本主要是功能性的
-	
-	print("[Effect] 数学课本触发！正在寻找下一个书籍目标...")
+func on_hit(_instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, _resolver: ImpactResolver, _context: GameContext, _multiplier: int = 1) -> GameAction:
+	# 数学课本主要作为功能发射器
 	return null
 
-# 注意：数学课本的“只能撞击书籍”逻辑现在由 ItemData.hit_filter_tags = ["书籍"] 自动处理
-# 但“额外触发一次”需要我们在这里手动干预后续目标
-func execute_after_hit(hit_instance, source_instance, resolver, context, actions: Array[GameAction]):
+## 在撞击结束后，如果命中了目标，则发起第二次手动效果触发
+func execute_after_hit(hit_instance: BackpackManager.ItemInstance, source_instance: BackpackManager.ItemInstance, resolver: ImpactResolver, context: GameContext, actions: Array[GameAction]):
+	# 检查标签：只对书籍生效
 	if hit_instance.data.tags.has("书籍"):
-		print("[Effect] 书籍联动！额外触发一次: ", hit_instance.data.item_name)
+		print("[Effect] 数学课本触发书籍联动！手动执行二次效果: ", hit_instance.data.item_name)
+		
+		# 计算该物品当前的污染倍率
+		var multiplier = 1 + hit_instance.current_pollution
+		
+		# 直接遍历执行目标的所有效果，模拟“再撞一次”
 		for effect in hit_instance.data.effects:
-			var extra_action = effect.on_hit(hit_instance, source_instance, resolver, context)
+			# 排除掉 DoubleTriggerEffect 自身，防止两本书互撞导致死循环
+			if effect is DoubleTriggerEffect:
+				continue
+				
+			var extra_action = effect.on_hit(hit_instance, source_instance, resolver, context, multiplier)
 			if extra_action:
 				if extra_action.item_instance == null:
 					extra_action.item_instance = hit_instance

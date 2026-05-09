@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://src/core/effects/preservative_effect.gd" id="1_effect"]
+[ext_resource type="Script" path="res://src/core/item_data.gd" id="2_item"]
+
+[sub_resource type="Resource" id="1"]
+script = ExtResource("1_effect")
+
+[resource]
+script = ExtResource("2_item")
+id = "preservative_wax"
+item_name = "防腐蜡"
+tags = Array[String](["污染", "日常"])
+price = 10
+base_cost = -2
+can_draw = true
+runtime_id = -1
+shape = Array[Vector2i]([Vector2i(0, 0)])
+direction = 3
+transmission_mode = 0
+hit_filter_tags = Array[String]([])
+effects = Array[Resource]([SubResource("1")])

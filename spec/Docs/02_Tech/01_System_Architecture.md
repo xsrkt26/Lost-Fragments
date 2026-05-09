@@ -4,48 +4,48 @@
 
 ## 一、 核心设计原则
 
-### 1. 数据驱动 (Data-Driven)
-* **自定义资源 (Custom Resources)**: 所有物品、效果均采用 `ItemData`, `ItemEffect` 等 Resource 类存储在 `res://data/` 中。
-* **配置即玩法**: 通过在编辑器中组合不同的 Resource 实例，无需编写新代码即可实现大部分新物品逻辑。
+### 1. 数据驱动与资源隔离
+* **自定义资源 (Custom Resources)**: 采用 `ItemData`, `ItemEffect` 等存储。
+* **物理副本隔离**: `BackpackManager` 在放置物品时，必须对 `ItemData` 执行 `duplicate(true)`。这确保了同一类卡牌（如多个“纸团”）在背包中拥有独立的污染层数和属性，互不干扰。
 
-### 2. MVC 与 极致解耦
-* **Model (数据层)**: `BackpackManager` 等类，仅处理数学运算和内存状态。
-* **View (表现层)**: `BackpackUI`, `ItemUI` 等，负责接收数据并呈现视觉效果。
-* **Controller (控制层)**: `BattleManager` 协调全局，严禁 UI 节点直接调用核心逻辑。
+### 2. 状态锁定机制 (State Locking)
+* **防腐 (Preservation)**: 通过 `ItemInstance` 的属性 Setter 实现逻辑层保护。当 `is_preserved` 为真时，任何试图修改 `current_pollution` 的操作（含直接赋值）均会被拦截。
 
 ### 3. 动作序列化 (Action Sequencing)
-* 逻辑层快速结算并产生 `GameAction` 序列。
-* 表现层通过 `SequencePlayer` 按序异步消耗 `GameAction` 序列，确保连锁反应具有清晰的节奏感和演出效果。
+* 逻辑层产生 `GameAction` 序列。
+* 表现层按序消耗动作，确保连锁反应的视觉表现力。
 
 ## 二、 核心子系统设计
 
-### 1. 卡牌数据与实例
-* **`ItemData` (Resource)**：静态数据模型。包含形状、基础方向、数值、标签数组 (`Array[String]`) 及绑定的 `ItemEffect`。
-* **`ItemInstance` (RefCounted)**：背包中的运行实例。保存**运行时状态**，如当前坐标 (`root_pos`) 和 **污染层数 (`current_pollution`)**。
+### 1. 撞击解析物理引擎 (ImpactResolver 3.0)
+负责递归处理撞击能量流，具备以下工业级特性：
+*   **严谨去重规则**：使用 `visited` 集合记录 `(目标实例, 进入方向)` 对。
+    *   **多格物体安全**：即便解析器从多格物体的不同组成格发起探测，同一目标在同一连锁中只会被有效“击中”一次，彻底杜绝回声碰撞和数值爆炸。
+*   **物理拦截 (NONE Mode)**：支持 `TransmissionMode.NONE`。当能量流击中拦截类物品（如深井滤芯）后，解析器会立即终止该路径的递归。
+*   **动作溯源 (History Tracing)**：解析器保留 `actions_history`。效果脚本可回溯之前的结算动作（如检测链条中已发生的“污染反噬”次数）来触发额外奖励。
 
-### 2. 生命周期与事件钩子 (Event Hooks)
-所有卡牌效果通过实现特定接口注入游戏流程：
-* `on_draw()`: 抽到时触发。
-* `on_discard()`: 丢弃时触发。
-* `on_hit(source, resolver, context)`: **核心钩子**，被撞击时触发。
+### 2. 同步采集管道 (Acquisition Pipeline)
+`BattleManager` 负责新卡牌获取的原子化处理：
+1.  **同步通知感应卡**：通过同步循环调用 `on_global_item_drawn`，确保墨盒、足球等成长卡在任何撞击开始前完成叠层。
+2.  **信号发射**：发出 `item_drawn` 全局信号。
+3.  **延迟撞击处理**：使用 `call_deferred` 触发自发性撞击（如污水泵），防止在大规模连锁中发生堆栈溢出。
 
-### 3. 全局事件总线 (GlobalEventBus)
-Autoload 单例，解耦跨卡牌联动。
-* 核心信号：`item_drawn`, `item_discarded`, `item_impacted`, `pollution_changed`。
-
-### 4. 撞击解析器 (ImpactResolver 2.0)
-负责计算物理/逻辑上的撞击连锁反应。
-* **寻路与过滤**：根据 `Direction`、`TransmissionMode` 寻找目标，并受 `hit_filter_tags` 限制。
-* **污染乘法引擎**：获取目标的污染层数 N，循环执行 (1+N) 次 `on_hit` 效果，并通知 `GameContext` 扣除额外的 San 值。
+### 3. 污染倍率公式
+*   **Multiplier = 1 + current_pollution**。
+*   **污染反噬**：每次撞击时，根据当前污染层数自动产生 Sanity 扣除动作，受“隔离箱”等防御件的 Modifiers 修正。
 
 ## 三、 目录结构规范
 ```text
 res://
 ├── src/
-│   ├── core/           # 数据模型(Model)、状态与计算逻辑
-│   ├── battle/         # 战斗控制(Controller)、序列播放
-│   ├── ui/             # 表现层(View)场景与脚本
-│   └── autoload/       # 全局单例
-├── data/               # 静态配置资源 (.tres)
-└── spec/               # 设计与技术文档
+│   ├── core/           # 逻辑层
+│   │   ├── data_models/ # 核心数据结构 (BackpackMgr, context)
+│   │   ├── effects/     # 47种物品的效果脚本实现
+│   │   └── resolver/    # 撞击解析物理核心
+│   ├── battle/         # 流程控制
+│   ├── ui/             # 表现层
+│   └── autoload/       # 全局事件总线与持久化
+├── data/               # 静态资源
+├── test/               # 工业级测试套件 (unit/integration)
+└── spec/               # 设计与技术协议
 ```

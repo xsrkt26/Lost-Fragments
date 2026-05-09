@@ -6,7 +6,7 @@ extends ItemEffect
 @export var target_item_id: String = "" # 变身后的物品 ID (如果为空则随机)
 @export var bonus_score: int = 20 # 变身时额外加分
 
-func on_hit(instance, _source, _resolver, _context) -> GameAction:
+func on_hit(instance: BackpackManager.ItemInstance, _source: BackpackManager.ItemInstance, _resolver: ImpactResolver, _context: GameContext, _multiplier: int = 1) -> GameAction:
 	var item_db = _context.state.get_node_or_null("/root/ItemDatabase")
 	if not item_db: return null
 	
@@ -37,5 +37,5 @@ func on_hit(instance, _source, _resolver, _context) -> GameAction:
 			pass
 			
 	var action = GameAction.new(GameAction.Type.NUMERIC, "物品变身")
-	action.value = {"type": "score", "amount": bonus_score}
+	action.value = {"type": "score", "amount": bonus_score * _multiplier}
 	return action

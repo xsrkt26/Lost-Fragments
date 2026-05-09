@@ -25,6 +25,10 @@ GlobalEventBus="*uid://c2ec3e0atxdld"
 
 version_control/autoload_on_startup=true
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gut/plugin.cfg")
+
 [physics]
 
 3d/physics_engine="Jolt Physics"

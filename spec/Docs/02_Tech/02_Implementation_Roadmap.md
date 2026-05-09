@@ -25,3 +25,22 @@
 2. **多格碰撞精确性**: 改进 `ImpactResolver`，使撞击逻辑支持复杂多格形状的具体“碰撞入口”与“出口”判定。
 3. **资源实例的强制隔离**: 确保进入背包的 `ItemData` 及 `ItemEffect` 正确隔离，防止不同实例间共享可变状态。
 4. **依赖注入 (DI)**: 全面采用 Context 传入模式，减少 `get_node("/root/...")` 的硬编码，方便单元测试。
+
+## 三、 待开发功能 (Pending Features)
+
+### 1. 全自动测试工作流 (Automated Testing Workflow)
+*   **目标**: 引入标准测试框架，支持逻辑的回归测试，保证重构与新增功能不破坏原有机制。
+*   **加固标准 (Reinforced Standards)**:
+    *   **多场景覆盖**: 每张卡牌必须包含 2-3 个场景测试，包括：
+        *   *边界场景*: 放在网格边缘、角落或触发数值临界点（如 San 值为 1）。
+        *   *极端场景*: 极端高污染、San 值归零触发 Game Over、极长路径传导。
+        *   *空载场景*: 在无目标、无污染或无效标签环境下的安全运行。
+    *   **联动稳定性 (Synergy & Stability)**: 建立专门的联动测试集，模拟跨流派连招（如机械+书籍、污染+净化），验证单帧高频 Action 产出下的系统稳定性。
+*   **方案**: 引入 **GUT (Godot Unit Test)** 框架，在 `test/` 目录下建立单元测试与集成测试。
+*   **执行方式**: 支持编辑器内 GUI 面板一键执行，以及命令行 Headless 运行以接入 CI/CD。
+
+### 2. 鼠标悬浮显示卡牌信息 (Card Hover Tooltip)
+*   **目标**: 在游戏主界面实时查看卡牌效果及当前附加的动态状态（如污染层数）。
+*   **数据层**: 在 `ItemData` 中新增 `@export_multiline var description: String` 效果描述字段。
+*   **UI层**: 新建全局复用的 `CardTooltip.tscn` 悬浮窗组件。
+*   **交互逻辑**: 在 `ItemUI` 中监听 `mouse_entered` 触发延迟（如 0.3 秒）显示，`mouse_exited` 隐藏，并能动态读取 `ItemInstance` 的状态进行渲染。

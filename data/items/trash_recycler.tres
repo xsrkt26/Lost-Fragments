@@ -1,21 +1,24 @@
 [gd_resource type="Resource" script_class="ItemData" load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://src/core/effects/value_booster_effect.gd" id="1_effect"]
+[ext_resource type="Script" path="res://src/core/effects/trash_recycler_effect.gd" id="1_effect"]
 [ext_resource type="Script" path="res://src/core/item_data.gd" id="2_item"]
 
 [sub_resource type="Resource" id="1"]
 script = ExtResource("1_effect")
+base_score = 25
+score_per_pollution = 25
 
 [resource]
 script = ExtResource("2_item")
 id = "trash_recycler"
 item_name = "垃圾回收器"
 tags = Array[String](["机械"])
-price = 5
-base_cost = -13
+price = 12
+base_cost = 12
 can_draw = true
 runtime_id = -1
-shape = Array[Vector2i]([Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)])
+shape = Array[Vector2i]([Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(0, 1), Vector2i(1, 1), Vector2i(2, 1), Vector2i(0, 2), Vector2i(1, 2), Vector2i(2, 2)])
 direction = 3
-transmission_mode = 2
-effects = [SubResource("1")]
+transmission_mode = 0
+effects = Array[Resource]([SubResource("1")])
+hit_filter_tags = Array[String]([])

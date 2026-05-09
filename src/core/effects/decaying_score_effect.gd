@@ -5,8 +5,8 @@ extends ItemEffect
 
 @export var current_score: int = 15
 
-func on_hit(_instance, _source, _resolver, _context) -> GameAction:
-	var score_to_add = current_score
+func on_hit(_instance: BackpackManager.ItemInstance, _source: BackpackManager.ItemInstance, _resolver: ImpactResolver, _context: GameContext, _multiplier: int = 1) -> GameAction:
+	var score_to_add = current_score * _multiplier
 	
 	# 分数衰减 (修改实例中的数据)
 	if current_score > 0:

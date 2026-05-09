@@ -22,6 +22,7 @@ func _init():
 	print("[BattleManager] 正在初始化逻辑数据...")
 	# 初始化逻辑数据
 	backpack_manager = BackpackManager.new()
+	add_child(backpack_manager)
 	backpack_manager.setup_grid(5, 5)
 
 func _ready():
@@ -75,7 +76,7 @@ func request_place_item(item_ui: Control, grid_pos: Vector2i):
 	backpack_ui.update_item_mapping(old_data, item_ui.item_data)
 	backpack_ui.add_item_visual(item_ui, grid_pos)
 	
-	print("[BattleManager] 物品已放置，不再自动触发撞击")
+	print("[BattleManager] 物品已放置")
 
 ## 发起一次指定的撞击
 func trigger_impact_at(pos: Vector2i):
@@ -109,6 +110,33 @@ func request_discard_item(item_ui: Control):
 	
 	item_ui.queue_free()
 
+## 处理装备饰品的逻辑请求
+func request_equip_ornament(item_ui: Control):
+	print("[BattleManager] 饰品装备请求: ", item_ui.item_data.item_name)
+	
+	# 1. 逻辑层：如果物品已在背包中，先将其移除
+	_remove_item_from_logic(item_ui.item_data)
+	
+	# 2. 触发 on_equip 效果
+	for effect in item_ui.item_data.effects:
+		if effect.has_method("on_equip"):
+			effect.on_equip(item_ui.item_data, context)
+	
+	# 3. 表现层：将物品 UI 移动到饰品槽中
+	if backpack_ui and backpack_ui.item_ui_map.has(item_ui.item_data.runtime_id):
+		backpack_ui.item_ui_map.erase(item_ui.item_data.runtime_id)
+		
+	var main_ui = get_tree().current_scene if get_tree() else null
+	if main_ui and main_ui.has_node("HBoxContainer/RightPanel/OrnamentsArea/Slots"):
+		var slots = main_ui.get_node("HBoxContainer/RightPanel/OrnamentsArea/Slots")
+		if item_ui.get_parent():
+			item_ui.get_parent().remove_child(item_ui)
+		slots.add_child(item_ui)
+		item_ui.position = Vector2.ZERO # HBoxContainer 会自动排版
+		
+		# 禁用被放入饰品区物品的拖拽（或者允许未来卸下，目前简单处理）
+		item_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 func _run_impact_sequence(start_pos: Vector2i, dir: ItemData.Direction):
 	turn_started.emit()
 	
@@ -119,14 +147,19 @@ func _run_impact_sequence(start_pos: Vector2i, dir: ItemData.Direction):
 	add_child(player)
 	
 	# 播放并等待结束
-	await player.play_sequence(actions, backpack_ui.item_ui_map, context)
+	if backpack_ui:
+		await player.play_sequence(actions, backpack_ui.item_ui_map, context)
+	else:
+		# 在没有 UI 的情况下（如单元测试），可以模拟等待或直接结束
+		# print("[BattleManager] 警告: 未绑定 backpack_ui，跳过动画播放")
+		pass
 	
 	player.queue_free()
 	turn_finished.emit()
 
 func _find_item_old_pos(item_data: ItemData) -> Vector2i:
 	for pos in backpack_manager.grid.keys():
-		if backpack_manager.grid[pos].data == item_data:
+		if backpack_manager.grid[pos].data.runtime_id == item_data.runtime_id:
 			return backpack_manager.grid[pos].root_pos
 	return Vector2i(-1, -1)
 
@@ -145,9 +178,11 @@ func request_draw():
 	if not item: return
 
 	# 2. 计算并扣除 San 值
-	var cost = item.base_cost
-	if cost < 0:
+	var cost = 0
+	if item.base_cost == -1:
 		cost = 5 + 1 * draw_count
+	else:
+		cost = abs(item.base_cost)
 		
 	if context and context.state:
 		context.state.consume_sanity(cost)
@@ -194,19 +229,33 @@ func debug_clear_all():
 func _process_new_item_acquisition(item: ItemData):
 	draw_count += 1
 	item.runtime_id = randi()
+	print("[BattleManager] 处理新物品获取: ", item.item_name, " (抽卡计数: ", draw_count, ")")
 	
-	# 发出全局信号
+	# 1. 触发背包内所有已有物品的“响应全局抽卡”效果 (例如夜色墨盒、小丑鼻子)
+	# 必须最先执行，确保在任何撞击连锁开始前完成叠层
+	var all_instances = backpack_manager.get_all_instances()
+	for instance in all_instances:
+		for effect in instance.data.effects:
+			if effect.has_method("on_global_item_drawn"):
+				effect.on_global_item_drawn(item, instance, context)
+	
+	# 2. 发出全局事件总线信号
 	var bus = get_node_or_null("/root/GlobalEventBus")
 	if bus:
 		bus.item_drawn.emit(item)
 	
-	# 触发 on_draw 效果
+	# 3. 触发新物品自身的抽卡效果 (可能引发撞击)
 	for effect in item.effects:
 		effect.on_draw(item, context)
-	
-	# 特殊逻辑：同名卡连锁触发 (目前仅 棒球 具备该特性)
+		
+	# 4. 特殊逻辑：同名卡连锁触发
 	if item.item_name == "棒球":
 		_check_same_name_trigger(item.item_name)
+		
+	# 5. 固定撞击源处理
+	if draw_count > 0 and draw_count % 5 == 0:
+		print("[BattleManager] 达到 5 次捕梦，触发第三排固定撞击源！")
+		_run_impact_sequence(Vector2i(0, 2), ItemData.Direction.RIGHT)
 	
 	item_drawn.emit(item)
 
