@@ -91,5 +91,7 @@ func deserialize_run(data: Dictionary):
 	current_deck = Array(data.get("deck", INITIAL_DECK))
 	current_ornaments = Array(data.get("ornaments", []))
 	current_depth = data.get("depth", 1)
-	is_run_active = data.get("is_active", false)
-	print("[RunManager] 已从存档恢复状态")
+## 获取当前深度的目标分数
+func get_target_score() -> int:
+	# 简单逻辑：第一关 50，随后每关递增
+	return 30 + (current_depth * 20)

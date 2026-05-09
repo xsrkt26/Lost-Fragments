@@ -23,7 +23,7 @@ enum TransmissionMode { NORMAL, OMNI, NONE }
 @export var effects: Array[ItemEffect] = [] # 物品携带的效果列表
 
 ## 获取用于悬浮窗显示的富文本/详细信息 (预留动态计算空间)
-func get_tooltip_text(instance = null) -> String:
+func get_tooltip_text(_instance = null) -> String:
 	var text = ""
 	
 	# 1. 动态生成基础属性信息

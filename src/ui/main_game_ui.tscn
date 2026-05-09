@@ -187,4 +187,13 @@ grow_vertical = 2
 theme_override_constants/separation = 40
 alignment = 1
 
+[node name="MenuButton" type="Button" parent="ContentLayer" unique_id=123456789]
+layout_mode = 0
+offset_left = 1150.0
+offset_top = 20.0
+offset_right = 1260.0
+offset_bottom = 60.0
+text = "离开梦境"
+
 [connection signal="pressed" from="ContentLayer/DreamcatcherPanel/DrawButton" to="." method="_on_draw_button_pressed"]
+[connection signal="pressed" from="ContentLayer/MenuButton" to="." method="_on_menu_button_pressed"]

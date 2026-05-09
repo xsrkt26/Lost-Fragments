@@ -48,7 +48,17 @@ func setup(p_battle_manager: BattleManager):
 	if gs:
 		gs.sanity_changed.connect(_on_sanity_changed)
 		gs.score_changed.connect(_on_score_changed)
+		gs.game_over.connect(_on_game_over)
 		_update_stats_display(gs.current_sanity, gs.current_score)
+
+func _on_game_over():
+	print("[MainGameUI] 收到游戏结束信号，正在执行失败逻辑...")
+	var rm = get_node_or_null("/root/RunManager")
+	if rm:
+		rm.fail_run()
+	
+	# 此处后续可以添加死亡动画
+	get_tree().change_scene_to_file("res://src/ui/main_menu/main_menu.tscn")
 
 func _on_item_drawn(item_data: ItemData):
 	var item_ui_scene = load("res://src/ui/item/item_ui.tscn")
@@ -93,6 +103,10 @@ func _on_draw_button_pressed():
 	else:
 		print("[MainGameUI Debug] 错误: BattleManager 丢失，无法执行抽卡逻辑。")
 
+func _on_menu_button_pressed():
+	print("[MainGameUI] 玩家选择暂时离开战斗，返回整备室...")
+	get_tree().change_scene_to_file("res://src/ui/hub/hub_scene.tscn")
+
 func _on_sanity_changed(new_val):
 	var gs = get_node("/root/GameState")
 	if gs:
@@ -103,6 +117,25 @@ func _on_score_changed(new_val):
 	if gs:
 		_update_stats_display(gs.current_sanity, new_val)
 
-func _update_stats_display(san, score):
+func _update_stats_display(_san, score):
+	var rm = get_node_or_null("/root/RunManager")
+	var target = 100
+	if rm:
+		target = rm.get_target_score()
+		
 	if sanity_label:
-		sanity_label.text = str(san) + " / " + str(score)
+		sanity_label.text = str(score) + " / " + str(target)
+		
+	# 胜利判定
+	if score >= target:
+		_on_victory()
+
+func _on_victory():
+	print("[MainGameUI] 目标达成！战斗胜利。")
+	var rm = get_node_or_null("/root/RunManager")
+	if rm:
+		# 奖励碎片：基础 5 + 深度加成
+		rm.win_battle(5 + rm.current_depth * 2)
+		
+	# 胜利后返回整备室 (Hub)
+	get_tree().change_scene_to_file("res://src/ui/hub/hub_scene.tscn")
