@@ -3,8 +3,8 @@ extends ItemEffect
 
 ## 针管效果：被撞：自身所指方向一整行中所有废弃物+1污染。
 
-func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, _resolver: ImpactResolver, _context: GameContext, _multiplier: int = 1) -> GameAction:
-	var backpack = _resolver.backpack
+func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, resolver: ImpactResolver, _context: GameContext, _multiplier: int = 1) -> GameAction:
+	var backpack = resolver.backpack
 	var dir = instance.data.direction
 	var step = Vector2i.ZERO
 	

@@ -3,8 +3,8 @@ extends ItemEffect
 
 ## 腐蚀扩散效果（腐蚀海绵）：被撞：给路径上之后所有格子的物品各 +1 污染。
 
-func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, _resolver: ImpactResolver, _context: GameContext, _multiplier: int = 1) -> GameAction:
-	var backpack = _resolver.backpack
+func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, resolver: ImpactResolver, _context: GameContext, _multiplier: int = 1) -> GameAction:
+	var backpack = resolver.backpack
 	var dir = instance.data.direction
 	var step = Vector2i.ZERO
 	

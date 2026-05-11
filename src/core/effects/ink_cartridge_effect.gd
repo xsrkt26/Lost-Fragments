@@ -6,7 +6,7 @@ extends ItemEffect
 
 @export var score_amount: int = 2
 
-func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, _resolver: ImpactResolver, _context: GameContext, multiplier: int = 1) -> GameAction:
+func on_hit(_instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, _resolver: ImpactResolver, _context: GameContext, multiplier: int = 1) -> GameAction:
 	var action = GameAction.new(GameAction.Type.NUMERIC, "墨水溅射")
 	action.value = {"type": "score", "amount": score_amount * multiplier}
 	return action

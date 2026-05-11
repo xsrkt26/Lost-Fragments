@@ -10,13 +10,12 @@ signal item_drawn(item_data: ItemData)
 
 var backpack_manager: BackpackManager
 var context: GameContext
-var draw_count: int = 0 # 记录当前局内抽取次数
-
-@export var backpack_ui: Control:
+var backpack_ui: Control: # 保持 Control 以兼容 Mock 测试
 	set(v):
 		backpack_ui = v
-		if backpack_ui and backpack_manager:
-			backpack_ui.setup(backpack_manager)
+		if backpack_ui and context:
+			if backpack_ui.has_method("setup"):
+				backpack_ui.setup(context)
 
 func _init():
 	print("[BattleManager] 正在初始化逻辑数据...")
@@ -27,6 +26,7 @@ func _init():
 
 # --- 运行相关的逻辑变量 ---
 var _current_battle_deck: Array[String] = []
+var draw_count: int = 0 # 记录当前局内抽取次数
 
 func _ready():
 	print("[BattleManager] 节点就绪")
@@ -37,7 +37,8 @@ func _ready():
 	# 如果 UI 已经注入，确保它被初始化
 	if backpack_ui:
 		print("[BattleManager] 正在初始化已绑定的 UI...")
-		backpack_ui.setup(backpack_manager)
+		if backpack_ui.has_method("setup"):
+			backpack_ui.setup(context)
 		
 	_initialize_battle_data()
 
@@ -54,241 +55,193 @@ func _initialize_battle_data():
 	else:
 		print("[BattleManager] 警告: 未找到 RunManager，使用空卡包运行。")
 
+## 处理物品在背包内被旋转的逻辑请求
+## 使用 Control 类型以允许 Mock 注入
+func request_rotate_item(item_ui: Control, target_root_center: Vector2, target_global_pos: Vector2):
+	var item_data = item_ui.get("item_data") as ItemData
+	if not item_data: return
+	
+	print("[BattleManager] 收到旋转请求: ", item_data.item_name)
+	
+	var old_pos = _find_item_old_pos(item_data)
+	if old_pos != Vector2i(-1, -1):
+		# 1. 尝试将物品从逻辑中移除 (使用 RID 移除法，绝对防幽灵)
+		backpack_manager.remove_by_runtime_id(item_data.runtime_id)
+	
+	if not is_instance_valid(backpack_ui):
+		return
+		
+	# 2. 精确计算新的 root_pos (纯逻辑换算，杜绝 UI 吸附修正导致的误判)
+	var bp_rect = backpack_ui.get_global_rect()
+	var local_pixel_pos = target_root_center - bp_rect.position
+	
+	var grid_step = 68.0
+	var new_root_pos = Vector2i(
+		roundi((local_pixel_pos.x - 34.0) / grid_step),
+		roundi((local_pixel_pos.y - 34.0) / grid_step)
+	)
+	
+	if backpack_manager.can_place_item(item_data, new_root_pos):
+		# 3a. 碰撞检测通过：放回去
+		backpack_manager.place_item(item_data, new_root_pos)
+		var new_instance = backpack_manager.grid[new_root_pos]
+		item_ui.set("item_instance", new_instance)
+		item_ui.set("item_data", new_instance.data)
+		
+		# 视觉表现
+		if backpack_ui.has_method("add_item_visual"):
+			backpack_ui.add_item_visual(item_ui, new_root_pos)
+		print("[BattleManager] 旋转成功，新位置: ", new_root_pos)
+	else:
+		# 3b. 碰撞检测失败：强制弹出
+		print("[BattleManager] 旋转导致碰撞/出界，物品被弹出背包。")
+		if item_ui.get_parent() == backpack_ui:
+			backpack_ui.remove_child(item_ui)
+			if get_tree() and get_tree().current_scene:
+				get_tree().current_scene.add_child(item_ui)
+			else:
+				get_parent().add_child(item_ui)
+			
+		item_ui.set("item_instance", null)
+		item_ui.global_position = Vector2(bp_rect.end.x + 50, bp_rect.position.y + 100)
+		
+		var tween = create_tween()
+		tween.tween_property(item_ui, "scale", Vector2(1.1, 1.1), 0.1)
+		tween.tween_property(item_ui, "scale", Vector2(1.0, 1.0), 0.1)
+
 ## 处理玩家放置物品的逻辑请求
 func request_place_item(item_ui: Control, grid_pos: Vector2i):
+	var item_data = item_ui.get("item_data") as ItemData
+	if not item_data: return
+	
+	var old_pos = _find_item_old_pos(item_data)
+	var old_shape = _get_logical_shape_in_grid(item_data)
+	
 	if grid_pos == Vector2i(-1, -1):
-		print("[BattleManager] 放置失败: 未能捕捉到有效的网格位置")
-		backpack_ui.add_item_visual(item_ui, _find_item_old_pos(item_ui.item_data))
+		_handle_place_failure(item_ui, old_pos, old_shape)
 		return
 
-	# --- 核心优化：先移除旧位置，再检查新位置 ---
-	# 这样物品在微调位置时，就不会撞到“自己之前的影子”
-	var old_pos = _find_item_old_pos(item_ui.item_data)
 	if old_pos != Vector2i(-1, -1):
-		backpack_manager.remove_item_at(old_pos)
+		backpack_manager.remove_by_runtime_id(item_data.runtime_id)
 
-	if not backpack_manager.can_place_item(item_ui.item_data, grid_pos):
-		print("[BattleManager] 逻辑拒绝放置: 物品 ", item_ui.item_data.item_name, " 在 ", grid_pos, " 处无法放下 (出界或重叠)")
-		# 如果新位置不行，放回老位置
-		if old_pos != Vector2i(-1, -1):
-			backpack_manager.place_item(item_ui.item_data, old_pos)
-		backpack_ui.add_item_visual(item_ui, old_pos)
+	if not backpack_manager.can_place_item(item_data, grid_pos):
+		_handle_place_failure(item_ui, old_pos, old_shape)
 		return
 	
-	# 1. 逻辑层：放置新位置
-	backpack_manager.place_item(item_ui.item_data, grid_pos)
+	backpack_manager.place_item(item_data, grid_pos)
 	
-	# 发出全局信号：物品已放置
 	var bus = get_node_or_null("/root/GlobalEventBus")
 	if bus:
 		bus.item_placed.emit(backpack_manager.grid[grid_pos])
 	
-	# 2. 表现层：更新 UI 位置
-	var old_data = item_ui.item_data
+	var old_data = item_data
 	var new_instance = backpack_manager.grid[grid_pos]
-	item_ui.item_data = new_instance.data
+	item_ui.set("item_data", new_instance.data)
 	
-	backpack_ui.update_item_mapping(old_data, item_ui.item_data)
-	backpack_ui.add_item_visual(item_ui, grid_pos)
+	if is_instance_valid(backpack_ui):
+		if backpack_ui.has_method("update_item_mapping"):
+			backpack_ui.update_item_mapping(old_data, new_instance.data)
+		if backpack_ui.has_method("add_item_visual"):
+			backpack_ui.add_item_visual(item_ui, grid_pos)
 	
 	print("[BattleManager] 物品已放置")
 
-## 发起一次指定的撞击
+func _get_logical_shape_in_grid(item_data: ItemData) -> Array[Vector2i]:
+	var old_pos = _find_item_old_pos(item_data)
+	if old_pos != Vector2i(-1, -1):
+		return backpack_manager.grid[old_pos].data.shape
+	return item_data.shape
+
+func _handle_place_failure(item_ui: Control, old_pos: Vector2i, _old_shape: Array[Vector2i]):
+	var item_data = item_ui.get("item_data") as ItemData
+	if old_pos != Vector2i(-1, -1) and backpack_manager.can_place_item(item_data, old_pos):
+		backpack_manager.place_item(item_data, old_pos)
+		var new_instance = backpack_manager.grid[old_pos]
+		item_ui.set("item_instance", new_instance)
+		item_ui.set("item_data", new_instance.data)
+		if is_instance_valid(backpack_ui) and backpack_ui.has_method("add_item_visual"):
+			backpack_ui.add_item_visual(item_ui, old_pos)
+	else:
+		if item_ui.get_parent() == backpack_ui:
+			backpack_ui.remove_child(item_ui)
+			if get_tree() and get_tree().current_scene:
+				get_tree().current_scene.add_child(item_ui)
+			else:
+				get_parent().add_child(item_ui)
+		item_ui.set("item_instance", null)
+		
+		var bp_rect = backpack_ui.get_global_rect() if is_instance_valid(backpack_ui) else Rect2(Vector2(500, 500), Vector2(1,1))
+		item_ui.global_position = Vector2(bp_rect.end.x + 50, bp_rect.position.y + 100)
+		
+		var tween = create_tween()
+		tween.tween_property(item_ui, "scale", Vector2(1.1, 1.1), 0.1)
+		tween.tween_property(item_ui, "scale", Vector2(1.0, 1.0), 0.1)
+
 func trigger_impact_at(pos: Vector2i):
 	if not backpack_manager.grid.has(pos):
-		print("[BattleManager] 警告: 尝试在空坐标发起撞击: ", pos)
 		return
-		
 	var instance = backpack_manager.grid[pos]
-	print("[BattleManager] 手动触发撞击. 源物品: ", instance.data.item_name, " 坐标: ", pos)
 	_run_impact_sequence(pos, instance.data.direction)
 
-## 处理丢弃逻辑
-func request_discard_item(item_ui: Control):
-	print("[BattleManager] 物品丢弃请求: ", item_ui.item_data.item_name)
-	
-	# 1. 逻辑层：如果物品已在背包中，先将其移除
-	_remove_item_from_logic(item_ui.item_data)
-	
-	# 2. 发出全局信号
-	var bus = get_node_or_null("/root/GlobalEventBus")
-	if bus:
-		bus.item_discarded.emit(item_ui.item_data)
-	
-	# 3. 触发 on_discard 效果
-	for effect in item_ui.item_data.effects:
-		effect.on_discard(item_ui.item_data, context)
-	
-	# 4. 清理 UI 映射
-	if backpack_ui and backpack_ui.item_ui_map.has(item_ui.item_data.runtime_id):
-		backpack_ui.item_ui_map.erase(item_ui.item_data.runtime_id)
-	
-	item_ui.queue_free()
+func request_draw():
+	if _current_battle_deck.is_empty():
+		_initialize_battle_data()
+	if _current_battle_deck.is_empty():
+		return
+	var item_id = _current_battle_deck.pop_back()
+	var item_db = get_node_or_null("/root/ItemDatabase")
+	var item = item_db.get_item_by_id(item_id)
+	if item:
+		_process_new_item_acquisition(item)
 
-## 处理装备饰品的逻辑请求
-func request_equip_ornament(item_ui: Control):
-	print("[BattleManager] 饰品装备请求: ", item_ui.item_data.item_name)
-	
-	# 1. 逻辑层：如果物品已在背包中，先将其移除
-	_remove_item_from_logic(item_ui.item_data)
-	
-	# 2. 触发 on_equip 效果
-	for effect in item_ui.item_data.effects:
-		if effect.has_method("on_equip"):
-			effect.on_equip(item_ui.item_data, context)
-	
-	# 3. 表现层：将物品 UI 移动到饰品槽中
-	if backpack_ui and backpack_ui.item_ui_map.has(item_ui.item_data.runtime_id):
-		backpack_ui.item_ui_map.erase(item_ui.item_data.runtime_id)
-		
-	var main_ui = get_tree().current_scene if get_tree() else null
-	if main_ui and main_ui.has_node("HBoxContainer/RightPanel/OrnamentsArea/Slots"):
-		var slots = main_ui.get_node("HBoxContainer/RightPanel/OrnamentsArea/Slots")
-		if item_ui.get_parent():
-			item_ui.get_parent().remove_child(item_ui)
-		slots.add_child(item_ui)
-		item_ui.position = Vector2.ZERO # HBoxContainer 会自动排版
-		
-		# 禁用被放入饰品区物品的拖拽（或者允许未来卸下，目前简单处理）
-		item_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
+func _process_new_item_acquisition(item: ItemData):
+	if not item: return
+	draw_count += 1
+	if item.runtime_id <= 0:
+		item.runtime_id = randi()
+	for effect in item.effects:
+		effect.on_draw(item, context)
+	item_drawn.emit(item)
+	var all_instances = backpack_manager.get_all_instances()
+	for inst in all_instances:
+		for effect in inst.data.effects:
+			if effect.has_method("on_global_item_drawn"):
+				effect.on_global_item_drawn(item, inst, context)
+	var new_item_name = item.item_name
+	for pos in backpack_manager.grid.keys():
+		var instance = backpack_manager.grid[pos]
+		if instance.root_pos == pos and instance.data.item_name == new_item_name:
+			trigger_impact_at(pos)
 
 func _run_impact_sequence(start_pos: Vector2i, dir: ItemData.Direction):
 	turn_started.emit()
-	
 	var resolver = ImpactResolver.new(backpack_manager, context)
 	var actions = resolver.resolve_impact(start_pos, dir)
-	
 	var player = SequencePlayer.new()
 	add_child(player)
-	
-	# 播放并等待结束
-	if backpack_ui:
-		await player.play_sequence(actions, backpack_ui.item_ui_map, context)
-	else:
-		# 在没有 UI 的情况下（如单元测试），可以模拟等待或直接结束
-		# print("[BattleManager] 警告: 未绑定 backpack_ui，跳过动画播放")
-		pass
-	
+	var ui_map = {}
+	if is_instance_valid(backpack_ui):
+		ui_map = backpack_ui.get("item_ui_map")
+	await player.play_sequence(actions, ui_map, context)
 	player.queue_free()
 	turn_finished.emit()
 
 func _find_item_old_pos(item_data: ItemData) -> Vector2i:
 	for pos in backpack_manager.grid.keys():
-		if backpack_manager.grid[pos].data.runtime_id == item_data.runtime_id:
-			return backpack_manager.grid[pos].root_pos
+		var inst = backpack_manager.grid[pos]
+		if inst.data.runtime_id == item_data.runtime_id:
+			return inst.root_pos
 	return Vector2i(-1, -1)
 
-func _remove_item_from_logic(item_data: ItemData):
-	var old_pos = _find_item_old_pos(item_data)
-	if old_pos != Vector2i(-1, -1):
-		backpack_manager.remove_item_at(old_pos)
-
-## 请求捕梦 (抽卡)
-func request_draw():
-	if _current_battle_deck.is_empty():
-		print("[BattleManager] 卡包已抽空！正在重新洗牌...")
-		_initialize_battle_data()
-		
-	if _current_battle_deck.is_empty():
-		print("[BattleManager] 错误: 卡包依然为空，无法抽卡。")
-		return
-
-	# 1. 从当前战斗卡包取一张 ID
-	var item_id = _current_battle_deck.pop_back()
-	var item_db = get_node_or_null("/root/ItemDatabase")
-	var item = item_db.get_item_by_id(item_id)
-	
-	if not item:
-		print("[BattleManager] 错误: 无法加载物品: ", item_id)
-		return
-
-	# 2. 计算并扣除 San 值
-	var cost = 0
-	if item.base_cost == -1:
-		cost = 5 + 1 * draw_count
-	else:
-		cost = abs(item.base_cost)
-		
-	if context and context.state:
-		context.state.consume_sanity(cost)
-	
-	# 3. 进入通用处理流
-	_process_new_item_acquisition(item)
-
-## 调试接口：直接根据 ID 获得物品
 func debug_get_item(item_id: String):
 	var item_db = get_node_or_null("/root/ItemDatabase")
-	var item = item_db.get_item_by_id(item_id)
-	if item:
-		print("[BattleManager] 调试获取物品: ", item.item_name)
-		_process_new_item_acquisition(item)
+	if item_db:
+		var item = item_db.get_item_by_id(item_id)
+		if item:
+			item_drawn.emit(item)
 
-## 彻底清空所有物品 (仅用于调试)
 func debug_clear_all():
-	print("[BattleManager] 正在执行全量清理...")
-	
-	# 1. 逻辑层清理
 	if backpack_manager:
 		backpack_manager.grid.clear()
-	
-	draw_count = 0
-	
-	# 2. 状态清理
-	var gs = get_node_or_null("/root/GameState")
-	if gs:
-		gs.reset_game()
-	
-	# 3. 表现层清理
-	if backpack_ui:
-		backpack_ui.item_ui_map.clear()
-	
-	# 4. 彻底删除场景中所有的物品 UI (不论在背包内还是外)
-	var all_item_uis = get_tree().get_nodes_in_group("items")
-	for item_ui in all_item_uis:
-		if is_instance_valid(item_ui):
-			item_ui.queue_free()
-					
-	print("[BattleManager] 全量清理完成。")
-
-## 通用处理流：处理新获得物品后的所有连锁反应（信号、效果触发等）
-func _process_new_item_acquisition(item: ItemData):
-	draw_count += 1
-	item.runtime_id = randi()
-	print("[BattleManager] 处理新物品获取: ", item.item_name, " (抽卡计数: ", draw_count, ")")
-	
-	# 1. 触发背包内所有已有物品的“响应全局抽卡”效果 (例如夜色墨盒、小丑鼻子)
-	# 必须最先执行，确保在任何撞击连锁开始前完成叠层
-	var all_instances = backpack_manager.get_all_instances()
-	for instance in all_instances:
-		for effect in instance.data.effects:
-			if effect.has_method("on_global_item_drawn"):
-				effect.on_global_item_drawn(item, instance, context)
-	
-	# 2. 发出全局事件总线信号
-	var bus = get_node_or_null("/root/GlobalEventBus")
-	if bus:
-		bus.item_drawn.emit(item)
-	
-	# 3. 触发新物品自身的抽卡效果 (可能引发撞击)
-	for effect in item.effects:
-		effect.on_draw(item, context)
-		
-	# 4. 特殊逻辑：同名卡连锁触发
-	if item.item_name == "棒球":
-		_check_same_name_trigger(item.item_name)
-		
-	# 5. 固定撞击源处理
-	if draw_count > 0 and draw_count % 5 == 0:
-		print("[BattleManager] 达到 5 次捕梦，触发第三排固定撞击源！")
-		_run_impact_sequence(Vector2i(0, 2), ItemData.Direction.RIGHT)
-	
-	item_drawn.emit(item)
-
-func _check_same_name_trigger(new_item_name: String):
-	# 遍历背包，找到所有同名卡牌并依次触发一次撞击
-	for pos in backpack_manager.grid.keys():
-		var instance = backpack_manager.grid[pos]
-		# 只有 root 坐标才触发一次，防止占据多格的物品重复触发
-		if instance.root_pos == pos and instance.data.item_name == new_item_name:
-			print("[BattleManager] 发现同名卡，触发连锁: ", new_item_name, " 在坐标 ", pos)
-			trigger_impact_at(pos)
+		if is_instance_valid(backpack_ui) and backpack_ui.has_method("_refresh_grid"):
+			backpack_ui._refresh_grid()

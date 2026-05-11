@@ -5,13 +5,13 @@ extends ItemEffect
 ## 1. 吸收周围“食物”的能量：每个邻近食物使自身 +3 污染。
 ## 2. 感染周围：所有邻居获得等同于自身当前 Multiplier 的污染层数。
 
-func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, _resolver: ImpactResolver, _context: GameContext, multiplier: int = 1) -> GameAction:
+func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, resolver: ImpactResolver, _context: GameContext, _multiplier: int = 1) -> GameAction:
 	# 防止在同一个解析链中重复触发（针对多格物体）
-	for action in _resolver.actions_history:
+	for action in resolver.actions_history:
 		if action.description == "发霉扩散" and action.item_instance == instance:
 			return null
 
-	var backpack = _resolver.backpack
+	var backpack = resolver.backpack
 	var neighbors = backpack.get_neighbor_instances(instance)
 	
 	# 1. 吸收成长

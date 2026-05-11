@@ -76,17 +76,18 @@ func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions:
 			if effect_action.item_instance == null: effect_action.item_instance = instance
 			actions.append(effect_action)
 		
-		# 恢复足球感应链：如果来源物体有“撞后执行”逻辑（如足球感应）
-		if source_instance:
-			for s_effect in source_instance.data.effects:
-				if s_effect.has_method("execute_after_hit"):
-					s_effect.execute_after_hit(instance, source_instance, self, context, actions)
-			
 	# --- 物理传导拦截逻辑 ---
 	# 如果物品模式为 NONE，则彻底停止该方向的递归
 	if instance.data.transmission_mode == ItemData.TransmissionMode.NONE:
 		print("[ImpactResolver] 物品 ", instance.data.item_name, " 传导模式为 NONE，拦截能量流。")
 		return true 
+		
+	# 修正点：将 source_instance 的 execute_after_hit 移出循环，且放在传导判定之前或之后？
+	# 按照原逻辑，应该在传导之前触发（类似于“撞击瞬间”的反馈）
+	if source_instance:
+		for s_effect in source_instance.data.effects:
+			if s_effect.has_method("execute_after_hit"):
+				s_effect.execute_after_hit(instance, source_instance, self, context, actions)
 		
 	var did_hit_others = false
 	match instance.data.transmission_mode:

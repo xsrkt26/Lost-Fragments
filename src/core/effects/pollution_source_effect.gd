@@ -7,8 +7,8 @@ extends ItemEffect
 @export var bonus_score: int = 20
 @export var settlement_threshold: int = 5
 
-func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, _resolver: ImpactResolver, _context: GameContext, multiplier: int = 1) -> GameAction:
-	var backpack = _resolver.backpack
+func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, resolver: ImpactResolver, _context: GameContext, multiplier: int = 1) -> GameAction:
+	var backpack = resolver.backpack
 	var all_items = backpack.get_all_instances()
 	
 	# 1. 全场叠层
@@ -22,7 +22,7 @@ func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackMa
 	# 2. 检查长链奖励
 	# 扫描 Resolver 的 actions 列表，寻找“污染反噬”动作的次数
 	var settlement_count = 0
-	for action in _resolver.actions_history:
+	for action in resolver.actions_history:
 		if action.type == GameAction.Type.NUMERIC and action.description == "污染反噬":
 			settlement_count += 1
 			

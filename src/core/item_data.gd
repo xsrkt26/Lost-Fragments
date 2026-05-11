@@ -14,6 +14,7 @@ enum TransmissionMode { NORMAL, OMNI, NONE }
 @export var price: int = 5 # 物品价值
 @export var base_cost: int = -1 # 基础消耗 San 值 (如果为负，则使用公式计算)
 @export var can_draw: bool = true # 是否可以被抽到
+@export var can_rotate: bool = true # 是否允许旋转
 @export var runtime_id: int = -1 # 运行时唯一 ID，用于逻辑与 UI 绑定
 @export var icon: Texture2D
 @export var shape: Array[Vector2i] = [Vector2i(0, 0)] # 占用的格子相对偏移
@@ -43,3 +44,49 @@ func get_tooltip_text(_instance = null) -> String:
 	# 		text += "\n" + effect.get_dynamic_desc(instance)
 			
 	return text.strip_edges()
+
+## 顺时针旋转 90 度
+func rotate_90():
+	if not can_rotate: return
+	# 1. 更新撞击方向 (UP -> RIGHT -> DOWN -> LEFT -> UP)
+	match direction:
+		Direction.UP: direction = Direction.RIGHT
+		Direction.RIGHT: direction = Direction.DOWN
+		Direction.DOWN: direction = Direction.LEFT
+		Direction.LEFT: direction = Direction.UP
+	
+	# 2. 检查是否为完美的正方形 (宽==高，且从0,0填满)
+	# 为了简化，如果宽==高，我们就认为是正方形，不需要改变相对坐标，只需改变方向
+	var min_x = 0; var max_x = 0; var min_y = 0; var max_y = 0
+	for p in shape:
+		if p.x < min_x: min_x = p.x
+		if p.x > max_x: max_x = p.x
+		if p.y < min_y: min_y = p.y
+		if p.y > max_y: max_y = p.y
+	
+	var w = max_x - min_x + 1
+	var h = max_y - min_y + 1
+	
+	if w == h and shape.size() == w * h:
+		print("[ItemData] 物品是正方形，仅旋转方向: ", direction)
+		return
+	
+	# 3. 非正方形，更新形状坐标: (x, y) -> (-y, x)
+	var new_shape: Array[Vector2i] = []
+	var norm_min_x: int = 0
+	var norm_min_y: int = 0
+	
+	for p in shape:
+		var rotated_p = Vector2i(-p.y, p.x)
+		new_shape.append(rotated_p)
+		if rotated_p.x < norm_min_x: norm_min_x = rotated_p.x
+		if rotated_p.y < norm_min_y: norm_min_y = rotated_p.y
+	
+	# --- 归一化 (Normalization) ---
+	var normalized_shape: Array[Vector2i] = []
+	var norm_offset = Vector2i(norm_min_x, norm_min_y)
+	for p in new_shape:
+		normalized_shape.append(p - norm_offset)
+		
+	shape = normalized_shape
+	print("[ItemData] 物品已旋转并归一化. 新方向: ", direction, " 新形状: ", shape)

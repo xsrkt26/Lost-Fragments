@@ -5,10 +5,10 @@ extends ItemEffect
 
 @export var sanity_recovery: int = 3
 
-func on_discard(_item_data: ItemData, _context: GameContext) -> GameAction:
+func on_discard(_item_data: ItemData, context: GameContext) -> GameAction:
 	print("[Effect] 苹果被丢弃，触发回血: ", sanity_recovery)
-	if _context and _context.state:
-		_context.state.consume_sanity(-sanity_recovery) # 增加 San 值
+	if context and context.state:
+		context.state.consume_sanity(-sanity_recovery) # 增加 San 值
 		
 	# 返回一个简单的数值动作
 	var action = GameAction.new(GameAction.Type.NUMERIC, "苹果回血")

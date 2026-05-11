@@ -4,8 +4,8 @@ extends ItemEffect
 ## 污染转移效果（黑水瓶）：被撞：将自身全部污染转移给路径上的下一个物品。
 ## 若下一个物品没有“水”标签，该物品额外 +1 污染。
 
-func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, _resolver: ImpactResolver, _context: GameContext, _multiplier: int = 1) -> GameAction:
-	var backpack = _resolver.backpack
+func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, resolver: ImpactResolver, _context: GameContext, _multiplier: int = 1) -> GameAction:
+	var backpack = resolver.backpack
 	var next_pos = backpack.get_next_item_pos(instance.root_pos, instance.data.direction)
 	
 	if next_pos != Vector2i(-1, -1):

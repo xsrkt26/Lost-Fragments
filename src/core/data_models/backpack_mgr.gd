@@ -2,17 +2,19 @@ class_name BackpackManager
 extends Node
 
 ## 内部类，记录物品在网格中的实例信息
-class ItemInstance:
+class ItemInstance extends Object:
+	signal pollution_changed(new_val: int)
+	
 	var data: ItemData
 	var root_pos: Vector2i
+	var is_preserved: bool = false
 	var current_pollution: int = 0:
 		set(val):
 			if is_preserved:
 				print("[BackpackManager] 物品 ", data.item_name, " 已防腐，拒绝修改污染 (", current_pollution, " -> ", val, ")")
 				return
 			current_pollution = max(0, val)
-	
-	var is_preserved: bool = false
+			pollution_changed.emit(current_pollution)
 	
 	func _init(p_data: ItemData, p_pos: Vector2i):
 		data = p_data
@@ -83,6 +85,26 @@ func replace_item_data(pos: Vector2i, new_data: ItemData):
 		remove_item_at(root_pos)
 		place_item(new_data, root_pos)
 
+## 根据运行时 ID 彻底移除物品 (最高优先级，防任何引用误差)
+func remove_by_runtime_id(rid: int):
+	if rid == -1: return
+	var keys_to_remove = []
+	for pos in grid.keys():
+		var inst = grid[pos]
+		if inst and inst.data and inst.data.runtime_id == rid:
+			keys_to_remove.append(pos)
+			
+	for pos in keys_to_remove:
+		grid.erase(pos)
+	
+	if not keys_to_remove.is_empty():
+		print("[BackpackManager] 已根据 RID ", rid, " 清理网格格子数: ", keys_to_remove.size())
+
+## 彻底从网格中移除某个物品实例 (防幽灵算法)
+func remove_instance(instance: ItemInstance):
+	if instance == null or instance.data == null: return
+	remove_by_runtime_id(instance.data.runtime_id)
+
 ## 移除并返回指定位置的物品数据
 func remove_item_at(pos: Vector2i) -> ItemData:
 	if not grid.has(pos):
@@ -90,12 +112,7 @@ func remove_item_at(pos: Vector2i) -> ItemData:
 		
 	var instance: ItemInstance = grid[pos]
 	var item_data = instance.data
-	var root_pos = instance.root_pos
-	
-	for offset in item_data.shape:
-		var target_pos = root_pos + offset
-		grid.erase(target_pos)
-		
+	remove_instance(instance)
 	return item_data
 
 ## 寻找并返回所有空闲的格子坐标

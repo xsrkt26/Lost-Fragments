@@ -1,3 +1,4 @@
+class_name BackpackUI
 extends Control
 
 ## 背包 UI：纯表现层 (View)
@@ -8,12 +9,14 @@ signal item_dropped_on_grid(item_ui: Control, grid_pos: Vector2i)
 @export var grid_container_path: NodePath = "GridContainer"
 @onready var grid_container: GridContainer = get_node(grid_container_path)
 
+var context: GameContext
 var manager: BackpackManager # 仅用于读取网格尺寸等基础信息
 var item_ui_map: Dictionary = {}
 
-func setup(p_manager: BackpackManager):
-	print("[BackpackUI] 接收到 Manager，正在执行 setup...")
-	manager = p_manager
+func setup(p_context: GameContext):
+	print("[BackpackUI] 接收到 Context，正在执行 setup...")
+	context = p_context
+	manager = context.battle.backpack_manager
 	_refresh_grid()
 
 func _refresh_grid():

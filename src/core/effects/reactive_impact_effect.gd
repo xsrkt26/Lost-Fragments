@@ -12,7 +12,7 @@ func on_draw(item_data: ItemData, context: GameContext) -> GameAction:
 			bus.item_impacted.connect(_on_any_item_impacted.bind(item_data, context))
 	return null
 
-func _on_any_item_impacted(hit_instance, source_instance, my_data, context):
+func _on_any_item_impacted(hit_instance, _source_instance, my_data, context):
 	# 检查上下文和战斗管理器是否仍然有效
 	if not is_instance_valid(context) or not is_instance_valid(context.battle):
 		return

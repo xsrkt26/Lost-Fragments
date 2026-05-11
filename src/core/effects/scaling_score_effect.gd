@@ -8,8 +8,8 @@ extends ItemEffect
 @export var per_layers: int = 2 # 每多少层污染加 1 分
 @export var bonus_per_step: int = 1
 
-func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, _resolver: ImpactResolver, _context: GameContext, multiplier: int = 1) -> GameAction:
-	var backpack = _resolver.backpack
+func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, resolver: ImpactResolver, _context: GameContext, multiplier: int = 1) -> GameAction:
+	var backpack = resolver.backpack
 	var all_items = backpack.get_all_instances()
 	
 	var total_pollution = 0

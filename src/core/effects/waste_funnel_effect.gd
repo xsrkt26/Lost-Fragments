@@ -6,8 +6,8 @@ extends ItemEffect
 
 @export var scan_range: int = 2
 
-func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, _resolver: ImpactResolver, _context: GameContext, multiplier: int = 1) -> GameAction:
-	var backpack = _resolver.backpack
+func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, resolver: ImpactResolver, _context: GameContext, multiplier: int = 1) -> GameAction:
+	var backpack = resolver.backpack
 	var dir_vec = Vector2i.ZERO
 	
 	match instance.data.direction:

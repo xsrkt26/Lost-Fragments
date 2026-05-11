@@ -8,7 +8,7 @@ extends ItemEffect
 
 func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, _resolver: ImpactResolver, _context: GameContext, multiplier: int = 1) -> GameAction:
 	if instance.current_pollution >= 3:
-		var sets_of_3 = instance.current_pollution / 3
+		var sets_of_3 = floori(instance.current_pollution / 3.0)
 		instance.current_pollution -= sets_of_3 * 3
 		
 		var score_to_add = sets_of_3 * score_per_3_pollution * multiplier

@@ -7,12 +7,12 @@ extends ItemEffect
 @export var extra_score: int = 8
 @export var threshold: int = 10
 
-func on_hit(_instance: BackpackManager.ItemInstance, _source: BackpackManager.ItemInstance, _resolver: ImpactResolver, _context: GameContext, _multiplier: int = 1) -> GameAction:
-	var final_score = base_score * _multiplier
+func on_hit(_instance: BackpackManager.ItemInstance, _source: BackpackManager.ItemInstance, _resolver: ImpactResolver, context: GameContext, multiplier: int = 1) -> GameAction:
+	var final_score = base_score * multiplier
 	
-	if _context and _context.battle:
-		if _context.battle.draw_count > threshold:
-			final_score += extra_score * _multiplier
+	if context and context.battle:
+		if context.battle.draw_count > threshold:
+			final_score += extra_score * multiplier
 			print("[Effect] 闹钟触发额外奖励! 总分: ", final_score)
 	
 	var action = GameAction.new(GameAction.Type.NUMERIC, "闹钟响了")

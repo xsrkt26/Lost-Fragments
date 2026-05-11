@@ -20,9 +20,6 @@ func on_draw(item_data: ItemData, context: GameContext) -> GameAction:
 		# 2. 表现层实例化 UI (模仿 draw 的过程)
 		if ui:
 			# 为了让 UI 正确显示，我们需要像主 UI 那样实例化一个卡牌
-			# 这里直接借用信号可能更优雅，但为了即时性，我们通知 battle_manager 发出一个 item_drawn 信号也可以
-			# 但最直接的是让 UI 增加一个视觉项
-			# 这里简单的做法是：告诉 battle_manager 再给一个 item
 			context.battle.item_drawn.emit(duplicate_data)
 			
 	return null

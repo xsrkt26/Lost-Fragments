@@ -63,18 +63,22 @@ func _on_game_over():
 func _on_item_drawn(item_data: ItemData):
 	var item_ui_scene = load("res://src/ui/item/item_ui.tscn")
 	var card = item_ui_scene.instantiate()
-	
+
 	# 将卡牌放入 UI 层
 	add_child(card)
-	card.setup(item_data)
-	
+	card.setup(item_data, battle_manager.context)
 	# 初始位置：抽卡区中心
 	var dc_panel = $ContentLayer/DreamcatcherPanel
 	var draw_center = dc_panel.global_position + dc_panel.size / 2.0
 	card.global_position = draw_center - card.custom_minimum_size / 2.0
 	
 	# 连接拖拽信号
-	card.dropped.connect(func(snap_pos, mouse_pos): _handle_item_dropped(card, snap_pos, mouse_pos))
+	card.dropped.connect(func(_snap_pos, _mouse_pos): _handle_item_dropped(card, _snap_pos, _mouse_pos))
+	card.rotation_requested.connect(_handle_item_rotation_requested)
+
+func _handle_item_rotation_requested(item_ui: Control, target_root_center: Vector2, target_global_pos: Vector2):
+	if battle_manager and battle_manager.has_method("request_rotate_item"):
+		battle_manager.request_rotate_item(item_ui, target_root_center, target_global_pos)
 
 func _handle_item_dropped(item_ui: Control, snap_pos: Vector2, mouse_pos: Vector2):
 	# 1. 检查是否掉落在垃圾桶
