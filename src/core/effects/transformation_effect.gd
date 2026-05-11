@@ -27,9 +27,10 @@ func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackMa
 		var ui = context.battle.backpack_ui
 		if ui:
 			# 这里为了简单，我们让 UI 重新刷新该格子的表现
-			var old_runtime_id = instance.data.runtime_id
-			var new_instance = manager.grid[instance.root_pos]
-			new_instance.data.runtime_id = old_runtime_id # 保持 ID 连贯性，防止 UI 映射丢失
+			if manager.grid.has(instance.root_pos):
+				var old_runtime_id = instance.data.runtime_id
+				var new_instance = manager.grid[instance.root_pos]
+				new_instance.data.runtime_id = old_runtime_id # 保持 ID 连贯性，防止 UI 映射丢失
 			pass
 			
 	var action = GameAction.new(GameAction.Type.NUMERIC, "物品变身")

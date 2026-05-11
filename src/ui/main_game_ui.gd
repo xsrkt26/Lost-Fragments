@@ -14,24 +14,20 @@ func _ready():
 	print("[MainGameUI Debug] UI初始化开始...")
 	# 检查关键节点是否成功获取
 	if draw_button:
-		print("[MainGameUI Debug] 发现抽卡按钮节点: ", draw_button.get_path())
-		print("[MainGameUI Debug] 按钮当前 Mouse Filter: ", draw_button.mouse_filter)
-		print("[MainGameUI Debug] 按钮当前尺寸: ", draw_button.size)
 		# 强制确保按钮是可见的且接收鼠标
 		draw_button.visible = true
-	else:
-		print("[MainGameUI Debug] 警告: 未找到抽卡按钮节点！检查节点路径。")
-
+	
 	# 容错：自动初始化逻辑
 	await get_tree().create_timer(0.1).timeout
 	if battle_manager == null:
-		print("[MainGameUI Debug] 正在启动自初始化...")
 		var mock_manager = BattleManager.new()
 		add_child(mock_manager)
 		setup(mock_manager)
 
 func setup(p_battle_manager: BattleManager):
 	print("[MainGameUI] 正在执行 setup...")
+	GlobalInput.set_context(GlobalInput.Context.BATTLE)
+	GlobalAudio.play_bgm("battle")
 	battle_manager = p_battle_manager
 	
 	if backpack_ui == null:
@@ -57,8 +53,7 @@ func _on_game_over():
 	if rm:
 		rm.fail_run()
 	
-	# 此处后续可以添加死亡动画
-	get_tree().change_scene_to_file("res://src/ui/main_menu/main_menu.tscn")
+	GlobalScene.transition_to(GlobalScene.SceneType.MAIN_MENU)
 
 func _on_item_drawn(item_data: ItemData):
 	var item_ui_scene = load("res://src/ui/item/item_ui.tscn")
@@ -67,30 +62,39 @@ func _on_item_drawn(item_data: ItemData):
 	# 将卡牌放入 UI 层
 	add_child(card)
 	card.setup(item_data, battle_manager.context)
+	
+	# --- 核心适配：同步背包缩放 ---
+	card.scale = Vector2(0.7, 0.7)
+	
 	# 初始位置：抽卡区中心
 	var dc_panel = $ContentLayer/DreamcatcherPanel
-	var draw_center = dc_panel.global_position + dc_panel.size / 2.0
-	card.global_position = draw_center - card.custom_minimum_size / 2.0
+	var draw_center = dc_panel.global_position + (dc_panel.size * dc_panel.scale) / 2.0
+	card.global_position = draw_center - (card.size * card.scale) / 2.0
 	
 	# 连接拖拽信号
 	card.dropped.connect(func(_snap_pos, _mouse_pos): _handle_item_dropped(card, _snap_pos, _mouse_pos))
+	card.drag_moved.connect(func(_item_ui, _center_pos): _handle_item_dragged(_item_ui, _center_pos))
 	card.rotation_requested.connect(_handle_item_rotation_requested)
 
-func _handle_item_rotation_requested(item_ui: Control, target_root_center: Vector2, target_global_pos: Vector2):
+func _handle_item_dragged(item_ui: Control, center_pos: Vector2):
+	var grid_pos = backpack_ui.get_grid_pos_at(center_pos)
+	backpack_ui.highlight_placement(grid_pos, item_ui.item_data)
+
+func _handle_item_rotation_requested(item_ui: Control, mouse_global_pos: Vector2, pivot_offset: Vector2i):
 	if battle_manager and battle_manager.has_method("request_rotate_item"):
-		battle_manager.request_rotate_item(item_ui, target_root_center, target_global_pos)
+		battle_manager.request_rotate_item(item_ui, mouse_global_pos, pivot_offset)
 
 func _handle_item_dropped(item_ui: Control, snap_pos: Vector2, mouse_pos: Vector2):
+	backpack_ui.update_slot_visuals() # 清除高亮
+	
 	# 1. 检查是否掉落在垃圾桶
 	if trash_bin.get_global_rect().has_point(mouse_pos):
-		print("[UI] 检测到物品掉入垃圾桶: ", item_ui.item_data.item_name)
 		if battle_manager:
 			battle_manager.request_discard_item(item_ui)
 		return
 		
-	# 2. 检查是否掉落在饰品区 (且不是垃圾桶)
+	# 2. 检查是否掉落在饰品区
 	if ornaments_area.get_global_rect().has_point(mouse_pos):
-		print("[UI] 检测到物品试图装备到饰品区: ", item_ui.item_data.item_name)
 		if battle_manager and battle_manager.has_method("request_equip_ornament"):
 			battle_manager.request_equip_ornament(item_ui)
 		return
@@ -99,17 +103,22 @@ func _handle_item_dropped(item_ui: Control, snap_pos: Vector2, mouse_pos: Vector
 	backpack_ui.handle_item_dropped(item_ui, snap_pos)
 
 func _on_draw_button_pressed():
-	print("[MainGameUI Debug] >>> 捕梦按钮被物理点击了！信号接收成功 <<<")
-	
 	if battle_manager:
-		print("[MainGameUI Debug] 正在向 BattleManager 发起 request_draw...")
 		battle_manager.request_draw()
-	else:
-		print("[MainGameUI Debug] 错误: BattleManager 丢失，无法执行抽卡逻辑。")
+
+func _input(event):
+	# 输入权限检查
+	if not GlobalInput.can_cancel(): return
+
+	# ESC 键撤退回整备室
+	if event.is_action_pressed("ui_cancel") or Input.is_key_pressed(KEY_ESCAPE):
+		_return_to_hub()
 
 func _on_menu_button_pressed():
-	print("[MainGameUI] 玩家选择暂时离开战斗，返回整备室...")
-	get_tree().change_scene_to_file("res://src/ui/hub/hub_scene.tscn")
+	_return_to_hub()
+
+func _return_to_hub():
+	GlobalScene.transition_to(GlobalScene.SceneType.HUB)
 
 func _on_sanity_changed(new_val):
 	var gs = get_node("/root/GameState")
@@ -135,11 +144,8 @@ func _update_stats_display(_san, score):
 		_on_victory()
 
 func _on_victory():
-	print("[MainGameUI] 目标达成！战斗胜利。")
 	var rm = get_node_or_null("/root/RunManager")
 	if rm:
-		# 奖励碎片：基础 5 + 深度加成
 		rm.win_battle(5 + rm.current_depth * 2)
 		
-	# 胜利后返回整备室 (Hub)
-	get_tree().change_scene_to_file("res://src/ui/hub/hub_scene.tscn")
+	GlobalScene.transition_to(GlobalScene.SceneType.HUB)

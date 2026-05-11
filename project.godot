@@ -21,6 +21,12 @@ GameState="*uid://dxekfekt4thuq"
 RunManager="*res://src/autoload/run_manager.gd"
 ItemDatabase="*uid://bg6qsm41jyvxw"
 GlobalEventBus="*uid://c2ec3e0atxdld"
+GlobalInput="*uid://bsdlowu53gs5r"
+GlobalAudio="*res://src/autoload/audio_manager.gd"
+SettingsManager="*res://src/autoload/settings_manager.gd"
+GlobalScene="*uid://b0gu2l63dmu42"
+GlobalTooltip="*res://src/autoload/tooltip_manager.gd"
+GlobalFeedback="*res://src/autoload/feedback_manager.gd"
 
 [display]
 
@@ -28,10 +34,6 @@ window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-
-[editor]
-
-version_control/autoload_on_startup=true
 
 [editor_plugins]
 

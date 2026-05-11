@@ -2,7 +2,7 @@ class_name BackpackManager
 extends Node
 
 ## 内部类，记录物品在网格中的实例信息
-class ItemInstance extends Object:
+class ItemInstance extends RefCounted:
 	signal pollution_changed(new_val: int)
 	
 	var data: ItemData
@@ -24,17 +24,39 @@ class ItemInstance extends Object:
 		# 现在 setter 会自动处理 guard
 		current_pollution += amount
 
-var grid_width: int = 5
-var grid_height: int = 5
+signal grid_changed
+
+var grid_width: int = 7
+var grid_height: int = 7
+var usable_width: int = 5
+var usable_height: int = 5
 
 ## 核心网格字典：Key 是 Vector2i 坐标，Value 是 ItemInstance
 var grid: Dictionary = {}
 
-func setup_grid(w: int, h: int) -> void:
+func setup_grid(w: int, h: int, uw: int = -1, uh: int = -1) -> void:
 	grid_width = w
 	grid_height = h
+	usable_width = uw if uw > 0 else w
+	usable_height = uh if uh > 0 else h
 	grid.clear()
-	print("[BackpackManager] 网格已初始化: ", w, "x", h)
+	print("[BackpackManager] 网格已初始化. 总大小: ", w, "x", h, " 可用大小: ", usable_width, "x", usable_height)
+	grid_changed.emit()
+
+## 检查是否处于可用区域内 (居中算法)
+func is_pos_usable(pos: Vector2i) -> bool:
+	var start_x = floori((grid_width - usable_width) / 2.0)
+	var start_y = floori((grid_height - usable_height) / 2.0)
+	
+	var is_usable = pos.x >= start_x and pos.x < (start_x + usable_width) and \
+		   pos.y >= start_y and pos.y < (start_y + usable_height)
+	
+	if not is_usable:
+		# 仅在调试时打开，避免日志爆炸
+		# print("[BackpackManager] 检查可用性: ", pos, " -> start(", start_x, ",", start_y, ") usable(", usable_width, "x", usable_height, ") -> ", is_usable)
+		pass
+		
+	return is_usable
 
 ## 检查指定位置是否可以放置该物品
 func can_place_item(item_data: ItemData, root_pos: Vector2i) -> bool:
@@ -43,12 +65,19 @@ func can_place_item(item_data: ItemData, root_pos: Vector2i) -> bool:
 		
 		# 边界检查
 		if target_pos.x < 0 or target_pos.x >= grid_width or target_pos.y < 0 or target_pos.y >= grid_height:
-			print("[BackpackManager] 放置拒绝: 坐标 ", target_pos, " 超出边界 (", grid_width, "x", grid_height, ")")
+			print("[BackpackManager] 放置拒绝: 坐标 ", target_pos, " 超出物理边界 (", grid_width, "x", grid_height, ")")
 			return false
 			
+		# 可用区域检查
+		if not is_pos_usable(target_pos):
+			print("[BackpackManager] 放置拒绝: 坐标 ", target_pos, " 处于未解锁区域")
+			return false
+
 		# 重叠检查
 		if grid.has(target_pos):
-			print("[BackpackManager] 放置拒绝: 坐标 ", target_pos, " 已有物品: ", grid[target_pos].data.item_name)
+			if item_data.runtime_id != -1 and grid[target_pos].data.runtime_id == item_data.runtime_id:
+				continue
+			print("[BackpackManager] 放置拒绝: 坐标 ", target_pos, " 已有物品: ", grid[target_pos].data.item_name, " (拖拽ID: ", item_data.runtime_id, ", 网格ID: ", grid[target_pos].data.runtime_id, ")")
 			return false
 			
 	return true
@@ -62,12 +91,15 @@ func place_item(item_data: ItemData, root_pos: Vector2i) -> bool:
 	# 每一个进入背包的物品都必须是唯一的副本，
 	# 这样修改这一张卡的属性（如强化、诅咒）才不会影响到其他同类卡。
 	var unique_data = item_data.duplicate(true)
+	if unique_data.runtime_id <= 0:
+		unique_data.runtime_id = randi()
 	
 	var instance = ItemInstance.new(unique_data, root_pos)
 	for offset in unique_data.shape:
 		var target_pos = root_pos + offset
 		grid[target_pos] = instance
-		
+	
+	grid_changed.emit()
 	return true
 
 ## 替换指定位置物品的数据 (用于变身、进化等逻辑)
@@ -81,9 +113,13 @@ func replace_item_data(pos: Vector2i, new_data: ItemData):
 	# 如果形状一致，直接修改 data 即可
 	if instance.data.shape == new_data.shape:
 		instance.data = new_data.duplicate(true)
+		grid_changed.emit()
 	else:
-		remove_item_at(root_pos)
-		place_item(new_data, root_pos)
+		var old_data = remove_item_at(root_pos)
+		if not place_item(new_data, root_pos):
+			# 如果新形状放不下，回退到原物品
+			print("[BackpackManager] 变身/替换失败，空间不足，回退。")
+			place_item(old_data, root_pos)
 
 ## 根据运行时 ID 彻底移除物品 (最高优先级，防任何引用误差)
 func remove_by_runtime_id(rid: int):
@@ -99,6 +135,7 @@ func remove_by_runtime_id(rid: int):
 	
 	if not keys_to_remove.is_empty():
 		print("[BackpackManager] 已根据 RID ", rid, " 清理网格格子数: ", keys_to_remove.size())
+		grid_changed.emit()
 
 ## 彻底从网格中移除某个物品实例 (防幽灵算法)
 func remove_instance(instance: ItemInstance):

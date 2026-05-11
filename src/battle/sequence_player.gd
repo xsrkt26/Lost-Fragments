@@ -2,6 +2,7 @@ class_name SequencePlayer
 extends Node
 
 ## 序列播放器：负责按顺序执行 Action 并播放对应的动画表现
+## 集成了音频触发和全局视觉反馈
 
 signal sequence_finished
 
@@ -24,35 +25,46 @@ func _execute_action(action: GameAction):
 		var rid = action.item_instance.data.runtime_id
 		if node_map.has(rid):
 			target_ui = node_map[rid]
-			print("[Seq Debug] 执行动作: ", action.description, " | 目标 UI: ", target_ui.name, " (", target_ui.item_data.item_name, ")")
-		else:
-			# 只有当确实应该有节点却没找到时才打印调试信息
-			print("[Seq Debug] 找不到映射关系! RID: ", rid, " | Action: ", action.description)
 
 	match action.type:
 		GameAction.Type.IMPACT:
+			# 视觉与音频反馈：撞击感
+			GlobalAudio.play_sfx("hit")
+			GlobalFeedback.shake_screen(4.0, 0.15)
+			
 			if target_ui:
 				await target_ui.play_impact_anim()
 			else:
-				# 如果是起始动作（没有 item_instance），静默等待即可，不视为错误
 				if action.item_instance == null:
-					# print("[Seq] 序列开始: ", action.value.pos if action.value else "")
 					await get_tree().create_timer(0.1).timeout
 				else:
-					var pos_str = str(action.value.pos) if (action.value is Dictionary and action.value.has("pos")) else "Unknown"
-					print("[Seq] 警告: 找不到物品 UI 节点，跳过动画. Pos: ", pos_str)
 					await get_tree().create_timer(0.2).timeout
 				
 		GameAction.Type.NUMERIC:
+			var data = action.value
+			var amount = data.get("amount", 0)
+			
+			# 视觉与音频反馈：数值变动
+			if data.type == "score" and amount > 0:
+				GlobalAudio.play_sfx("score")
+				if target_ui:
+					GlobalFeedback.show_text("+%d" % amount, target_ui.global_position + target_ui.size/2, GlobalFeedback.TextType.SCORE)
+			elif data.type == "sanity":
+				if target_ui:
+					var prefix = "+" if amount > 0 else ""
+					GlobalFeedback.show_text("%s%d San" % [prefix, amount], target_ui.global_position + target_ui.size/2, GlobalFeedback.TextType.SANITY)
+
+			# 播放物体本身的闪烁动画
 			if target_ui:
 				await target_ui.play_effect_anim()
+			
+			# 实际执行数值修改
 			_apply_numeric_change(action)
 			await get_tree().create_timer(0.1).timeout
 
 func _apply_numeric_change(action: GameAction):
 	var data = action.value
 	if not context:
-		print("[Seq] 警告: 未注入 GameContext，跳过数值结算")
 		return
 
 	if data.type == "score":

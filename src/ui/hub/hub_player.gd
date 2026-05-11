@@ -5,6 +5,14 @@ extends CharacterBody2D
 @export var gravity: float = 1200.0
 
 func _physics_process(delta):
+	# 0. 输入状态检查
+	if not GlobalInput.can_move():
+		velocity.x = 0 # 强制静止
+		if not is_on_floor():
+			velocity.y += gravity * delta
+		move_and_slide()
+		return
+
 	# 1. 处理重力（确保踩在地板上）
 	if not is_on_floor():
 		velocity.y += gravity * delta

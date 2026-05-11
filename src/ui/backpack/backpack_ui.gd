@@ -9,14 +9,26 @@ signal item_dropped_on_grid(item_ui: Control, grid_pos: Vector2i)
 @export var grid_container_path: NodePath = "GridContainer"
 @onready var grid_container: GridContainer = get_node(grid_container_path)
 
+const COLOR_LOCKED = Color(0, 0, 0, 0.6)
+const COLOR_EMPTY = Color(1, 1, 1, 0.05)
+const COLOR_OCCUPIED = Color(0.2, 0.5, 0.8, 0.2) # 蓝色表示已有物品
+const COLOR_VALID = Color(0.2, 0.8, 0.2, 0.4)   # 绿色表示可放置
+const COLOR_INVALID = Color(0.8, 0.2, 0.2, 0.4) # 红色表示不可用
+
 var context: GameContext
 var manager: BackpackManager # 仅用于读取网格尺寸等基础信息
 var item_ui_map: Dictionary = {}
+var grid_step = Vector2(103.2857, 97.7142)
 
 func setup(p_context: GameContext):
 	print("[BackpackUI] 接收到 Context，正在执行 setup...")
 	context = p_context
 	manager = context.battle.backpack_manager
+	
+	if manager:
+		if not manager.grid_changed.is_connected(update_slot_visuals):
+			manager.grid_changed.connect(update_slot_visuals)
+	
 	_refresh_grid()
 
 func _refresh_grid():
@@ -29,18 +41,55 @@ func _refresh_grid():
 		child.queue_free()
 	
 	grid_container.columns = manager.grid_width
+	grid_container.add_theme_constant_override("h_separation", 0)
+	grid_container.add_theme_constant_override("v_separation", 0)
+	
 	for i in range(manager.grid_width * manager.grid_height):
+		var pos = Vector2i(i % manager.grid_width, floori(float(i) / manager.grid_width))
 		var slot = ColorRect.new()
-		slot.custom_minimum_size = Vector2(64, 64)
-		slot.color = Color(1, 1, 1, 0.1)
-		var border = ReferenceRect.new()
-		border.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		border.border_color = Color.GRAY
-		border.editor_only = false
-		slot.add_child(border)
+		slot.custom_minimum_size = grid_step
+		slot.name = "Slot_%d_%d" % [pos.x, pos.y]
 		grid_container.add_child(slot)
 	
+	update_slot_visuals()
 	print("[BackpackUI] 网格刷新完成，子节点数: ", grid_container.get_child_count())
+
+## 更新所有格子的基础颜色（锁定/空闲/占用）
+func update_slot_visuals(ignore_item_data: ItemData = null):
+	if not manager: return
+	
+	for i in range(grid_container.get_child_count()):
+		var slot = grid_container.get_child(i) as ColorRect
+		var pos = Vector2i(i % manager.grid_width, floori(float(i) / manager.grid_width))
+		
+		if not manager.is_pos_usable(pos):
+			slot.color = COLOR_LOCKED
+		elif manager.grid.has(pos):
+			var occupied_item = manager.grid[pos].data
+			if ignore_item_data and ignore_item_data.runtime_id != -1 and occupied_item.runtime_id == ignore_item_data.runtime_id:
+				slot.color = COLOR_EMPTY # 如果是自己正在被拖拽，原地显示为空闲
+			else:
+				slot.color = COLOR_OCCUPIED
+		else:
+			slot.color = COLOR_EMPTY
+
+## 高亮显示预测的放置结果 (由外部在 Drag 过程中调用)
+func highlight_placement(root_pos: Vector2i, item_data: ItemData):
+	update_slot_visuals(item_data) # 先重置，并忽略当前拖拽物品的占位
+	
+	if root_pos == Vector2i(-1, -1): return
+	
+	var can_place = manager.can_place_item(item_data, root_pos)
+	var highlight_color = COLOR_VALID if can_place else COLOR_INVALID
+	
+	for offset in item_data.shape:
+		var target_pos = root_pos + offset
+		if target_pos.x >= 0 and target_pos.x < manager.grid_width and \
+		   target_pos.y >= 0 and target_pos.y < manager.grid_height:
+			var index = target_pos.y * manager.grid_width + target_pos.x
+			var slot = grid_container.get_child(index) as ColorRect
+			slot.color = highlight_color
+
 
 func get_slot_center_position(grid_pos: Vector2i) -> Vector2:
 	if not manager or grid_pos.x < 0 or grid_pos.y < 0: return Vector2.ZERO
@@ -53,7 +102,7 @@ func get_slot_center_position(grid_pos: Vector2i) -> Vector2:
 func get_grid_pos_at(global_pos: Vector2) -> Vector2i:
 	var closest_pos = Vector2i(-1, -1)
 	var min_dist = 99999.0
-	var threshold = 120.0 # 提高阈值，让吸附更灵敏
+	var threshold = 100.0 # 缩小阈值适配更小的格子
 	
 	for i in range(grid_container.get_child_count()):
 		var slot = grid_container.get_child(i) as Control
@@ -78,6 +127,9 @@ func add_item_visual(item_ui: Control, grid_pos: Vector2i):
 		if item_ui.get_parent(): item_ui.get_parent().remove_child(item_ui)
 		add_child(item_ui)
 	
+	# 重置本地缩放，因为它现在继承了 BackpackUI 的父级缩放 (0.7)
+	item_ui.scale = Vector2.ONE
+	
 	grid_container.force_update_transform()
 	await get_tree().process_frame
 	
@@ -88,11 +140,9 @@ func add_item_visual(item_ui: Control, grid_pos: Vector2i):
 		min_offset.x = min(min_offset.x, p.x)
 		min_offset.y = min(min_offset.y, p.y)
 	
-	# UI 的位置应基于起始格子的位置，并减去形状的最小偏移（转换为像素）
-	var grid_step = 68.0 # 64 + 4 间隔
 	var index = grid_pos.y * manager.grid_width + grid_pos.x
 	var slot = grid_container.get_child(index) as Control
-	item_ui.position = slot.position + Vector2(min_offset) * grid_step
+	item_ui.position = slot.position + Vector2(min_offset.x * grid_step.x, min_offset.y * grid_step.y)
 
 ## 同步最新的映射关系（当 Data 被克隆后调用）
 func update_item_mapping(old_data: ItemData, new_data: ItemData):

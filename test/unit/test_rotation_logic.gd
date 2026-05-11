@@ -11,14 +11,17 @@ class MockItemUI extends Control:
 
 class MockBackpackUI extends Control:
 	var item_ui_map = {}
-	var grid_width = 5
-	var grid_height = 5
+	var grid_width = 7
+	var grid_height = 7
 	
+	# UI 3.0 尺寸 (适配 7x7 塞入 723x684)
+	const GRID_STEP = Vector2(103.2857, 97.7142)
+	const SLOT_HALF = Vector2(51.6428, 48.8571)
+
 	func setup(_context): pass
 	
 	func get_grid_pos_at(center_pos: Vector2) -> Vector2i:
-		var grid_step = 68.0
-		var res = Vector2i(floori(center_pos.x / grid_step), floori(center_pos.y / grid_step))
+		var res = Vector2i(floori(center_pos.x / GRID_STEP.x), floori(center_pos.y / GRID_STEP.y))
 		if res.x < 0 or res.x >= grid_width or res.y < 0 or res.y >= grid_height:
 			return Vector2i(-1, -1)
 		return res
@@ -53,87 +56,92 @@ func test_item_data_rotation_square_no_shape_change():
 
 func test_backpack_remove_by_runtime_id():
 	var manager = autofree(BackpackManager.new())
-	manager.setup_grid(5, 5)
+	manager.setup_grid(7, 7, 5, 5)
 	
 	var item = ItemData.new()
 	item.runtime_id = 12345
 	item.shape = [Vector2i(0, 0), Vector2i(0, 1)] as Array[Vector2i]
 	
-	manager.place_item(item, Vector2i(0, 0))
-	assert_true(manager.grid.has(Vector2i(0, 0)))
+	manager.place_item(item, Vector2i(1, 1))
+	assert_true(manager.grid.has(Vector2i(1, 1)))
 	
 	manager.remove_by_runtime_id(12345)
-	assert_false(manager.grid.has(Vector2i(0, 0)))
+	assert_false(manager.grid.has(Vector2i(1, 1)))
 
 func test_rotation_success_mid_grid_1x3():
-	# 场景：1x3 横向在 (1,1)，点中 (2,1) 旋转
 	var manager = autofree(BattleManager.new())
 	add_child(manager)
-	manager.backpack_manager.setup_grid(5, 5)
+	manager.backpack_manager.setup_grid(7, 7, 5, 5)
 	var mock_bp_ui = autofree(MockBackpackUI.new())
 	add_child(mock_bp_ui)
 	manager.backpack_ui = mock_bp_ui
 	
 	var plank = ItemData.new(); plank.runtime_id = 201
 	plank.shape = [Vector2i(0,0), Vector2i(1,0), Vector2i(2,0)] as Array[Vector2i]
-	manager.backpack_manager.place_item(plank, Vector2i(1, 1))
+	manager.backpack_manager.place_item(plank, Vector2i(1, 2))
 	
-	var rotated_data = manager.backpack_manager.grid[Vector2i(1,1)].data
-	rotated_data.rotate_90()
+	var rotated_data = manager.backpack_manager.grid[Vector2i(1, 2)].data
+	# 测试逻辑现在由 manager 内部处理旋转
+
 	
 	var mock_ui = autofree(MockItemUI.new())
 	mock_ui.item_data = rotated_data
 	
-	# 以 (2,1) 为轴旋转：新 root 应在 (2,0)
-	# (2,0) 中心 = (170, 34)
-	manager.request_rotate_item(mock_ui, Vector2(170, 34), Vector2(136, 0))
+	# 以 (2,2) 为中心旋转：新 root 应在 (2,1)
+	# (2,2) 中心 = (2 * 103.2857 + 51.6428, 2 * 97.7142 + 48.8571) = (258.2142, 244.2855)
+	# 相对 root_pos(1,2) 的 pivot_offset 为 (1,0)
+	manager.request_rotate_item(mock_ui, Vector2(258.2142, 244.2855), Vector2i(1, 0))
 	
 	assert_not_null(mock_ui.item_instance)
-	assert_eq(manager.backpack_manager.grid[Vector2i(2,0)].root_pos, Vector2i(2, 0))
+	assert_eq(manager.backpack_manager.grid[Vector2i(2, 1)].root_pos, Vector2i(2, 1))
 
 func test_rotation_failure_right_edge():
-	# 场景：1x2 竖放在 (4,0)，右旋出界
 	var manager = autofree(BattleManager.new())
 	add_child(manager)
-	manager.backpack_manager.setup_grid(5, 5)
-	manager.backpack_ui = autofree(MockBackpackUI.new())
-	add_child(manager.backpack_ui)
+	manager.backpack_manager.setup_grid(7, 7, 5, 5) # 5x5 可用
+	var mock_bp_ui = autofree(MockBackpackUI.new())
+	add_child(mock_bp_ui)
+	manager.backpack_ui = mock_bp_ui
 	
 	var can = ItemData.new(); can.runtime_id = 301
 	can.shape = [Vector2i(0,0), Vector2i(0,1)] as Array[Vector2i]
-	manager.backpack_manager.place_item(can, Vector2i(4, 0))
+	manager.backpack_manager.place_item(can, Vector2i(5, 1)) # 占据 (5,1), (5,2)
 	
-	var data = manager.backpack_manager.grid[Vector2i(4,0)].data
-	data.rotate_90()
+	var data = manager.backpack_manager.grid[Vector2i(5, 1)].data
+	# 测试逻辑现在由 manager 内部处理旋转
 	
 	var mock_ui = autofree(MockItemUI.new())
 	mock_ui.item_data = data
-	# 以 (4,0) 为轴旋转 -> 尝试占用 (4,0), (5,0)
-	manager.request_rotate_item(mock_ui, Vector2(306, 34), Vector2(272, 0))
+	# 以 (5,2) 为中心旋转 (pivot_offset = 0,1)
+	# 旋转后新 pivot offset 为 (0,0), 新 root_pos 为 (5,2) - (0,0) = (5,2)
+	# 占用 (5,2), (6,2)，其中 x=6 处于未解锁区域，预期被弹出
+	# (5,2) 中心 = (5 * 103.2857 + 51.6428, 2 * 97.7142 + 48.8571) = (568.0713, 244.2855)
+	manager.request_rotate_item(mock_ui, Vector2(568.0713, 244.2855), Vector2i(0, 1))
 	
-	assert_null(mock_ui.item_instance, "Should pop out at edge")
+	assert_null(mock_ui.item_instance, "Should pop out at locked edge")
 
 func test_rotation_failure_collision():
-	# 场景：(2,1) 有障碍，(1,1) 处 1x2 旋转撞击它
 	var manager = autofree(BattleManager.new())
 	add_child(manager)
-	manager.backpack_manager.setup_grid(5, 5)
-	manager.backpack_ui = autofree(MockBackpackUI.new())
-	add_child(manager.backpack_ui)
+	manager.backpack_manager.setup_grid(7, 7, 5, 5)
+	var mock_bp_ui = autofree(MockBackpackUI.new())
+	add_child(mock_bp_ui)
+	manager.backpack_ui = mock_bp_ui
 	
 	var obstacle = ItemData.new(); obstacle.runtime_id = 999; obstacle.shape = [Vector2i(0,0)] as Array[Vector2i]
-	manager.backpack_manager.place_item(obstacle, Vector2i(2, 1))
+	manager.backpack_manager.place_item(obstacle, Vector2i(2, 2))
 	
 	var can = ItemData.new(); can.runtime_id = 401; can.shape = [Vector2i(0,0), Vector2i(0,1)] as Array[Vector2i]
-	manager.backpack_manager.place_item(can, Vector2i(1, 1))
+	manager.backpack_manager.place_item(can, Vector2i(1, 2)) # 占据 (1,2), (1,3)
 	
-	var data = manager.backpack_manager.grid[Vector2i(1,1)].data
-	data.rotate_90()
+	var data = manager.backpack_manager.grid[Vector2i(1, 2)].data
+	# 测试逻辑现在由 manager 内部处理旋转
 	
 	var mock_ui = autofree(MockItemUI.new())
 	mock_ui.item_data = data
-	# 尝试占用 (1,1), (2,1) -> 撞到 obstacle
-	manager.request_rotate_item(mock_ui, Vector2(102, 102), Vector2(68, 68))
+	# 尝试从 (1,2) 开始占用 (1,2) 和 (2,2) -> 撞到 obstacle
+	# 以 (1,2) 为中心，中心 = (1 * 103.2857 + 51.6428, 2 * 97.7142 + 48.8571) = (154.9285, 244.2855)
+	manager.request_rotate_item(mock_ui, Vector2(154.9285, 244.2855), Vector2i(0, 0))
 	
 	assert_null(mock_ui.item_instance, "Should pop out due to collision")
 

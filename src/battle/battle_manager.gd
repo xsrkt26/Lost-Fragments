@@ -2,7 +2,7 @@ class_name BattleManager
 extends Node
 
 ## 战斗管理器：游戏的逻辑中枢 (Controller)
-## 负责协调背包数据、撞击解析和动画序列播放
+## 负责协调 backpack 数据、碰撞解析、序列播放和音频触发
 
 signal turn_started
 signal turn_finished
@@ -17,12 +17,17 @@ var backpack_ui: Control: # 保持 Control 以兼容 Mock 测试
 			if backpack_ui.has_method("setup"):
 				backpack_ui.setup(context)
 
+# UI 3.0 尺寸适配 (原始素材像素)
+const GRID_STEP = Vector2(103.2857, 97.7142)
+const SLOT_HALF = Vector2(51.6428, 48.8571)
+
 func _init():
 	print("[BattleManager] 正在初始化逻辑数据...")
 	# 初始化逻辑数据
 	backpack_manager = BackpackManager.new()
 	add_child(backpack_manager)
-	backpack_manager.setup_grid(5, 5)
+	# 7x7 总格，5x5 可用
+	backpack_manager.setup_grid(7, 7, 5, 5)
 
 # --- 运行相关的逻辑变量 ---
 var _current_battle_deck: Array[String] = []
@@ -56,8 +61,7 @@ func _initialize_battle_data():
 		print("[BattleManager] 警告: 未找到 RunManager，使用空卡包运行。")
 
 ## 处理物品在背包内被旋转的逻辑请求
-## 使用 Control 类型以允许 Mock 注入
-func request_rotate_item(item_ui: Control, target_root_center: Vector2, target_global_pos: Vector2):
+func request_rotate_item(item_ui: Control, mouse_global_pos: Vector2, pivot_offset: Vector2i):
 	var item_data = item_ui.get("item_data") as ItemData
 	if not item_data: return
 	
@@ -65,25 +69,33 @@ func request_rotate_item(item_ui: Control, target_root_center: Vector2, target_g
 	
 	var old_pos = _find_item_old_pos(item_data)
 	if old_pos != Vector2i(-1, -1):
-		# 1. 尝试将物品从逻辑中移除 (使用 RID 移除法，绝对防幽灵)
+		# 1. 尝试将物品从逻辑中移除
 		backpack_manager.remove_by_runtime_id(item_data.runtime_id)
 	
 	if not is_instance_valid(backpack_ui):
 		return
 		
-	# 2. 精确计算新的 root_pos (纯逻辑换算，杜绝 UI 吸附修正导致的误判)
-	var bp_rect = backpack_ui.get_global_rect()
-	var local_pixel_pos = target_root_center - bp_rect.position
+	# 保存旋转前的状态
+	var old_direction = item_data.direction
+	var old_shape = item_data.shape.duplicate()
 	
-	var grid_step = 68.0
-	var new_root_pos = Vector2i(
-		roundi((local_pixel_pos.x - 34.0) / grid_step),
-		roundi((local_pixel_pos.y - 34.0) / grid_step)
-	)
+	# 预测新局部偏移量 (如果旋转的话)
+	var new_pivot_offset = item_data.get_rotated_offset(pivot_offset)
+		
+	# 真正执行旋转
+	item_data.rotate_90()
+	if item_ui.has_method("_sync_visuals"):
+		item_ui._sync_visuals()
+		
+	# 2. 精确计算新的 root_pos 
+	var mouse_grid_pos = backpack_ui.get_grid_pos_at(mouse_global_pos)
+	var new_root_pos = mouse_grid_pos - new_pivot_offset
 	
 	if backpack_manager.can_place_item(item_data, new_root_pos):
 		# 3a. 碰撞检测通过：放回去
 		backpack_manager.place_item(item_data, new_root_pos)
+		GlobalAudio.play_sfx("place")
+		
 		var new_instance = backpack_manager.grid[new_root_pos]
 		item_ui.set("item_instance", new_instance)
 		item_ui.set("item_data", new_instance.data)
@@ -93,21 +105,14 @@ func request_rotate_item(item_ui: Control, target_root_center: Vector2, target_g
 			backpack_ui.add_item_visual(item_ui, new_root_pos)
 		print("[BattleManager] 旋转成功，新位置: ", new_root_pos)
 	else:
-		# 3b. 碰撞检测失败：强制弹出
-		print("[BattleManager] 旋转导致碰撞/出界，物品被弹出背包。")
-		if item_ui.get_parent() == backpack_ui:
-			backpack_ui.remove_child(item_ui)
-			if get_tree() and get_tree().current_scene:
-				get_tree().current_scene.add_child(item_ui)
-			else:
-				get_parent().add_child(item_ui)
+		# 3b. 碰撞检测失败：恢复状态并强制弹出 (符合用户对“失败弹出”位置的需求)
+		item_data.direction = old_direction
+		item_data.shape = old_shape
+		if item_ui.has_method("_sync_visuals"):
+			item_ui._sync_visuals()
 			
-		item_ui.set("item_instance", null)
-		item_ui.global_position = Vector2(bp_rect.end.x + 50, bp_rect.position.y + 100)
-		
-		var tween = create_tween()
-		tween.tween_property(item_ui, "scale", Vector2(1.1, 1.1), 0.1)
-		tween.tween_property(item_ui, "scale", Vector2(1.0, 1.0), 0.1)
+		print("[BattleManager] 旋转导致碰撞/出界，强制弹出到侧边。")
+		_handle_place_failure(item_ui, Vector2i(-1, -1), [])
 
 ## 处理玩家放置物品的逻辑请求
 func request_place_item(item_ui: Control, grid_pos: Vector2i):
@@ -121,14 +126,18 @@ func request_place_item(item_ui: Control, grid_pos: Vector2i):
 		_handle_place_failure(item_ui, old_pos, old_shape)
 		return
 
+	# 在检查可放置性之前，先把物品从网格中临时移除
+	# 这样拖拽多格物品时就不会和它自己原本的格子发生碰撞
 	if old_pos != Vector2i(-1, -1):
 		backpack_manager.remove_by_runtime_id(item_data.runtime_id)
 
 	if not backpack_manager.can_place_item(item_data, grid_pos):
+		# 如果放置失败，_handle_place_failure 会负责把它放回 old_pos
 		_handle_place_failure(item_ui, old_pos, old_shape)
 		return
 	
 	backpack_manager.place_item(item_data, grid_pos)
+	GlobalAudio.play_sfx("place")
 	
 	var bus = get_node_or_null("/root/GlobalEventBus")
 	if bus:
@@ -162,20 +171,27 @@ func _handle_place_failure(item_ui: Control, old_pos: Vector2i, _old_shape: Arra
 		if is_instance_valid(backpack_ui) and backpack_ui.has_method("add_item_visual"):
 			backpack_ui.add_item_visual(item_ui, old_pos)
 	else:
+		GlobalAudio.play_sfx("error")
 		if item_ui.get_parent() == backpack_ui:
 			backpack_ui.remove_child(item_ui)
-			if get_tree() and get_tree().current_scene:
-				get_tree().current_scene.add_child(item_ui)
+			# 统一回到 ContentLayer (scale 1.0)，避免叠加 GridPanel 的 0.7 缩放
+			var content_layer = backpack_ui.get_parent().get_parent()
+			if content_layer:
+				content_layer.add_child(item_ui)
 			else:
+				# 兜底方案
 				get_parent().add_child(item_ui)
+				
 		item_ui.set("item_instance", null)
+		item_ui.scale = Vector2(0.7, 0.7)
 		
-		var bp_rect = backpack_ui.get_global_rect() if is_instance_valid(backpack_ui) else Rect2(Vector2(500, 500), Vector2(1,1))
-		item_ui.global_position = Vector2(bp_rect.end.x + 50, bp_rect.position.y + 100)
+		# 统一弹出位置：背包左侧一点 (相对 GridPanel 坐标系)
+		var bp_rect = backpack_ui.get_global_rect() if is_instance_valid(backpack_ui) else Rect2(Vector2(500, 300), Vector2(1,1))
+		item_ui.global_position = Vector2(bp_rect.position.x - 180, bp_rect.position.y + 150)
 		
 		var tween = create_tween()
-		tween.tween_property(item_ui, "scale", Vector2(1.1, 1.1), 0.1)
-		tween.tween_property(item_ui, "scale", Vector2(1.0, 1.0), 0.1)
+		tween.tween_property(item_ui, "scale", Vector2(0.77, 0.77), 0.1)
+		tween.tween_property(item_ui, "scale", Vector2(0.7, 0.7), 0.1)
 
 func trigger_impact_at(pos: Vector2i):
 	if not backpack_manager.grid.has(pos):
@@ -188,6 +204,8 @@ func request_draw():
 		_initialize_battle_data()
 	if _current_battle_deck.is_empty():
 		return
+	
+	GlobalAudio.play_sfx("draw")
 	var item_id = _current_battle_deck.pop_back()
 	var item_db = get_node_or_null("/root/ItemDatabase")
 	var item = item_db.get_item_by_id(item_id)
@@ -196,7 +214,9 @@ func request_draw():
 
 func _process_new_item_acquisition(item: ItemData):
 	if not item: return
+	
 	draw_count += 1
+	
 	if item.runtime_id <= 0:
 		item.runtime_id = randi()
 	for effect in item.effects:
@@ -238,7 +258,7 @@ func debug_get_item(item_id: String):
 	if item_db:
 		var item = item_db.get_item_by_id(item_id)
 		if item:
-			item_drawn.emit(item)
+			_process_new_item_acquisition(item)
 
 func debug_clear_all():
 	if backpack_manager:

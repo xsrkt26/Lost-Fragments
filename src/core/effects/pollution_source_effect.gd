@@ -7,7 +7,7 @@ extends ItemEffect
 @export var bonus_score: int = 20
 @export var settlement_threshold: int = 5
 
-func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, resolver: ImpactResolver, _context: GameContext, multiplier: int = 1) -> GameAction:
+func on_hit(_instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, resolver: ImpactResolver, _context: GameContext, multiplier: int = 1) -> GameAction:
 	var backpack = resolver.backpack
 	var all_items = backpack.get_all_instances()
 	

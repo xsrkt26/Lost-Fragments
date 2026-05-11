@@ -23,6 +23,34 @@ enum TransmissionMode { NORMAL, OMNI, NONE }
 @export var hit_filter_tags: Array[String] = [] # 仅能撞击包含这些标签的物品 (为空则撞击所有)
 @export var effects: Array[ItemEffect] = [] # 物品携带的效果列表
 
+## 模拟计算旋转后某个局部偏移量的新位置
+func get_rotated_offset(old_offset: Vector2i) -> Vector2i:
+	if not can_rotate: return old_offset
+	
+	var min_x = 0; var max_x = 0; var min_y = 0; var max_y = 0
+	for p in shape:
+		if p.x < min_x: min_x = p.x
+		if p.x > max_x: max_x = p.x
+		if p.y < min_y: min_y = p.y
+		if p.y > max_y: max_y = p.y
+	
+	var w = max_x - min_x + 1
+	var h = max_y - min_y + 1
+	
+	if w == h and shape.size() == w * h:
+		return old_offset
+		
+	var norm_min_x: int = 0
+	var norm_min_y: int = 0
+	
+	for p in shape:
+		var rotated_p = Vector2i(-p.y, p.x)
+		if rotated_p.x < norm_min_x: norm_min_x = rotated_p.x
+		if rotated_p.y < norm_min_y: norm_min_y = rotated_p.y
+		
+	var rotated_old = Vector2i(-old_offset.y, old_offset.x)
+	return rotated_old - Vector2i(norm_min_x, norm_min_y)
+
 ## 获取用于悬浮窗显示的富文本/详细信息 (预留动态计算空间)
 func get_tooltip_text(_instance = null) -> String:
 	var text = ""
@@ -44,6 +72,22 @@ func get_tooltip_text(_instance = null) -> String:
 	# 		text += "\n" + effect.get_dynamic_desc(instance)
 			
 	return text.strip_edges()
+
+## 获取该物品当前形状的包围盒 (Rect2i)
+func get_bounding_rect() -> Rect2i:
+	if shape.is_empty():
+		return Rect2i(0, 0, 0, 0)
+	
+	var min_pos = shape[0]
+	var max_pos = shape[0]
+	
+	for p in shape:
+		min_pos.x = min(min_pos.x, p.x)
+		min_pos.y = min(min_pos.y, p.y)
+		max_pos.x = max(max_pos.x, p.x)
+		max_pos.y = max(max_pos.y, p.y)
+		
+	return Rect2i(min_pos, max_pos - min_pos + Vector2i(1, 1))
 
 ## 顺时针旋转 90 度
 func rotate_90():
