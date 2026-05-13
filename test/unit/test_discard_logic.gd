@@ -59,7 +59,7 @@ func test_discard_floating_items_at_end():
 func test_on_discard_effect_trigger():
 	var apple_data = item_db.get_item_by_id("apple")
 	
-	gs.current_sanity = 50
+	gs.current_score = 0
 	
 	var script = GDScript.new()
 	script.source_code = "extends Control\nvar item_data\nvar item_instance"
@@ -73,4 +73,4 @@ func test_on_discard_effect_trigger():
 	battle.managed_item_uis = [apple_ui]
 	battle.discard_all_outside_items()
 	
-	assert_eq(gs.current_sanity, 53, "Discarding apple should trigger its healing effect")
+	assert_eq(gs.current_score, 3, "Discarding apple should add dream value")

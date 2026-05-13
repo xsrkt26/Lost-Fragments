@@ -44,15 +44,17 @@ func _populate_shelf():
 
 func _add_shop_item(item_data: ItemData):
 	var btn = Button.new()
-	btn.text = item_data.item_name + "\n价格: " + str(item_data.price)
+	var shop_cost = max(1, abs(item_data.price))
+	btn.text = item_data.item_name + "\n价格: " + str(shop_cost)
 	btn.custom_minimum_size = Vector2(200, 100)
 	btn.pressed.connect(func(): _buy_item(item_data))
 	shelf.add_child(btn)
 
 func _buy_item(item_data: ItemData):
 	var rm = get_node_or_null("/root/RunManager")
-	if rm and rm.current_shards >= item_data.price:
-		rm.current_shards -= item_data.price
+	var shop_cost = max(1, abs(item_data.price))
+	if rm and rm.current_shards >= shop_cost:
+		rm.current_shards -= shop_cost
 		rm.current_deck.append(item_data.id)
 		print("[Shop] 购买成功: ", item_data.item_name)
 		_update_shard_display()

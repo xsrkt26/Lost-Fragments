@@ -21,13 +21,13 @@ func _ready():
 	if not item_db: return
 		
 	var paper_ball = item_db.get_item_by_id("paper_ball")
-	var stain_magnifier = item_db.get_item_by_id("stain_magnifier")
-	var rusty_gear_mod = item_db.get_item_by_id("rusty_gear_mod")
+	var sticky_note = item_db.get_item_by_id("sticky_note")
+	var rusty_gear = item_db.get_item_by_id("rusty_gear")
 	var trash_recycler = item_db.get_item_by_id("trash_recycler")
 	
 	backpack.place_item(paper_ball, Vector2i(0, 0))
-	backpack.place_item(stain_magnifier, Vector2i(2, 0))
-	backpack.place_item(rusty_gear_mod, Vector2i(0, 1))
+	backpack.place_item(sticky_note, Vector2i(2, 0))
+	backpack.place_item(rusty_gear, Vector2i(0, 1))
 	backpack.place_item(trash_recycler, Vector2i(2, 2)) # 3x3 (2,2 to 4,4)
 	
 	# 给纸团一点初始污染，这样放大镜能找到它

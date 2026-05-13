@@ -1,21 +1,26 @@
 [gd_resource type="Resource" script_class="ItemData" load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://src/core/effects/apple_discard_effect.gd" id="1_effect"]
-[ext_resource type="Script" path="res://src/core/item_data.gd" id="2_item"]
+[ext_resource type="Script" path="res://src/core/effects/apple_discard_effect.gd" id="e1"]
+[ext_resource type="Script" path="res://src/core/item_data.gd" id="item"]
 
 [sub_resource type="Resource" id="1"]
-script = ExtResource("1_effect")
-sanity_recovery = 3
+script = ExtResource("e1")
+score_amount = 3
+core_item_id = "apple_core"
 
 [resource]
-script = ExtResource("2_item")
+script = ExtResource("item")
 id = "apple"
 item_name = "苹果"
-tags = Array[String](["食物"])
+description = "从背包中丢弃时：+3梦值，并且留下一个苹果核"
+tags = Array[String]([])
 price = 5
-base_cost = -1
+base_cost = 1
 can_draw = true
+can_rotate = true
 runtime_id = -1
 shape = Array[Vector2i]([Vector2i(0, 0)])
 direction = 3
-effects = [SubResource("1")]
+transmission_mode = 0
+hit_filter_tags = Array[String]([])
+effects = Array[Resource]([SubResource("1")])

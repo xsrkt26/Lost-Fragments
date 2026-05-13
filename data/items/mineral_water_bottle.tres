@@ -1,27 +1,25 @@
 [gd_resource type="Resource" script_class="ItemData" load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://src/core/effects/alarm_clock_effect.gd" id="e1"]
+[ext_resource type="Script" path="res://src/core/effects/score_effect.gd" id="e1"]
 [ext_resource type="Script" path="res://src/core/item_data.gd" id="item"]
 
 [sub_resource type="Resource" id="1"]
 script = ExtResource("e1")
-base_score = 3
-extra_score = 8
-threshold = 15
+score_amount = 5
 
 [resource]
 script = ExtResource("item")
-id = "alarm_clock"
-item_name = "破旧闹钟"
-description = "被撞：+3分，如果已经捕梦超过15次，额外+8分"
+id = "mineral_water_bottle"
+item_name = "矿泉水瓶"
+description = "被撞：+5分"
 tags = Array[String]([])
-price = 5
-base_cost = 1
+price = 10
+base_cost = 3
 can_draw = true
 can_rotate = true
 runtime_id = -1
-shape = Array[Vector2i]([Vector2i(0, 0)])
-direction = 3
+shape = Array[Vector2i]([Vector2i(0, 0), Vector2i(1, 0)])
+direction = 1
 transmission_mode = 0
 hit_filter_tags = Array[String]([])
 effects = Array[Resource]([SubResource("1")])

@@ -39,6 +39,8 @@ func _ready():
 	# 初始化上下文（依赖注入）
 	var gs = get_node_or_null("/root/GameState")
 	context = GameContext.new(gs, self)
+	if gs and not gs.game_over.is_connected(_try_consume_insurance_contract):
+		gs.game_over.connect(_try_consume_insurance_contract)
 	
 	# 如果 UI 已经注入，确保它被初始化
 	if backpack_ui:
@@ -185,13 +187,17 @@ func request_discard_item(item_ui: Control):
 	
 	# 1. 如果在背包内，先移除
 	var old_pos = _find_item_old_pos(item_data)
+	var old_instance = backpack_manager.grid.get(old_pos) if old_pos != Vector2i(-1, -1) else null
 	if old_pos != Vector2i(-1, -1):
 		backpack_manager.remove_by_runtime_id(item_data.runtime_id)
 	_remove_item_visual_mapping(item_data)
 		
 	# 2. 触发丢弃效果
 	for effect in item_data.effects:
-		effect.on_discard(item_data, context)
+		if old_instance != null and effect.has_method("on_discard_instance"):
+			effect.on_discard_instance(old_instance, context)
+		else:
+			effect.on_discard(item_data, context)
 		
 	# 3. 视觉表现与清理
 	if managed_item_uis.has(item_ui):
@@ -345,11 +351,26 @@ func _process_new_item_acquisition(item: ItemData):
 		for effect in inst.data.effects:
 			if effect.has_method("on_global_item_drawn"):
 				effect.on_global_item_drawn(item, inst, context)
-	var new_item_name = item.item_name
-	for pos in backpack_manager.grid.keys():
-		var instance = backpack_manager.grid[pos]
-		if instance.root_pos == pos and instance.data.item_name == new_item_name:
-			trigger_impact_at(pos)
+
+func _try_consume_insurance_contract():
+	var gs = get_node_or_null("/root/GameState")
+	var rm = get_node_or_null("/root/RunManager")
+	if gs == null or rm == null:
+		return
+	if gs.current_score >= rm.get_target_score():
+		return
+
+	for instance in backpack_manager.get_all_instances():
+		if instance.data.id != "insurance_contract":
+			continue
+		var recovery = 5
+		for effect in instance.data.effects:
+			if effect.has_method("get_sanity_recovery"):
+				recovery = effect.get_sanity_recovery(instance, context)
+				break
+		backpack_manager.remove_instance(instance)
+		gs.heal_sanity(recovery)
+		return
 
 func _run_impact_sequence(start_pos: Vector2i, dir: ItemData.Direction, source: BackpackManager.ItemInstance = null):
 	turn_started.emit()

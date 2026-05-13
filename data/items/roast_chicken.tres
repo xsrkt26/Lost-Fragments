@@ -1,21 +1,25 @@
 [gd_resource type="Resource" script_class="ItemData" load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://src/core/effects/sanity_effect.gd" id="1_effect"]
-[ext_resource type="Script" path="res://src/core/item_data.gd" id="2_item"]
+[ext_resource type="Script" path="res://src/core/effects/score_effect.gd" id="e1"]
+[ext_resource type="Script" path="res://src/core/item_data.gd" id="item"]
 
 [sub_resource type="Resource" id="1"]
-script = ExtResource("1_effect")
-sanity_change = 5
+script = ExtResource("e1")
+score_amount = 20
 
 [resource]
-script = ExtResource("2_item")
+script = ExtResource("item")
 id = "roast_chicken"
 item_name = "美味烧鸡"
-tags = Array[String](["食物"])
-price = 5
-base_cost = -4
+description = "被撞：+20分"
+tags = Array[String]([])
+price = 10
+base_cost = 4
 can_draw = true
+can_rotate = true
 runtime_id = -1
 shape = Array[Vector2i]([Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)])
-direction = 2
-effects = [SubResource("1")]
+direction = 3
+transmission_mode = 0
+hit_filter_tags = Array[String]([])
+effects = Array[Resource]([SubResource("1")])

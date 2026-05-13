@@ -1,21 +1,19 @@
 class_name StickyNoteEffect
 extends ItemEffect
 
-## 便利贴效果：每当有3层污染叠加时：+10分
-## 这里的实现是：每次被撞击结算时，检查自身污染层数，每满3层消耗之并转化为分数。
-
 @export var score_per_3_pollution: int = 10
 
-func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, _resolver: ImpactResolver, _context: GameContext, multiplier: int = 1) -> GameAction:
-	if instance.current_pollution >= 3:
-		var sets_of_3 = floori(instance.current_pollution / 3.0)
-		instance.current_pollution -= sets_of_3 * 3
-		
-		var score_to_add = sets_of_3 * score_per_3_pollution * multiplier
-		print("[Effect] 便利贴消耗了 ", sets_of_3 * 3, " 层污染，获得额外分数: ", score_to_add)
-		
-		var action = GameAction.new(GameAction.Type.NUMERIC, "便利贴污染转化")
-		action.value = {"type": "score", "amount": score_to_add}
-		return action
-		
-	return null
+var rewarded_sets: int = 0
+
+func on_pollution_added(instance: BackpackManager.ItemInstance, _added: int, old_pollution: int, _resolver: ImpactResolver, _context: GameContext) -> GameAction:
+	var old_sets = floori(old_pollution / 3.0)
+	var new_sets = floori(instance.current_pollution / 3.0)
+	var payable_sets = max(0, new_sets - max(old_sets, rewarded_sets))
+	rewarded_sets = max(rewarded_sets, new_sets)
+
+	if payable_sets <= 0:
+		return null
+
+	var action = GameAction.new(GameAction.Type.NUMERIC, "Sticky note pollution bonus")
+	action.value = {"type": "score", "amount": payable_sets * score_per_3_pollution}
+	return action
