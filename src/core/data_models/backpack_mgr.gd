@@ -30,6 +30,9 @@ var grid_width: int = 7
 var grid_height: int = 7
 var usable_width: int = 5
 var usable_height: int = 5
+const DREAM_SEED_TAG := "梦境之种"
+const DERIVED_TAG := "衍生物品"
+const MAX_DREAM_SEED_LEVEL := 5
 
 ## 核心网格字典：Key 是 Vector2i 坐标，Value 是 ItemInstance
 var grid: Dictionary = {}
@@ -174,6 +177,114 @@ func find_available_pos(item_data: ItemData) -> Vector2i:
 			if can_place_item(item_data, pos):
 				return pos
 	return Vector2i(-1, -1)
+
+func sow_seed(source_instance: ItemInstance, direction: ItemData.Direction, item_db: Node, levels: int = 1) -> ItemInstance:
+	if source_instance == null or item_db == null:
+		return null
+	var target_pos = _get_seed_target_pos(source_instance, direction)
+	if target_pos == Vector2i(-1, -1):
+		return null
+	if grid.has(target_pos):
+		var target_instance = grid[target_pos]
+		if _is_dream_seed(target_instance):
+			return upgrade_seed(target_instance, item_db, levels)
+		return null
+
+	var seed_data = item_db.get_item_by_id("dream_seed_1x1") if item_db.has_method("get_item_by_id") else null
+	if seed_data == null:
+		return null
+	var runtime_seed: ItemData = seed_data.duplicate(true)
+	if not runtime_seed.tags.has(DERIVED_TAG):
+		runtime_seed.tags.append(DERIVED_TAG)
+	if not place_item(runtime_seed, target_pos):
+		return null
+	var instance = grid[target_pos]
+	_emit_seed_sown(instance)
+	if levels > 1:
+		return upgrade_seed(instance, item_db, levels - 1)
+	return instance
+
+func upgrade_seed(seed_instance: ItemInstance, item_db: Node, levels: int = 1) -> ItemInstance:
+	if not _is_dream_seed(seed_instance) or item_db == null or levels <= 0:
+		return seed_instance
+	var old_level = _get_seed_level(seed_instance.data)
+	var new_level = clampi(old_level + levels, 1, MAX_DREAM_SEED_LEVEL)
+	if new_level == old_level:
+		return seed_instance
+
+	var new_data = item_db.get_item_by_id(_get_seed_id(new_level)) if item_db.has_method("get_item_by_id") else null
+	if new_data == null:
+		return seed_instance
+	var old_data = seed_instance.data
+	var old_root = seed_instance.root_pos
+	var runtime_seed: ItemData = new_data.duplicate(true)
+	runtime_seed.runtime_id = old_data.runtime_id
+	runtime_seed.direction = old_data.direction
+	if old_data.tags.has(DERIVED_TAG) and not runtime_seed.tags.has(DERIVED_TAG):
+		runtime_seed.tags.append(DERIVED_TAG)
+
+	remove_instance(seed_instance)
+	if place_item(runtime_seed, old_root):
+		var upgraded_instance = grid[old_root]
+		_emit_seed_upgraded(upgraded_instance, old_level, new_level)
+		return upgraded_instance
+
+	place_item(old_data, old_root)
+	return grid.get(old_root)
+
+func _get_seed_target_pos(source_instance: ItemInstance, direction: ItemData.Direction) -> Vector2i:
+	var step = _direction_to_vector(direction)
+	if step == Vector2i.ZERO:
+		return Vector2i(-1, -1)
+	var occupied = {}
+	for offset in source_instance.data.shape:
+		occupied[source_instance.root_pos + offset] = true
+	var candidates: Array[Vector2i] = []
+	for cell in occupied.keys():
+		var target = cell + step
+		if not occupied.has(target):
+			candidates.append(target)
+	candidates.sort()
+	for target in candidates:
+		if target.x >= 0 and target.x < grid_width and target.y >= 0 and target.y < grid_height:
+			return target
+	return Vector2i(-1, -1)
+
+func _direction_to_vector(direction: ItemData.Direction) -> Vector2i:
+	match direction:
+		ItemData.Direction.UP:
+			return Vector2i.UP
+		ItemData.Direction.DOWN:
+			return Vector2i.DOWN
+		ItemData.Direction.LEFT:
+			return Vector2i.LEFT
+		ItemData.Direction.RIGHT:
+			return Vector2i.RIGHT
+	return Vector2i.ZERO
+
+func _is_dream_seed(instance: ItemInstance) -> bool:
+	return instance != null and instance.data != null and instance.data.tags.has(DREAM_SEED_TAG)
+
+func _get_seed_level(data: ItemData) -> int:
+	if data == null:
+		return 0
+	for level in range(1, MAX_DREAM_SEED_LEVEL + 1):
+		if data.id == _get_seed_id(level):
+			return level
+	return 0
+
+func _get_seed_id(level: int) -> String:
+	return "dream_seed_%dx%d" % [level, level]
+
+func _emit_seed_sown(instance: ItemInstance) -> void:
+	var bus = get_node_or_null("/root/GlobalEventBus") if is_inside_tree() else null
+	if bus:
+		bus.seed_sown.emit(instance)
+
+func _emit_seed_upgraded(instance: ItemInstance, old_level: int, new_level: int) -> void:
+	var bus = get_node_or_null("/root/GlobalEventBus") if is_inside_tree() else null
+	if bus:
+		bus.seed_upgraded.emit(instance, old_level, new_level)
 
 ## 获取一个物品实例的所有相邻物品实例 (不含自己)
 func get_neighbor_instances(instance: ItemInstance) -> Array[ItemInstance]:

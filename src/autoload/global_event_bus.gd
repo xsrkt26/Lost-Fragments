@@ -20,3 +20,11 @@ signal item_discarded(item_data)
 # 当物品在背包中成功放置时发出
 @warning_ignore("unused_signal")
 signal item_placed(instance)
+
+# 当播种生成梦境之种时发出
+@warning_ignore("unused_signal")
+signal seed_sown(instance)
+
+# 当梦境之种升级时发出
+@warning_ignore("unused_signal")
+signal seed_upgraded(instance, old_level: int, new_level: int)
