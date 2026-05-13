@@ -28,3 +28,11 @@ signal seed_sown(instance)
 # 当梦境之种升级时发出
 @warning_ignore("unused_signal")
 signal seed_upgraded(instance, old_level: int, new_level: int)
+
+# 当播种目标不可用时发出
+@warning_ignore("unused_signal")
+signal seed_sow_failed(source, direction: int)
+
+# 当污染层数变化时发出
+@warning_ignore("unused_signal")
+signal pollution_changed(instance, old_value: int, new_value: int)

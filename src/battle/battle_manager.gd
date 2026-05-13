@@ -56,6 +56,7 @@ func _ready():
 	context = GameContext.new(gs, self)
 	if gs and not gs.game_over.is_connected(_try_consume_insurance_contract):
 		gs.game_over.connect(_try_consume_insurance_contract)
+	_connect_ornament_bus()
 	
 	# 如果 UI 已经注入，确保它被初始化
 	if backpack_ui:
@@ -67,6 +68,7 @@ func _ready():
 
 func _exit_tree():
 	print("[BattleManager] 正在卸载...")
+	_disconnect_ornament_bus()
 
 func _initialize_battle_data():
 	print("[BattleManager] 正在从 RunManager 初始化战斗数据...")
@@ -77,6 +79,7 @@ func _initialize_battle_data():
 		_current_battle_deck.shuffle()
 		_load_ornaments_from_run(rm)
 		_restore_backpack_from_run(rm)
+		_apply_ornament_battle_started()
 		print("[BattleManager] 洗牌完成，当前战斗卡包大小: ", _current_battle_deck.size())
 	else:
 		print("[BattleManager] 警告: 未找到 RunManager，使用空卡包运行。")
@@ -108,6 +111,32 @@ func _load_ornaments_from_run(rm) -> void:
 		if ornament == null:
 			continue
 		active_ornaments.append({"data": ornament, "state": {}})
+
+func _connect_ornament_bus() -> void:
+	var bus = get_node_or_null("/root/GlobalEventBus")
+	if bus == null:
+		return
+	if not bus.seed_sown.is_connected(_on_ornament_seed_sown):
+		bus.seed_sown.connect(_on_ornament_seed_sown)
+	if not bus.seed_upgraded.is_connected(_on_ornament_seed_upgraded):
+		bus.seed_upgraded.connect(_on_ornament_seed_upgraded)
+	if not bus.seed_sow_failed.is_connected(_on_ornament_seed_sow_failed):
+		bus.seed_sow_failed.connect(_on_ornament_seed_sow_failed)
+	if not bus.pollution_changed.is_connected(_on_ornament_pollution_changed):
+		bus.pollution_changed.connect(_on_ornament_pollution_changed)
+
+func _disconnect_ornament_bus() -> void:
+	var bus = get_node_or_null("/root/GlobalEventBus")
+	if bus == null:
+		return
+	if bus.seed_sown.is_connected(_on_ornament_seed_sown):
+		bus.seed_sown.disconnect(_on_ornament_seed_sown)
+	if bus.seed_upgraded.is_connected(_on_ornament_seed_upgraded):
+		bus.seed_upgraded.disconnect(_on_ornament_seed_upgraded)
+	if bus.seed_sow_failed.is_connected(_on_ornament_seed_sow_failed):
+		bus.seed_sow_failed.disconnect(_on_ornament_seed_sow_failed)
+	if bus.pollution_changed.is_connected(_on_ornament_pollution_changed):
+		bus.pollution_changed.disconnect(_on_ornament_pollution_changed)
 
 func _restore_backpack_from_run(rm) -> void:
 	if rm == null or not rm.has_method("restore_backpack_state"):
@@ -231,6 +260,7 @@ func request_place_item(item_ui: Control, grid_pos: Vector2i):
 			backpack_ui.update_item_mapping(old_data, new_instance.data)
 		if backpack_ui.has_method("add_item_visual"):
 			backpack_ui.add_item_visual(item_ui, grid_pos)
+	_apply_ornament_item_placed(new_instance)
 	
 	print("[BattleManager] 物品已放置")
 
@@ -270,6 +300,10 @@ func request_discard_item(item_ui: Control):
 			effect.on_discard_instance(old_instance, context)
 		else:
 			effect.on_discard(item_data, context)
+	_apply_ornament_item_discarded(item_data, old_instance, old_instance != null)
+	var bus = get_node_or_null("/root/GlobalEventBus")
+	if bus:
+		bus.item_discarded.emit(item_data)
 		
 	# 3. 视觉表现与清理
 	if managed_item_uis.has(item_ui):
@@ -518,12 +552,69 @@ func _apply_ornament_item_drawn(item: ItemData) -> void:
 		if ornament != null and ornament.effect != null:
 			ornament.effect.after_item_drawn(item, draw_count, context, state)
 
+func _apply_ornament_battle_started() -> void:
+	for runtime in active_ornaments:
+		var ornament = runtime.get("data")
+		var state = runtime.get("state", {}) as Dictionary
+		if ornament != null and ornament.effect != null:
+			ornament.effect.after_battle_started(context, state)
+
+func _apply_ornament_item_placed(instance: BackpackManager.ItemInstance) -> void:
+	for runtime in active_ornaments:
+		var ornament = runtime.get("data")
+		var state = runtime.get("state", {}) as Dictionary
+		if ornament != null and ornament.effect != null:
+			ornament.effect.after_item_placed(instance, context, state)
+
+func _apply_ornament_item_discarded(item_data: ItemData, old_instance: BackpackManager.ItemInstance, from_backpack: bool) -> void:
+	for runtime in active_ornaments:
+		var ornament = runtime.get("data")
+		var state = runtime.get("state", {}) as Dictionary
+		if ornament != null and ornament.effect != null:
+			ornament.effect.after_item_discarded(item_data, old_instance, from_backpack, context, state)
+
 func _apply_ornament_impact_chain_resolved(source: BackpackManager.ItemInstance, actions: Array[GameAction]) -> void:
 	for runtime in active_ornaments:
 		var ornament = runtime.get("data")
 		var state = runtime.get("state", {}) as Dictionary
 		if ornament != null and ornament.effect != null:
 			ornament.effect.after_impact_chain_resolved(source, actions, context, state)
+
+func _on_ornament_seed_sown(instance) -> void:
+	if not _is_instance_in_grid(instance):
+		return
+	for runtime in active_ornaments:
+		var ornament = runtime.get("data")
+		var state = runtime.get("state", {}) as Dictionary
+		if ornament != null and ornament.effect != null:
+			ornament.effect.after_seed_sown(instance, context, state)
+
+func _on_ornament_seed_upgraded(instance, old_level: int, new_level: int) -> void:
+	if not _is_instance_in_grid(instance):
+		return
+	for runtime in active_ornaments:
+		var ornament = runtime.get("data")
+		var state = runtime.get("state", {}) as Dictionary
+		if ornament != null and ornament.effect != null:
+			ornament.effect.after_seed_upgraded(instance, old_level, new_level, context, state)
+
+func _on_ornament_seed_sow_failed(source, direction: int) -> void:
+	if source != null and not _is_instance_in_grid(source):
+		return
+	for runtime in active_ornaments:
+		var ornament = runtime.get("data")
+		var state = runtime.get("state", {}) as Dictionary
+		if ornament != null and ornament.effect != null:
+			ornament.effect.after_seed_sow_failed(source, direction, context, state)
+
+func _on_ornament_pollution_changed(instance, old_value: int, new_value: int) -> void:
+	if not _is_instance_in_grid(instance):
+		return
+	for runtime in active_ornaments:
+		var ornament = runtime.get("data")
+		var state = runtime.get("state", {}) as Dictionary
+		if ornament != null and ornament.effect != null:
+			ornament.effect.after_pollution_changed(instance, old_value, new_value, context, state)
 
 func _resolve_impact_source(pos: Vector2i, source: BackpackManager.ItemInstance = null) -> BackpackManager.ItemInstance:
 	if source != null:

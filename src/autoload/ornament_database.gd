@@ -7,6 +7,7 @@ const DreamcatcherFilterEffect = preload("res://src/core/ornaments/effects/dream
 const EchoEarringEffect = preload("res://src/core/ornaments/effects/echo_earring_effect.gd")
 const GuidingCompassEffect = preload("res://src/core/ornaments/effects/guiding_compass_effect.gd")
 const SafetyPinEffect = preload("res://src/core/ornaments/effects/safety_pin_effect.gd")
+const GenericOrnamentEffect = preload("res://src/core/ornaments/effects/generic_ornament_effect.gd")
 
 var ornaments: Dictionary = {}
 
@@ -62,6 +63,8 @@ func _create_ornament_data(entry: Dictionary):
 	data.tags = _to_string_array(entry.get("tags", []))
 	data.effect_text = str(entry.get("effect_text", ""))
 	data.effect_id = str(entry.get("effect_id", ""))
+	if data.effect_id == "":
+		data.effect_id = data.id
 	data.effect = _create_effect(data.effect_id)
 	return data
 
@@ -77,6 +80,10 @@ func _create_effect(effect_id: String):
 			return GuidingCompassEffect.new()
 		"safety_pin":
 			return SafetyPinEffect.new()
+	if effect_id != "":
+		var effect = GenericOrnamentEffect.new()
+		effect.effect_id = effect_id
+		return effect
 	return null
 
 func _to_string_array(value: Variant) -> Array[String]:

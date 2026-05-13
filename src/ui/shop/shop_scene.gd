@@ -44,6 +44,7 @@ func _populate_shelf():
 
 func _add_shop_offer(offer: Dictionary):
 	var btn = Button.new()
+	btn.set_meta("offer", offer)
 	btn.text = _format_offer_text(offer)
 	btn.tooltip_text = str(offer.get("description", ""))
 	btn.custom_minimum_size = Vector2(200, 100)
@@ -52,7 +53,7 @@ func _add_shop_offer(offer: Dictionary):
 
 func _format_offer_text(offer: Dictionary) -> String:
 	var title = str(offer.get("title", "商品"))
-	var price = int(offer.get("price", 0))
+	var price = _get_offer_price(offer)
 	match str(offer.get("type", "")):
 		"item":
 			return "%s\n物品 | %d 碎片" % [title, price]
@@ -67,8 +68,20 @@ func _buy_offer(offer: Dictionary, button: Button):
 		button.disabled = true
 		button.text = str(offer.get("title", "商品")) + "\n已购买"
 		_update_shard_display()
+		_refresh_offer_buttons()
 	else:
 		print("[Shop] 购买失败：碎片不足！")
+
+func _refresh_offer_buttons() -> void:
+	for child in shelf.get_children():
+		if child is Button and not child.disabled and child.has_meta("offer"):
+			child.text = _format_offer_text(child.get_meta("offer"))
+
+func _get_offer_price(offer: Dictionary) -> int:
+	var rm = get_node_or_null("/root/RunManager")
+	if rm and rm.has_method("get_current_shop_offer_price"):
+		return rm.get_current_shop_offer_price(offer)
+	return int(offer.get("price", 0))
 
 func _on_back_pressed():
 	var rm = get_node_or_null("/root/RunManager")

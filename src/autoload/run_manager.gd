@@ -35,6 +35,7 @@ var current_backpack_items: Array[Dictionary] = []
 var current_ornaments: Array[String] = []
 var backpack_usable_width: int = INITIAL_BACKPACK_USABLE_WIDTH
 var backpack_usable_height: int = INITIAL_BACKPACK_USABLE_HEIGHT
+var shop_purchase_state: Dictionary = {}
 var current_depth: int = 1
 var current_route_id: String = RouteConfig.DEFAULT_ROUTE_ID
 var current_act: int = 1
@@ -68,6 +69,7 @@ func start_new_run():
 	current_ornaments = []
 	backpack_usable_width = INITIAL_BACKPACK_USABLE_WIDTH
 	backpack_usable_height = INITIAL_BACKPACK_USABLE_HEIGHT
+	shop_purchase_state.clear()
 	current_depth = 1
 	reset_route_progress()
 	is_run_active = true
@@ -158,7 +160,7 @@ func generate_current_shop_offers(item_db: Node, ornament_db: Node, count: int =
 	return ShopGenerator.generate_offers(self, item_db, ornament_db, count)
 
 func buy_shop_offer(offer: Dictionary) -> bool:
-	var price = max(1, int(offer.get("price", 0)))
+	var price = get_current_shop_offer_price(offer)
 	if current_shards < price:
 		return false
 
@@ -182,8 +184,38 @@ func buy_shop_offer(offer: Dictionary) -> bool:
 			return false
 
 	shards_changed.emit(current_shards)
+	_record_shop_purchase(offer)
 	save_current_state()
 	return true
+
+func get_current_shop_offer_price(offer: Dictionary) -> int:
+	var price = max(1, int(offer.get("price", 0)))
+	if str(offer.get("type", "")) != ShopGenerator.TYPE_ITEM:
+		return price
+	if not current_ornaments.has("recycling_coupon"):
+		return price
+	var state = _get_current_shop_state()
+	if bool(state.get("discount_next_item", false)):
+		return max(1, floori(float(price) * 0.8))
+	return price
+
+func _record_shop_purchase(offer: Dictionary) -> void:
+	if not current_ornaments.has("recycling_coupon") or str(offer.get("type", "")) != ShopGenerator.TYPE_ITEM:
+		return
+	var key = _get_current_shop_state_key()
+	var state = _get_current_shop_state()
+	if bool(state.get("discount_next_item", false)):
+		state["discount_next_item"] = false
+	elif not bool(state.get("first_item_purchase_done", false)):
+		state["first_item_purchase_done"] = true
+		state["discount_next_item"] = true
+	shop_purchase_state[key] = state
+
+func _get_current_shop_state() -> Dictionary:
+	return Dictionary(shop_purchase_state.get(_get_current_shop_state_key(), {}))
+
+func _get_current_shop_state_key() -> String:
+	return "%d:%d" % [current_act, current_route_index]
 
 func apply_event_choice(choice: Dictionary) -> bool:
 	var cost_shards = max(0, int(choice.get("cost_shards", 0)))
@@ -427,6 +459,7 @@ func serialize_run() -> Dictionary:
 		"ornaments": current_ornaments,
 		"backpack_usable_width": backpack_usable_width,
 		"backpack_usable_height": backpack_usable_height,
+		"shop_purchase_state": shop_purchase_state,
 		"depth": current_depth,
 		"route_id": current_route_id,
 		"act": current_act,
@@ -444,6 +477,7 @@ func deserialize_run(data: Dictionary):
 	current_ornaments = _to_string_array(data.get("ornaments", []))
 	backpack_usable_width = clampi(int(data.get("backpack_usable_width", INITIAL_BACKPACK_USABLE_WIDTH)), 1, BACKPACK_GRID_WIDTH)
 	backpack_usable_height = clampi(int(data.get("backpack_usable_height", INITIAL_BACKPACK_USABLE_HEIGHT)), 1, BACKPACK_GRID_HEIGHT)
+	shop_purchase_state = Dictionary(data.get("shop_purchase_state", {}))
 	current_depth = data.get("depth", 1)
 	current_route_id = RouteConfig.normalize_route_id(data.get("route_id", RouteConfig.DEFAULT_ROUTE_ID))
 	current_act = max(1, int(data.get("act", 1)))

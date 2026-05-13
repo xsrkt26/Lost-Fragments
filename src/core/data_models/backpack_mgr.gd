@@ -13,8 +13,11 @@ class ItemInstance extends RefCounted:
 			if is_preserved:
 				print("[BackpackManager] 物品 ", data.item_name, " 已防腐，拒绝修改污染 (", current_pollution, " -> ", val, ")")
 				return
+			var old_value = current_pollution
 			current_pollution = max(0, val)
 			pollution_changed.emit(current_pollution)
+			if old_value != current_pollution:
+				_emit_pollution_changed(old_value, current_pollution)
 	
 	func _init(p_data: ItemData, p_pos: Vector2i):
 		data = p_data
@@ -23,6 +26,13 @@ class ItemInstance extends RefCounted:
 	func add_pollution(amount: int):
 		# 现在 setter 会自动处理 guard
 		current_pollution += amount
+
+	func _emit_pollution_changed(old_value: int, new_value: int) -> void:
+		var main_loop = Engine.get_main_loop()
+		if main_loop is SceneTree:
+			var bus = main_loop.root.get_node_or_null("GlobalEventBus")
+			if bus:
+				bus.pollution_changed.emit(self, old_value, new_value)
 
 signal grid_changed
 
@@ -180,23 +190,28 @@ func find_available_pos(item_data: ItemData) -> Vector2i:
 
 func sow_seed(source_instance: ItemInstance, direction: ItemData.Direction, item_db: Node, levels: int = 1) -> ItemInstance:
 	if source_instance == null or item_db == null:
+		_emit_seed_sow_failed(source_instance, direction)
 		return null
 	var target_pos = _get_seed_target_pos(source_instance, direction)
 	if target_pos == Vector2i(-1, -1):
+		_emit_seed_sow_failed(source_instance, direction)
 		return null
 	if grid.has(target_pos):
 		var target_instance = grid[target_pos]
 		if _is_dream_seed(target_instance):
 			return upgrade_seed(target_instance, item_db, levels)
+		_emit_seed_sow_failed(source_instance, direction)
 		return null
 
 	var seed_data = item_db.get_item_by_id("dream_seed_1x1") if item_db.has_method("get_item_by_id") else null
 	if seed_data == null:
+		_emit_seed_sow_failed(source_instance, direction)
 		return null
 	var runtime_seed: ItemData = seed_data.duplicate(true)
 	if not runtime_seed.tags.has(DERIVED_TAG):
 		runtime_seed.tags.append(DERIVED_TAG)
 	if not place_item(runtime_seed, target_pos):
+		_emit_seed_sow_failed(source_instance, direction)
 		return null
 	var instance = grid[target_pos]
 	_emit_seed_sown(instance)
@@ -285,6 +300,11 @@ func _emit_seed_upgraded(instance: ItemInstance, old_level: int, new_level: int)
 	var bus = get_node_or_null("/root/GlobalEventBus") if is_inside_tree() else null
 	if bus:
 		bus.seed_upgraded.emit(instance, old_level, new_level)
+
+func _emit_seed_sow_failed(source_instance: ItemInstance, direction: int) -> void:
+	var bus = get_node_or_null("/root/GlobalEventBus") if is_inside_tree() else null
+	if bus:
+		bus.seed_sow_failed.emit(source_instance, direction)
 
 ## 获取一个物品实例的所有相邻物品实例 (不含自己)
 func get_neighbor_instances(instance: ItemInstance) -> Array[ItemInstance]:

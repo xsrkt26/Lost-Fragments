@@ -45,6 +45,9 @@ func test_ornament_database_loads_v1_1_table_and_filters_available_pool():
 	assert_not_null(ornament_db)
 	assert_eq(ornament_db.get_all_ornaments().size(), 50)
 	assert_not_null(ornament_db.get_ornament_by_id("old_pocket_watch"))
+	for ornament in ornament_db.get_all_ornaments():
+		assert_ne(ornament.effect_id, "")
+		assert_not_null(ornament.effect)
 
 	var act_one = ornament_db.get_available_ornaments(1, ["old_pocket_watch"] as Array[String])
 	for ornament in act_one:
@@ -98,3 +101,80 @@ func test_guiding_compass_rotates_root_dream_after_empty_chain():
 	manager._apply_ornament_impact_chain_resolved(source, [] as Array[GameAction])
 
 	assert_eq(root.direction, ItemData.Direction.DOWN)
+
+func test_sturdy_strap_reduces_large_item_draw_cost():
+	var manager = await _make_manager(["sturdy_strap"] as Array[String])
+	var item = _make_draw_item(4)
+	item.shape = [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)] as Array[Vector2i]
+
+	manager._process_new_item_acquisition(item)
+
+	assert_eq(gs.current_sanity, 98)
+
+func test_pollution_ornaments_react_to_pollution_changes():
+	var manager = await _make_manager(["sealed_bottle", "active_petri_dish", "corrosion_guide"] as Array[String])
+	var paper = item_db.get_item_by_id("paper_ball")
+	manager.backpack_manager.place_item(paper, Vector2i(1, 1))
+	var instance = manager.backpack_manager.grid[Vector2i(1, 1)]
+
+	instance.add_pollution(1)
+	assert_eq(gs.current_score, 5)
+
+	instance.add_pollution(1)
+	assert_eq(gs.current_score, 8)
+
+func test_discard_ornaments_apply_once_and_count_discards():
+	var manager = await _make_manager(["sanity_coin_purse", "light_pendant"] as Array[String])
+	gs.current_sanity = 80
+	var waste = _make_draw_item(0)
+	waste.id = "paper_ball"
+	waste.price = -5
+
+	manager._apply_ornament_item_discarded(waste, null, false)
+	manager._apply_ornament_item_discarded(waste, null, false)
+	manager._apply_ornament_item_discarded(waste, null, false)
+
+	assert_eq(gs.current_score, 10)
+	assert_eq(gs.current_sanity, 82)
+
+func test_seed_upgrade_ornaments_score_and_restore_sanity():
+	var manager = await _make_manager(["greenhouse_glass", "rejuvenation_talisman"] as Array[String])
+	gs.current_sanity = 80
+	var seed = item_db.get_item_by_id("dream_seed_4x4")
+	manager.backpack_manager.place_item(seed, Vector2i(1, 1))
+	var instance = manager.backpack_manager.grid[Vector2i(1, 1)]
+
+	manager._on_ornament_seed_upgraded(instance, 4, 5)
+
+	assert_eq(gs.current_score, 6)
+	assert_eq(gs.current_sanity, 83)
+
+func test_chain_end_ornaments_score_from_hit_count_thresholds():
+	var manager = await _make_manager(["chain_counter", "terminal_pressure_gauge"] as Array[String])
+	var actions: Array[GameAction] = []
+	for index in range(8):
+		var action = GameAction.new(GameAction.Type.IMPACT, "hit")
+		var item = _make_draw_item(0)
+		item.runtime_id = 9000 + index
+		action.item_instance = BackpackManager.ItemInstance.new(item, Vector2i(index, 0))
+		actions.append(action)
+
+	manager._apply_ornament_impact_chain_resolved(null, actions)
+
+	assert_eq(gs.current_score, 41)
+
+func test_recycling_coupon_discounts_next_item_after_first_item_purchase():
+	var manager = autofree(RunManagerScript.new())
+	manager.current_shards = 100
+	manager.current_ornaments = ["recycling_coupon"] as Array[String]
+	manager.current_deck = [] as Array[String]
+	manager.is_run_active = true
+	var offer = {"type": "item", "id": "paper_ball", "price": 10}
+
+	assert_eq(manager.get_current_shop_offer_price(offer), 10)
+	assert_true(manager.buy_shop_offer(offer))
+	assert_eq(manager.current_shards, 90)
+	assert_eq(manager.get_current_shop_offer_price(offer), 8)
+	assert_true(manager.buy_shop_offer(offer))
+	assert_eq(manager.current_shards, 82)
+	assert_eq(manager.get_current_shop_offer_price(offer), 10)
