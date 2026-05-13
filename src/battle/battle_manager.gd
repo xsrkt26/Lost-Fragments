@@ -42,6 +42,7 @@ func _init():
 var _current_battle_deck: Array[String] = []
 var draw_count: int = 0 # 记录当前局内抽取次数
 var managed_item_uis: Array[Control] = [] # 追踪当前战场上所有的物品 UI
+var active_ornaments: Array[Dictionary] = []
 var battle_state: BattleState = BattleState.INTERACTIVE
 var _pending_finish_reason: String = ""
 var _impact_queue: Array[Dictionary] = []
@@ -73,10 +74,24 @@ func _initialize_battle_data():
 	if rm:
 		_current_battle_deck = Array(rm.current_deck).duplicate()
 		_current_battle_deck.shuffle()
+		_load_ornaments_from_run(rm)
 		_restore_backpack_from_run(rm)
 		print("[BattleManager] 洗牌完成，当前战斗卡包大小: ", _current_battle_deck.size())
 	else:
 		print("[BattleManager] 警告: 未找到 RunManager，使用空卡包运行。")
+
+func _load_ornaments_from_run(rm) -> void:
+	active_ornaments.clear()
+	if rm == null:
+		return
+	var ornament_db = get_node_or_null("/root/OrnamentDatabase")
+	if ornament_db == null:
+		return
+	for ornament_id in rm.current_ornaments:
+		var ornament = ornament_db.get_ornament_by_id(ornament_id)
+		if ornament == null:
+			continue
+		active_ornaments.append({"data": ornament, "state": {}})
 
 func _restore_backpack_from_run(rm) -> void:
 	if rm == null or not rm.has_method("restore_backpack_state"):
@@ -88,6 +103,21 @@ func persist_backpack_to_run() -> void:
 	var rm = get_node_or_null("/root/RunManager")
 	if rm and rm.has_method("save_backpack_state"):
 		rm.save_backpack_state(backpack_manager)
+
+func apply_sanity_loss(amount: int, reason: String = "effect", item_data: ItemData = null) -> int:
+	if amount <= 0:
+		return 0
+	var modified_amount = amount
+	for runtime in active_ornaments:
+		var ornament = runtime.get("data")
+		var state = runtime.get("state", {}) as Dictionary
+		if ornament != null and ornament.effect != null:
+			modified_amount = ornament.effect.modify_sanity_loss(modified_amount, reason, item_data, context, state)
+			modified_amount = max(0, modified_amount)
+	var gs = get_node_or_null("/root/GameState")
+	if gs:
+		gs.consume_sanity(modified_amount)
+	return modified_amount
 
 ## 处理物品在背包内被旋转的逻辑请求
 func request_rotate_item(item_ui: Control, mouse_global_pos: Vector2, pivot_offset: Vector2i):
@@ -385,8 +415,8 @@ func _process_new_item_acquisition(item: ItemData):
 			# 其他数值取绝对值作为消耗，避免负数变成恢复
 			cost = abs(item.base_cost)
 		
-		gs.consume_sanity(cost)
-		print("[BattleManager] 捕梦消耗: ", cost, " | 当前抽卡次数: ", draw_count)
+		var actual_cost = apply_sanity_loss(cost, "draw", item)
+		print("[BattleManager] 捕梦消耗: ", actual_cost, " (原始: ", cost, ") | 当前抽卡次数: ", draw_count)
 	
 	if item.runtime_id <= 0:
 		item.runtime_id = randi()
@@ -398,6 +428,7 @@ func _process_new_item_acquisition(item: ItemData):
 		for effect in inst.data.effects:
 			if effect.has_method("on_global_item_drawn"):
 				effect.on_global_item_drawn(item, inst, context)
+	_apply_ornament_item_drawn(item)
 
 func _try_consume_insurance_contract():
 	var gs = get_node_or_null("/root/GameState")
@@ -458,10 +489,25 @@ func _run_impact_sequence(start_pos: Vector2i, dir: ItemData.Direction, source: 
 	if is_instance_valid(backpack_ui):
 		ui_map = backpack_ui.get("item_ui_map")
 	await player.play_sequence(actions, ui_map, context)
+	_apply_ornament_impact_chain_resolved(source, actions)
 	player.queue_free()
 	turn_finished.emit()
 	if settle_after:
 		_settle_interactive_state()
+
+func _apply_ornament_item_drawn(item: ItemData) -> void:
+	for runtime in active_ornaments:
+		var ornament = runtime.get("data")
+		var state = runtime.get("state", {}) as Dictionary
+		if ornament != null and ornament.effect != null:
+			ornament.effect.after_item_drawn(item, draw_count, context, state)
+
+func _apply_ornament_impact_chain_resolved(source: BackpackManager.ItemInstance, actions: Array[GameAction]) -> void:
+	for runtime in active_ornaments:
+		var ornament = runtime.get("data")
+		var state = runtime.get("state", {}) as Dictionary
+		if ornament != null and ornament.effect != null:
+			ornament.effect.after_impact_chain_resolved(source, actions, context, state)
 
 func _resolve_impact_source(pos: Vector2i, source: BackpackManager.ItemInstance = null) -> BackpackManager.ItemInstance:
 	if source != null:

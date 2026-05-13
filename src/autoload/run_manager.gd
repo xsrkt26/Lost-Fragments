@@ -11,6 +11,7 @@ signal run_finished(victory: bool)
 signal shards_changed(new_amount: int)
 signal deck_changed(new_deck: Array)
 signal route_changed(current_act: int, route_index: int, current_node: Dictionary)
+signal ornaments_changed(current_ornaments: Array[String])
 
 # --- 配置项 ---
 const INITIAL_SHARDS = 10
@@ -97,6 +98,25 @@ func add_to_deck(item_id: String, cost: int):
 		save_current_state()
 		return true
 	return false
+
+func add_ornament(ornament_id: String) -> bool:
+	if ornament_id == "" or current_ornaments.has(ornament_id):
+		return false
+	current_ornaments.append(ornament_id)
+	ornaments_changed.emit(current_ornaments)
+	save_current_state()
+	return true
+
+func has_ornament(ornament_id: String) -> bool:
+	return current_ornaments.has(ornament_id)
+
+func remove_ornament(ornament_id: String) -> bool:
+	if not current_ornaments.has(ornament_id):
+		return false
+	current_ornaments.erase(ornament_id)
+	ornaments_changed.emit(current_ornaments)
+	save_current_state()
+	return true
 
 func save_backpack_state(backpack: BackpackManager) -> void:
 	current_backpack_items.clear()

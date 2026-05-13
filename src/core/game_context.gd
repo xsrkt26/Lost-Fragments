@@ -23,4 +23,7 @@ func change_sanity(amount: int):
 		if amount > 0:
 			state.heal_sanity(amount)
 		else:
+			if battle and battle.has_method("apply_sanity_loss"):
+				battle.apply_sanity_loss(abs(amount), "effect", null)
+				return
 			state.consume_sanity(abs(amount))

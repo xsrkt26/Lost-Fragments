@@ -54,6 +54,7 @@ func setup(p_battle_manager: BattleManager):
 	battle_manager.item_drawn.connect(_on_item_drawn)
 	backpack_ui.item_dropped_on_grid.connect(battle_manager.request_place_item)
 	_render_existing_backpack_items()
+	_render_ornaments()
 	
 	# 连接状态更新信号
 	gs = get_node_or_null("/root/GameState")
@@ -180,6 +181,26 @@ func _render_existing_backpack_items():
 		battle_manager.managed_item_uis.append(card)
 		_connect_item_ui_signals(card)
 		backpack_ui.add_item_visual(card, instance.root_pos)
+
+func _render_ornaments():
+	if ornaments_area == null:
+		return
+	for child in ornaments_area.get_children():
+		child.queue_free()
+	var rm = get_node_or_null("/root/RunManager")
+	var ornament_db = get_node_or_null("/root/OrnamentDatabase")
+	if rm == null or ornament_db == null:
+		return
+	for ornament_id in rm.current_ornaments:
+		var ornament = ornament_db.get_ornament_by_id(ornament_id)
+		if ornament == null:
+			continue
+		var slot = Button.new()
+		slot.custom_minimum_size = Vector2(64, 64)
+		slot.text = ornament.ornament_name.substr(0, min(2, ornament.ornament_name.length()))
+		slot.tooltip_text = ornament.get_tooltip_text()
+		slot.focus_mode = Control.FOCUS_NONE
+		ornaments_area.add_child(slot)
 
 func _connect_item_ui_signals(card: Control):
 	card.dropped.connect(func(_mouse_pos, _pivot): _handle_item_dropped(card, _mouse_pos, _pivot))
