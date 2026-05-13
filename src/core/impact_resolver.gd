@@ -13,11 +13,11 @@ func _init(p_backpack: BackpackManager, p_context: GameContext):
 	backpack = p_backpack
 	context = p_context
 
-func resolve_impact(start_pos: Vector2i, dir: ItemData.Direction) -> Array[GameAction]:
+func resolve_impact(start_pos: Vector2i, dir: ItemData.Direction, source: BackpackManager.ItemInstance = null) -> Array[GameAction]:
 	actions_history = []
 	visited = [] 
-	print("[ImpactResolver] 开始处理撞击: 起点 ", start_pos, " 方向 ", dir)
-	_resolve_recursive(start_pos, dir, actions_history, visited)
+	print("[ImpactResolver] 开始处理撞击: 起点 ", start_pos, " 方向 ", dir, " 来源: ", source.data.item_name if source else "None")
+	_resolve_recursive(start_pos, dir, actions_history, visited, source)
 	return actions_history
 
 func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions: Array[GameAction], visited_local: Array, source_instance: BackpackManager.ItemInstance = null, active_filters: Array[String] = [], ignore_visited: bool = false) -> bool:
@@ -93,9 +93,13 @@ func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions:
 	match instance.data.transmission_mode:
 		ItemData.TransmissionMode.NORMAL:
 			var item_dir = instance.data.direction
-			for offset in instance.data.shape:
-				if _resolve_recursive(instance.root_pos + offset, item_dir, actions, visited_local, instance, filters, false):
-					did_hit_others = true
+			# 核心需求：方向相同时才会传导
+			if item_dir == dir:
+				for offset in instance.data.shape:
+					if _resolve_recursive(instance.root_pos + offset, item_dir, actions, visited_local, instance, filters, false):
+						did_hit_others = true
+			else:
+				print("[ImpactResolver] 物品 ", instance.data.item_name, " 方向不一致 (来源:", dir, " 自身:", item_dir, ")，传导终止。")
 		ItemData.TransmissionMode.OMNI:
 			for d in [ItemData.Direction.UP, ItemData.Direction.DOWN, ItemData.Direction.LEFT, ItemData.Direction.RIGHT]:
 				for offset in instance.data.shape:
@@ -111,21 +115,22 @@ func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions:
 				
 	return true
 
-func _find_next_item(pos: Vector2i, dir: ItemData.Direction, filters: Array[String], exclude: BackpackManager.ItemInstance) -> Vector2i:
-	var current = pos
-	var step = Vector2i.ZERO
-	match dir:
-		ItemData.Direction.UP: step = Vector2i(0, -1)
-		ItemData.Direction.DOWN: step = Vector2i(0, 1)
-		ItemData.Direction.LEFT: step = Vector2i(-1, 0)
-		ItemData.Direction.RIGHT: step = Vector2i(1, 0)
+func _find_next_item(pos: Vector2i, _dir: ItemData.Direction, filters: Array[String], exclude: BackpackManager.ItemInstance) -> Vector2i:
+	# 边界检查
+	if pos.x < 0 or pos.x >= backpack.grid_width or pos.y < 0 or pos.y >= backpack.grid_height:
+		return Vector2i(-1, -1)
 		
-	while current.x >= 0 and current.x < backpack.grid_width and current.y >= 0 and current.y < backpack.grid_height:
-		if backpack.grid.has(current):
-			var found = backpack.grid[current]
-			if found != exclude:
-				if filters.is_empty(): return current
-				for tag in found.data.tags:
-					if tag in filters: return current
-		current += step
+	# 核心需求：仅检查紧贴的（相邻）格子，不再跳过空格搜索
+	if backpack.grid.has(pos):
+		var found = backpack.grid[pos]
+		if found != exclude:
+			if filters.is_empty(): 
+				return pos
+			# 检查过滤器：仅能撞击包含这些标签的物品
+			for tag in found.data.tags:
+				if tag in filters: 
+					return pos
+			# 如果有过滤器且不匹配，则视为未击中目标
+			print("[ImpactResolver] 紧贴物 ", found.data.item_name, " 不满足标签过滤器: ", filters)
+	
 	return Vector2i(-1, -1)

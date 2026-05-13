@@ -51,17 +51,14 @@ func test_ink_cartridge_reactive_draw():
 	
 	var battle = context.battle
 	
-	# 1. 抽到书籍 -> 1
 	battle._process_new_item_acquisition(item_db.get_item_by_id("english_book"))
-	assert_eq(instance.current_pollution, 1, "Should react to Book")
+	assert_eq(instance.current_pollution, 1)
 	
-	# 2. 抽到纸团 (标签: 废弃物) -> 2
 	battle._process_new_item_acquisition(item_db.get_item_by_id("paper_ball"))
-	assert_eq(instance.current_pollution, 2, "Should react to Trash (which includes paper_ball)")
+	assert_eq(instance.current_pollution, 2)
 	
-	# 3. 抽到无关标签 (食物) -> 保持 2
 	battle._process_new_item_acquisition(item_db.get_item_by_id("roast_chicken"))
-	assert_eq(instance.current_pollution, 2, "Should NOT react to Food")
+	assert_eq(instance.current_pollution, 2)
 
 func test_ink_cartridge_growth_value():
 	var ink_data = item_db.get_item_by_id("ink_cartridge")
@@ -70,19 +67,22 @@ func test_ink_cartridge_growth_value():
 	instance.current_pollution = 9 
 	
 	var resolver = ImpactResolver.new(backpack, context)
-	_apply_actions(resolver.resolve_impact(Vector2i(2, 2), ItemData.Direction.LEFT))
+	# 直接点击
+	_apply_actions(resolver.resolve_impact(Vector2i(2, 2), ItemData.Direction.RIGHT))
 	assert_eq(gs.current_score, 20)
 
 func test_synergy_funnel_and_cartridge():
 	var funnel_data = item_db.get_item_by_id("waste_funnel")
 	var ink_data = item_db.get_item_by_id("ink_cartridge")
 	backpack.place_item(funnel_data, Vector2i(0, 2))
-	backpack.place_item(ink_data, Vector2i(3, 2))
+	backpack.place_item(ink_data, Vector2i(1, 2)) # 紧贴
+	
+	# 强制方向
+	backpack.grid[Vector2i(0, 2)].data.direction = ItemData.Direction.RIGHT
 	
 	var resolver = ImpactResolver.new(backpack, context)
 	_apply_actions(resolver.resolve_impact(Vector2i(0, 2), ItemData.Direction.RIGHT))
-	assert_eq(backpack.grid[Vector2i(3, 2)].current_pollution, 3)
+	assert_eq(backpack.grid[Vector2i(1, 2)].current_pollution, 3)
 	
-	# 再抽一本书
 	context.battle._process_new_item_acquisition(item_db.get_item_by_id("english_book"))
-	assert_eq(backpack.grid[Vector2i(3, 2)].current_pollution, 4)
+	assert_eq(backpack.grid[Vector2i(1, 2)].current_pollution, 4)

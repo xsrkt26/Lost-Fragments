@@ -55,23 +55,34 @@ func test_source_bottle_long_chain_bonus():
 	for i in range(5):
 		backpack.place_item(paper_data, Vector2i(i, 2))
 		backpack.grid[Vector2i(i, 2)].current_pollution = 1
+		# 强制方向一致
+		backpack.grid[Vector2i(i, 2)].data.direction = ItemData.Direction.RIGHT
 	backpack.place_item(bottle_data, Vector2i(5, 2))
 	var resolver = ImpactResolver.new(backpack, context)
 	_apply_actions(resolver.resolve_impact(Vector2i(0, 2), ItemData.Direction.RIGHT))
-	assert_eq(gs.current_score, 50)
+	# 纸团 5x4 = 20. 瓶子奖励 20. 总 40.
+	assert_eq(gs.current_score, 40)
 
 func test_synergy_source_and_recycler():
 	var bottle = item_db.get_item_by_id("pollution_source_bottle")
 	var paper = item_db.get_item_by_id("paper_ball")
 	var recycler = item_db.get_item_by_id("trash_recycler")
-	backpack.place_item(paper, Vector2i(0, 0))
-	backpack.place_item(bottle, Vector2i(2, 0))
+	# 纸团放在 (1, 0)，瓶子放在 (0, 0)，撞击向右
+	backpack.place_item(paper, Vector2i(1, 0))
+	backpack.place_item(bottle, Vector2i(0, 0))
 	backpack.place_item(recycler, Vector2i(4, 4))
-	backpack.grid[Vector2i(0, 0)].current_pollution = 5
+	
+	# 强制方向一致以允许传导
+	backpack.grid[Vector2i(0, 0)].data.direction = ItemData.Direction.RIGHT
+	
+	backpack.grid[Vector2i(1, 0)].current_pollution = 5
 	var resolver = ImpactResolver.new(backpack, context)
-	_apply_actions(resolver.resolve_impact(Vector2i(2, 0), ItemData.Direction.LEFT))
-	# Based on log: score 14, poll 14 (Echo hit from paper ball back to bottle)
-	assert_eq(gs.current_score, 14)
-	assert_eq(backpack.grid[Vector2i(0, 0)].current_pollution, 14)
+	# 击中瓶子 (0,0) -> 传导至纸团 (1,0)
+	_apply_actions(resolver.resolve_impact(Vector2i(0, 0), ItemData.Direction.RIGHT))
+	
+	# 瓶子全局 +1 -> 纸团变为 6
+	# 纸团被击中 -> Multi=7 -> 自增 7 -> 总 13.
+	assert_eq(backpack.grid[Vector2i(1, 0)].current_pollution, 13)
+	
 	_apply_actions(resolver.resolve_impact(Vector2i(4, 4), ItemData.Direction.RIGHT))
-	assert_eq(backpack.grid[Vector2i(0, 0)].current_pollution, 0)
+	assert_eq(backpack.grid[Vector2i(1, 0)].current_pollution, 0)

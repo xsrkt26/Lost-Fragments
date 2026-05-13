@@ -22,15 +22,20 @@ func load_all_items():
 		dir.list_dir_begin()
 		var file_name = dir.get_next()
 		while file_name != "":
-			if not dir.current_is_dir() and file_name.ends_with(".tres"):
-				var item = load(path + file_name)
-				if item is ItemData:
-					if item.id == "":
-						item.id = file_name.get_basename()
-					items[item.id] = item
-					if item.can_draw:
-						drawable_items.append(item)
-					print("[ItemDatabase] 已加载物品: ", item.item_name, " (ID: ", item.id, ")")
+			if not dir.current_is_dir():
+				# 核心修复：处理导出后的 .remap 扩展名
+				var clean_name = file_name.trim_suffix(".remap")
+				if clean_name.ends_with(".tres") or clean_name.ends_with(".res"):
+					var full_path = path + clean_name
+					var item = load(full_path)
+					if item is ItemData:
+						# 如果 ID 为空，使用文件名作为 ID
+						if item.id == "":
+							item.id = clean_name.get_basename()
+						items[item.id] = item
+						if item.can_draw:
+							drawable_items.append(item)
+						print("[ItemDatabase] 已加载物品: ", item.item_name, " (ID: ", item.id, ")")
 			file_name = dir.get_next()
 	
 	print("[ItemDatabase] 总计加载物品: ", items.size(), ", 可抽取的物品: ", drawable_items.size())

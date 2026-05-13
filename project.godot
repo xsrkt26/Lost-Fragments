@@ -17,14 +17,14 @@ config/icon="res://icon.svg"
 
 [autoload]
 
-GameState="*uid://dxekfekt4thuq"
+GameState="*res://src/autoload/game_state.gd"
 RunManager="*res://src/autoload/run_manager.gd"
-ItemDatabase="*uid://bg6qsm41jyvxw"
-GlobalEventBus="*uid://c2ec3e0atxdld"
-GlobalInput="*uid://bsdlowu53gs5r"
+ItemDatabase="*res://src/autoload/item_database.gd"
+GlobalEventBus="*res://src/autoload/global_event_bus.gd"
+GlobalInput="*res://src/autoload/input_manager.gd"
 GlobalAudio="*res://src/autoload/audio_manager.gd"
 SettingsManager="*res://src/autoload/settings_manager.gd"
-GlobalScene="*uid://b0gu2l63dmu42"
+GlobalScene="*res://src/autoload/scene_manager.gd"
 GlobalTooltip="*res://src/autoload/tooltip_manager.gd"
 GlobalFeedback="*res://src/autoload/feedback_manager.gd"
 

@@ -5,8 +5,16 @@ extends ItemEffect
 ## 防腐状态下的物品，其污染层数不再发生任何变化。
 
 func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackManager.ItemInstance, resolver: ImpactResolver, _context: GameContext, _multiplier: int = 1) -> GameAction:
+	# 获取步进向量
+	var step = Vector2i.ZERO
+	match instance.data.direction:
+		ItemData.Direction.UP: step = Vector2i(0, -1)
+		ItemData.Direction.DOWN: step = Vector2i(0, 1)
+		ItemData.Direction.LEFT: step = Vector2i(-1, 0)
+		ItemData.Direction.RIGHT: step = Vector2i(1, 0)
+		
 	# 物理探测：寻找前方物品
-	var target_pos = resolver._find_next_item(instance.root_pos, instance.data.direction, [], instance)
+	var target_pos = resolver._find_next_item(instance.root_pos + step, instance.data.direction, [], instance)
 	if target_pos != Vector2i(-1, -1):
 		var target_item = resolver.backpack.grid[target_pos]
 		target_item.is_preserved = true

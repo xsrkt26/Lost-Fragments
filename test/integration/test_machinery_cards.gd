@@ -46,12 +46,13 @@ func test_rusty_gear_omni_transmission():
 	backpack.place_item(paper, Vector2i(2, 3)) # DOWN
 	backpack.place_item(paper, Vector2i(1, 2)) # LEFT
 	backpack.place_item(paper, Vector2i(3, 2)) # RIGHT
+	
+	# Omni gear handles all directions
 	var resolver = ImpactResolver.new(backpack, context)
 	var actions = resolver.resolve_impact(Vector2i(2, 2), ItemData.Direction.RIGHT)
 	var hits = 0
 	for a in actions:
 		if a.type == GameAction.Type.IMPACT and a.item_instance != null: hits += 1
-	# 推导：齿轮(1) + 4个邻居(4) = 5. (纸团不传导，无反打)
 	assert_eq(hits, 5)
 
 func test_rusty_gear_on_hit():
@@ -68,19 +69,17 @@ func test_rusty_gear_at_boundary():
 	backpack.place_item(paper, Vector2i(1, 0)) # RIGHT
 	backpack.place_item(paper, Vector2i(0, 1)) # DOWN
 	var resolver = ImpactResolver.new(backpack, context)
-	# 从(0,0)发起
 	var actions = resolver.resolve_impact(Vector2i(0, 0), ItemData.Direction.RIGHT)
 	var hits = 0
 	for a in actions:
 		if a.type == GameAction.Type.IMPACT and a.item_instance != null: hits += 1
-	# 齿轮(1) + 2个邻居(2) = 3
 	assert_eq(hits, 3)
 
 func test_large_gear_transmission():
 	var lg = item_db.get_item_by_id("large_gear") # 2x2 OMNI
 	var paper = item_db.get_item_by_id("paper_ball")
 	backpack.place_item(lg, Vector2i(1, 1))
-	backpack.place_item(paper, Vector2i(3, 1)) # RIGHT
+	backpack.place_item(paper, Vector2i(3, 1)) # RIGHT. 2x2 at (1,1) neighbor is (3,1)
 	var resolver = ImpactResolver.new(backpack, context)
 	var actions = resolver.resolve_impact(Vector2i(1, 1), ItemData.Direction.RIGHT)
 	var hit_paper = false
@@ -93,31 +92,38 @@ func test_rusty_gear_mod_diffusion():
 	var paper = item_db.get_item_by_id("paper_ball")
 	backpack.place_item(mod, Vector2i(2, 2))
 	backpack.place_item(paper, Vector2i(3, 2))
+	
+	# 强制方向
+	backpack.grid[Vector2i(2,2)].data.direction = ItemData.Direction.RIGHT
+	
 	var resolver = ImpactResolver.new(backpack, context)
 	_apply_actions(resolver.resolve_impact(Vector2i(2, 2), ItemData.Direction.RIGHT))
-	# Mod被撞：自叠+1. 扩散给纸团(1). 传导撞击纸团(1+1*2=3).
 	assert_eq(backpack.grid[Vector2i(3, 2)].current_pollution, 3)
 
 func test_trash_bag_purify():
 	var bag = item_db.get_item_by_id("trash_bag")
 	var paper = item_db.get_item_by_id("paper_ball")
 	backpack.place_item(bag, Vector2i(1, 1))
-	backpack.place_item(paper, Vector2i(3, 1)) 
-	backpack.grid[Vector2i(3, 1)].current_pollution = 10
+	backpack.place_item(paper, Vector2i(2, 1)) # 紧贴
+	
+	backpack.grid[Vector2i(1,1)].data.direction = ItemData.Direction.RIGHT
+	
+	backpack.grid[Vector2i(2, 1)].current_pollution = 10
 	gs.current_sanity = 50
 	var resolver = ImpactResolver.new(backpack, context)
 	_apply_actions(resolver.resolve_impact(Vector2i(1, 1), ItemData.Direction.RIGHT))
-	# 净化10 -> San 60. 纸团被净化后被传导撞击 -> 1层.
 	assert_eq(gs.current_sanity, 60)
-	assert_eq(backpack.grid[Vector2i(3, 1)].current_pollution, 1)
+	assert_eq(backpack.grid[Vector2i(2, 1)].current_pollution, 1)
 
 func test_long_plank_logic():
 	var plank = item_db.get_item_by_id("long_plank") # 1x3 RIGHT
 	var paper = item_db.get_item_by_id("paper_ball")
-	backpack.place_item(plank, Vector2i(1, 1))
-	backpack.place_item(paper, Vector2i(4, 1))
+	backpack.place_item(plank, Vector2i(1, 1)) # (1,1), (2,1), (3,1)
+	backpack.place_item(paper, Vector2i(4, 1)) # 紧贴
+	
+	backpack.grid[Vector2i(1,1)].data.direction = ItemData.Direction.RIGHT
+	
 	var resolver = ImpactResolver.new(backpack, context)
-	# 从左侧撞入
 	var actions = resolver.resolve_impact(Vector2i(1, 1), ItemData.Direction.RIGHT)
 	var hit_paper = false
 	for a in actions:

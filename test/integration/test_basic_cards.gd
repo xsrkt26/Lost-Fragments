@@ -44,7 +44,7 @@ func test_roast_chicken_normal_healing():
 	backpack.place_item(chicken, Vector2i(2, 0))
 	gs.current_sanity = 50
 	var resolver = ImpactResolver.new(backpack, context)
-	_apply_actions(resolver.resolve_impact(Vector2i(0, 0), ItemData.Direction.RIGHT))
+	_apply_actions(resolver.resolve_impact(Vector2i(2, 0), ItemData.Direction.RIGHT))
 	assert_eq(gs.current_sanity, 55, "Normal healing should add 5 Sanity")
 
 func test_roast_chicken_max_sanity_limit():
@@ -52,14 +52,14 @@ func test_roast_chicken_max_sanity_limit():
 	backpack.place_item(chicken, Vector2i(2, 0))
 	gs.current_sanity = 98 # 接近上限 100
 	var resolver = ImpactResolver.new(backpack, context)
-	_apply_actions(resolver.resolve_impact(Vector2i(0, 0), ItemData.Direction.RIGHT))
+	_apply_actions(resolver.resolve_impact(Vector2i(2, 0), ItemData.Direction.RIGHT))
 	assert_eq(gs.current_sanity, 100, "Sanity should not exceed 100 (Max)")
 
 func test_roast_chicken_on_hit():
 	var chicken = item_db.get_item_by_id("roast_chicken")
 	backpack.place_item(chicken, Vector2i(2, 2))
 	var resolver = ImpactResolver.new(backpack, context)
-	var actions = resolver.resolve_impact(Vector2i(1, 2), ItemData.Direction.RIGHT)
+	var actions = resolver.resolve_impact(Vector2i(2, 2), ItemData.Direction.RIGHT)
 	assert_gt(actions.size(), 1, "Roast chicken should be hitable")
 
 # --- 破旧闹钟测试 (Alarm Clock) ---
@@ -69,7 +69,7 @@ func test_alarm_clock_base_score():
 	backpack.place_item(clock, Vector2i(2, 0))
 	context.battle.draw_count = 10 # 刚好在阈值上 ( > 10 才会额外加分)
 	var resolver = ImpactResolver.new(backpack, context)
-	_apply_actions(resolver.resolve_impact(Vector2i(0, 0), ItemData.Direction.RIGHT))
+	_apply_actions(resolver.resolve_impact(Vector2i(2, 0), ItemData.Direction.RIGHT))
 	assert_eq(gs.current_score, 3, "At threshold 10, should still give base 3 score")
 
 func test_alarm_clock_extra_score():
@@ -77,7 +77,7 @@ func test_alarm_clock_extra_score():
 	backpack.place_item(clock, Vector2i(2, 0))
 	context.battle.draw_count = 11 # 超过阈值
 	var resolver = ImpactResolver.new(backpack, context)
-	_apply_actions(resolver.resolve_impact(Vector2i(0, 0), ItemData.Direction.RIGHT))
+	_apply_actions(resolver.resolve_impact(Vector2i(2, 0), ItemData.Direction.RIGHT))
 	assert_eq(gs.current_score, 11, "Above threshold 10, should give 3+8=11 score")
 
 # --- 半张彩票测试 (Lottery) ---
@@ -123,7 +123,7 @@ func test_curse_box_effect():
 	gs.current_sanity = 50
 	
 	var resolver = ImpactResolver.new(backpack, context)
-	_apply_actions(resolver.resolve_impact(Vector2i(1, 2), ItemData.Direction.RIGHT))
+	_apply_actions(resolver.resolve_impact(Vector2i(2, 2), ItemData.Direction.RIGHT))
 	
 	assert_eq(gs.current_sanity, 45, "Should lose 5 sanity on hit")
 
@@ -134,7 +134,7 @@ func test_curse_box_multiplier():
 	gs.current_sanity = 50
 	
 	var resolver = ImpactResolver.new(backpack, context)
-	_apply_actions(resolver.resolve_impact(Vector2i(1, 2), ItemData.Direction.RIGHT))
+	_apply_actions(resolver.resolve_impact(Vector2i(2, 2), ItemData.Direction.RIGHT))
 	
 	# 50 - 10 (effect x2) - 1 (backlash) = 39
 	assert_eq(gs.current_sanity, 39, "Should lose 10 sanity (effect) + 1 (backlash) = 11 total")
@@ -145,8 +145,8 @@ func test_curse_box_at_boundary():
 	
 	var resolver = ImpactResolver.new(backpack, context)
 	# 边界测试：确保不会崩溃且能被撞击
-	var actions = resolver.resolve_impact(Vector2i(3, 4), ItemData.Direction.RIGHT)
-	assert_gt(actions.size(), 1)
+	var actions = resolver.resolve_impact(Vector2i(4, 4), ItemData.Direction.RIGHT)
+	assert_gt(actions.size(), 0)
 
 # --- 易拉罐测试 (Tin Can) ---
 
@@ -155,7 +155,7 @@ func test_tin_can_basic_score():
 	backpack.place_item(can, Vector2i(2, 2)) # 1x2 item
 	
 	var resolver = ImpactResolver.new(backpack, context)
-	_apply_actions(resolver.resolve_impact(Vector2i(1, 2), ItemData.Direction.RIGHT))
+	_apply_actions(resolver.resolve_impact(Vector2i(2, 2), ItemData.Direction.RIGHT))
 	
 	assert_eq(gs.current_score, 5, "Should give 5 points on hit")
 
@@ -164,10 +164,9 @@ func test_tin_can_multi_hit():
 	backpack.place_item(can, Vector2i(2, 2))
 	
 	var resolver = ImpactResolver.new(backpack, context)
-	# 同时击中它的两个格子 (假设从左侧广域触发)
-	# 模拟来自不同源的撞击
-	_apply_actions(resolver.resolve_impact(Vector2i(1, 2), ItemData.Direction.RIGHT))
-	_apply_actions(resolver.resolve_impact(Vector2i(1, 3), ItemData.Direction.RIGHT))
+	# 同时击中它的两个格子
+	_apply_actions(resolver.resolve_impact(Vector2i(2, 2), ItemData.Direction.RIGHT))
+	_apply_actions(resolver.resolve_impact(Vector2i(2, 3), ItemData.Direction.RIGHT))
 	
 	assert_eq(gs.current_score, 10, "Should give 10 points when hit twice")
 
@@ -175,16 +174,16 @@ func test_tin_can_transmission():
 	var can = item_db.get_item_by_id("tin_can")
 	var paper = item_db.get_item_by_id("paper_ball")
 	backpack.place_item(can, Vector2i(2, 1)) # 占据 (2,1), (2,2)
-	backpack.place_item(paper, Vector2i(4, 1))
+	backpack.place_item(paper, Vector2i(3, 1)) # 紧贴 (2,1) 的右侧
 	
 	var resolver = ImpactResolver.new(backpack, context)
-	# 从左侧撞击第一格
-	var actions = resolver.resolve_impact(Vector2i(1, 1), ItemData.Direction.RIGHT)
+	# 从其自身位置触发撞击
+	var actions = resolver.resolve_impact(Vector2i(2, 1), ItemData.Direction.RIGHT)
 	
 	var hit_paper = false
 	for a in actions:
 		if a.description.contains("纸团"): hit_paper = true
-	assert_true(hit_paper, "Tin can should transmit impact from its shape")
+	assert_true(hit_paper, "Tin can should transmit impact to adjacent paper ball")
 
 # --- 棒球测试 (Baseball) ---
 

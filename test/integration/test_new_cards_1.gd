@@ -46,9 +46,10 @@ func _apply_actions(actions: Array[GameAction]):
 # --- 废弃扑克牌 (Joker) ---
 func test_joker_on_hit():
 	var joker = item_db.get_item_by_id("joker")
-	backpack.place_item(joker, Vector2i(2, 2))
+	backpack.place_item(joker, Vector2i(1, 2))
 	
 	var resolver = ImpactResolver.new(backpack, context)
+	# 直接撞击 Joker (1, 2)
 	_apply_actions(resolver.resolve_impact(Vector2i(1, 2), ItemData.Direction.RIGHT))
 	assert_eq(gs.current_score, 3, "Joker should give 3 score on hit")
 
@@ -61,7 +62,7 @@ class SpyBattleManager extends BattleManager:
 func test_old_soccer_ball_reactive():
 	var soccer = item_db.get_item_by_id("old_soccer_ball")
 	var trash = item_db.get_item_by_id("paper_ball") # tag: 废弃物
-	backpack.place_item(soccer, Vector2i(2, 2))
+	backpack.place_item(soccer, Vector2i(1, 1))
 	
 	var spy_battle = SpyBattleManager.new()
 	add_child(spy_battle)
@@ -72,15 +73,15 @@ func test_old_soccer_ball_reactive():
 	spy_battle._process_new_item_acquisition(trash)
 	await get_tree().process_frame
 	
-	assert_true(spy_battle.triggered_at.has(Vector2i(2, 2)), "Old soccer ball should react to Trash drawn")
+	assert_true(spy_battle.triggered_at.has(Vector2i(1, 1)), "Old soccer ball should react to Trash drawn")
 	spy_battle.queue_free()
 
 # --- 便利贴 (Sticky Note) ---
 func test_sticky_note_pollution_conversion():
 	var sticky = item_db.get_item_by_id("sticky_note")
-	backpack.place_item(sticky, Vector2i(2, 2))
+	backpack.place_item(sticky, Vector2i(1, 2))
 	
-	var instance = backpack.grid[Vector2i(2, 2)]
+	var instance = backpack.grid[Vector2i(1, 2)]
 	
 	var resolver = ImpactResolver.new(backpack, context)
 	
@@ -95,17 +96,13 @@ func test_sticky_note_pollution_conversion():
 	assert_eq(instance.current_pollution, 2)
 	
 	# 测试：累积 5 层污染时，消耗 3 层，+10 分，剩余 2 层
-	# 注意：此时它有 5 层污染，因此其效果结算会被放大 (Multiplier = 1 + 5 = 6)
-	# 得分: 1 (套) * 10 * 6 = 60
 	instance.current_pollution = 5
 	_apply_actions(resolver.resolve_impact(Vector2i(1, 2), ItemData.Direction.RIGHT))
 	assert_eq(gs.current_score, 60, "Score should be 10 * 6 multiplier = 60")
 	assert_eq(instance.current_pollution, 2)
 	
 	# 测试：累积 7 层污染时，消耗 6 层，+20 分，剩余 1 层
-	# 此时有 7 层污染，Multiplier = 1 + 7 = 8
-	# 得分: 2 (套) * 10 * 8 = 160
 	instance.current_pollution = 7
 	_apply_actions(resolver.resolve_impact(Vector2i(1, 2), ItemData.Direction.RIGHT))
-	assert_eq(gs.current_score, 220, "Score should be 60 + 160 = 220") # 之前60分 + 这次160分
+	assert_eq(gs.current_score, 220, "Score should be 60 + 160 = 220")
 	assert_eq(instance.current_pollution, 1)

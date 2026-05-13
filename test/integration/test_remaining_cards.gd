@@ -75,12 +75,12 @@ func test_isolation_box_passive():
 			effect.on_equip(box_data, context)
 	
 	# 放置纸团并设置污染
-	backpack.place_item(paper_data, Vector2i(2, 0))
-	var paper_inst = backpack.grid[Vector2i(2, 0)]
+	backpack.place_item(paper_data, Vector2i(1, 0)) # 紧贴
+	var paper_inst = backpack.grid[Vector2i(1, 0)]
 	paper_inst.current_pollution = 5 # Multiplier = 6, Backlash = 5
 	
 	var resolver = ImpactResolver.new(backpack, context)
-	var actions = resolver.resolve_impact(Vector2i(2, 0), ItemData.Direction.RIGHT)
+	var actions = resolver.resolve_impact(Vector2i(1, 0), ItemData.Direction.RIGHT)
 	
 	# 检查反噬数值：本应扣 5 San，现在应扣 5 - 1 = 4 San
 	var backlash_found = false
@@ -117,11 +117,15 @@ func test_stain_magnifier_trigger():
 	var p2 = item_db.get_item_by_id("paper_ball")
 	
 	backpack.place_item(mag_data, Vector2i(0, 0))
-	backpack.place_item(p1, Vector2i(2, 0))
-	backpack.place_item(p2, Vector2i(4, 0))
+	backpack.place_item(p1, Vector2i(1, 0)) # 紧贴
+	backpack.place_item(p2, Vector2i(2, 0)) # 紧贴
 	
-	backpack.grid[Vector2i(2, 0)].current_pollution = 10 # 最高
-	backpack.grid[Vector2i(4, 0)].current_pollution = 5
+	# 强制方向
+	backpack.grid[Vector2i(0, 0)].data.direction = ItemData.Direction.RIGHT
+	backpack.grid[Vector2i(1, 0)].data.direction = ItemData.Direction.RIGHT
+	
+	backpack.grid[Vector2i(1, 0)].current_pollution = 10 # 最高
+	backpack.grid[Vector2i(2, 0)].current_pollution = 5
 	
 	var spy_battle = SpyBattle.new()
 	add_child(spy_battle)
@@ -130,16 +134,17 @@ func test_stain_magnifier_trigger():
 	context.battle = spy_battle
 	
 	var resolver = ImpactResolver.new(backpack, context)
+	# 击中放大镜 (0,0) -> 传导至 P1 (1,0)
 	_apply_actions(resolver.resolve_impact(Vector2i(0, 0), ItemData.Direction.RIGHT))
 	
 	# 逻辑：
-	# 1. 放大镜被撞。P1(10 poll) -> 11 poll. 指挥 P1 触发额外撞击 (deferred).
+	# 1. 放大镜被撞。P1(10 poll) -> 11 poll. 
 	# 2. 放大镜传导 RIGHT。击中 P1. 
 	#    此时 P1 有 11 层，Multiplier=12. P1 自增 +12. 
 	#    P1 最终 = 11 + 12 = 23.
-	assert_eq(backpack.grid[Vector2i(2, 0)].current_pollution, 23, "P1 should be 23 (10+1+12)")
+	assert_eq(backpack.grid[Vector2i(1, 0)].current_pollution, 23, "P1 should be 23 (10+1+12)")
 	
 	await get_tree().process_frame # 等待 call_deferred
-	assert_true(spy_battle.triggered_pos.has(Vector2i(2, 0)), "Highest polluter should be triggered")
+	assert_true(spy_battle.triggered_pos.has(Vector2i(1, 0)), "Highest polluter should be triggered")
 	
 	spy_battle.queue_free()

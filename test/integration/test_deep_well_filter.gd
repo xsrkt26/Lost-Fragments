@@ -51,11 +51,7 @@ func test_filter_basic_conversion():
 	backpack.grid[Vector2i(1, 2)].current_pollution = 5
 	
 	var resolver = ImpactResolver.new(backpack, context)
-	# 启动撞击：击中滤芯
-	# 物理逻辑：
-	# 1. 滤芯 on_hit 触发：过滤 3 层。5 -> 2. 得分 30.
-	# 2. 传导检查：滤芯 TransmissionMode 是 NONE。
-	# 3. 解析器停止。纸团不应被击中。
+	# 启动撞击：直接击中滤芯 (0, 2)
 	_apply_actions(resolver.resolve_impact(Vector2i(0, 2), ItemData.Direction.RIGHT))
 	
 	assert_eq(backpack.grid[Vector2i(1, 2)].current_pollution, 2, "Pollution should be exactly 2 after filtering and NO transmission")
@@ -68,6 +64,7 @@ func test_filter_small_amount():
 	backpack.place_item(paper_data, Vector2i(1, 2))
 	backpack.grid[Vector2i(1, 2)].current_pollution = 1
 	var resolver = ImpactResolver.new(backpack, context)
+	# 直接击中 (0, 2)
 	_apply_actions(resolver.resolve_impact(Vector2i(0, 2), ItemData.Direction.RIGHT))
 	assert_eq(backpack.grid[Vector2i(1, 2)].current_pollution, 0)
 	assert_eq(gs.current_score, 10)
@@ -75,16 +72,17 @@ func test_filter_small_amount():
 func test_synergy_source_bottle_and_filter():
 	var paper_data = item_db.get_item_by_id("paper_ball")
 	var filter_data = item_db.get_item_by_id("deep_well_filter")
-	backpack.place_item(paper_data, Vector2i(2, 2))
+	backpack.place_item(paper_data, Vector2i(1, 2))
 	backpack.place_item(filter_data, Vector2i(0, 2))
 	
 	# 设定：滤芯有 2 层(Multi=3)，纸团有 5 层
 	backpack.grid[Vector2i(0, 2)].current_pollution = 2
-	backpack.grid[Vector2i(2, 2)].current_pollution = 5
+	backpack.grid[Vector2i(1, 2)].current_pollution = 5
 	
 	var resolver = ImpactResolver.new(backpack, context)
+	# 直接击中 (0, 2)
 	_apply_actions(resolver.resolve_impact(Vector2i(0, 2), ItemData.Direction.RIGHT))
 	
 	# 3层 * 10 * Multi(3) = 90.
 	assert_eq(gs.current_score, 90)
-	assert_eq(backpack.grid[Vector2i(2, 2)].current_pollution, 2)
+	assert_eq(backpack.grid[Vector2i(1, 2)].current_pollution, 2)

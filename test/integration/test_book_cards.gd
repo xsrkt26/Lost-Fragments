@@ -43,8 +43,8 @@ func test_math_textbook_filtering():
 	var paper_ball = item_db.get_item_by_id("paper_ball")
 	var eng_book = item_db.get_item_by_id("english_book")
 	backpack.place_item(math_book, Vector2i(0, 0))
-	backpack.place_item(paper_ball, Vector2i(2, 0))
-	backpack.place_item(eng_book, Vector2i(4, 0))
+	backpack.place_item(paper_ball, Vector2i(1, 0)) # 紧贴
+	backpack.place_item(eng_book, Vector2i(2, 0))
 	var resolver = ImpactResolver.new(backpack, context)
 	var actions = resolver.resolve_impact(Vector2i(0, 0), ItemData.Direction.RIGHT)
 	var hit_paper = false
@@ -52,14 +52,14 @@ func test_math_textbook_filtering():
 	for a in actions:
 		if a.description.contains("纸团"): hit_paper = true
 		if a.description.contains("英语课本"): hit_eng = true
-	assert_false(hit_paper, "Math book should skip non-book item")
-	assert_true(hit_eng, "Math book should hit the next book")
+	assert_false(hit_paper, "Math book should not hit non-book item due to filter")
+	assert_false(hit_eng, "Math book should not be able to skip non-book item anymore")
 
 func test_english_book_normal_hit():
 	var eng = item_db.get_item_by_id("english_book")
 	var paper = item_db.get_item_by_id("paper_ball")
 	backpack.place_item(paper, Vector2i(0, 2))
-	backpack.place_item(eng, Vector2i(2, 2))
+	backpack.place_item(eng, Vector2i(1, 2)) # 移至 (1,2) 确保紧贴
 	var resolver = ImpactResolver.new(backpack, context)
 	_apply_actions(resolver.resolve_impact(Vector2i(0, 2), ItemData.Direction.RIGHT))
 	# 纸团(2) + 英语课本(5) = 7
@@ -69,7 +69,7 @@ func test_english_book_bonus_hit():
 	var ancient = item_db.get_item_by_id("ancient_book")
 	var eng = item_db.get_item_by_id("english_book")
 	backpack.place_item(ancient, Vector2i(0, 2))
-	backpack.place_item(eng, Vector2i(2, 2))
+	backpack.place_item(eng, Vector2i(1, 2)) # 移至 (1,2) 确保紧贴
 	var resolver = ImpactResolver.new(backpack, context)
 	_apply_actions(resolver.resolve_impact(Vector2i(0, 2), ItemData.Direction.RIGHT))
 	# 古书(15) + 英语课本(15, 因受到书籍撞击) = 30

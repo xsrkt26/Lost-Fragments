@@ -156,22 +156,36 @@ texture = ExtResource("5_stats")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Label" type="Label" parent="ContentLayer/StatsPanel" unique_id=1574329851]
+[node name="VBox" type="VBoxContainer" parent="ContentLayer/StatsPanel"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -80.71425
-offset_top = 27.571503
-offset_right = 79.28577
-offset_bottom = 87.57149
+offset_left = -150.0
+offset_top = 10.0
+offset_right = 150.0
+offset_bottom = 110.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_constants/separation = 5
+
+[node name="SanityLabel" type="Label" parent="ContentLayer/StatsPanel/VBox" unique_id=2001]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.2, 0.2, 1)
+theme_override_font_sizes/font_size = 28
+text = "梦值: 100 / 100"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ScoreLabel" type="Label" parent="ContentLayer/StatsPanel/VBox" unique_id=1574329851]
+unique_name_in_owner = true
+layout_mode = 2
 theme_override_colors/font_color = Color(0.2, 0.160784, 0.133333, 1)
 theme_override_font_sizes/font_size = 32
-text = "10 / 500"
+text = "得分: 10 / 50"
 horizontal_alignment = 1
 vertical_alignment = 1
 

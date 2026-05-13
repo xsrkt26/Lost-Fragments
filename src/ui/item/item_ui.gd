@@ -17,13 +17,14 @@ var item_instance: BackpackManager.ItemInstance: # 逻辑实例
 @onready var name_label = $NameLabel
 
 # --- 信号 ---
-signal dropped(snap_pos: Vector2, mouse_pos: Vector2)
-signal drag_moved(item_ui: Control, center_pos: Vector2)
+signal dropped(mouse_global_pos: Vector2, pivot_offset: Vector2i)
+signal drag_moved(item_ui: Control, center_pos: Vector2, pivot_offset: Vector2i)
 signal rotation_requested(item_ui: Control, mouse_global_pos: Vector2, pivot_offset: Vector2i)
 
 # --- 交互变量 ---
 var _is_dragging: bool = false
 var _drag_offset: Vector2 = Vector2.ZERO
+var _held_pivot_offset: Vector2i = Vector2i.ZERO # 拖拽时鼠标按在哪个格子上
 
 func _ready():
 	add_to_group("item_uis")
@@ -117,6 +118,12 @@ func _on_mouse_exited():
 
 func _start_drag():
 	_is_dragging = true
+	var local_mouse = get_local_mouse_position()
+	# UI格子基础尺寸为 100x94
+	_held_pivot_offset = Vector2i(
+		floori(local_mouse.x / 100.0),
+		floori(local_mouse.y / 94.0)
+	)
 	_drag_offset = get_global_mouse_position() - global_position
 	z_index = 100 # 确保在最上方
 	GlobalTooltip.hide() # 拖拽时隐藏提示
@@ -126,15 +133,12 @@ func _stop_drag():
 	_is_dragging = false
 	z_index = 0
 	
-	# 计算中心点发出的 Snap 信号
-	var center = global_position + size / 2.0
-	dropped.emit(center, get_global_mouse_position())
+	dropped.emit(get_global_mouse_position(), _held_pivot_offset)
 
 func _request_rotation():
 	# 旋转时停止拖拽
 	_is_dragging = false
 	var local_mouse = get_local_mouse_position()
-	# UI格子基础尺寸为 100x94
 	var pivot_offset = Vector2i(
 		floori(local_mouse.x / 100.0),
 		floori(local_mouse.y / 94.0)
@@ -144,4 +148,4 @@ func _request_rotation():
 func _process(_delta):
 	if _is_dragging:
 		global_position = get_global_mouse_position() - _drag_offset
-		drag_moved.emit(self, global_position + size / 2.0)
+		drag_moved.emit(self, get_global_mouse_position(), _held_pivot_offset)

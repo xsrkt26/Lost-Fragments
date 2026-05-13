@@ -35,6 +35,12 @@ func _ready():
 ## 开启新的一局
 func start_new_run():
 	print("[RunManager] 开启新的一局...")
+	
+	# 核心修复：重置全局战斗状态 (San值、分数等)
+	var gs = get_node_or_null("/root/GameState")
+	if gs:
+		gs.reset_game()
+	
 	current_shards = INITIAL_SHARDS
 	current_deck = INITIAL_DECK.duplicate()
 	current_ornaments = []

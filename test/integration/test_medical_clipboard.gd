@@ -44,7 +44,6 @@ func test_clipboard_basic():
 	var board = item_db.get_item_by_id("medical_clipboard")
 	backpack.place_item(board, Vector2i(2, 2))
 	var resolver = ImpactResolver.new(backpack, context)
-	# 点击物品自身
 	_apply_actions(resolver.resolve_impact(Vector2i(2, 2), ItemData.Direction.RIGHT))
 	assert_eq(gs.current_score, 2)
 
@@ -74,17 +73,16 @@ func test_synergy_math_book_to_clipboard():
 	var math = item_db.get_item_by_id("math_textbook")
 	var board = item_db.get_item_by_id("medical_clipboard")
 	backpack.place_item(math, Vector2i(0, 1))
-	backpack.place_item(board, Vector2i(2, 1))
+	backpack.place_item(board, Vector2i(1, 1)) # 紧贴
+	
+	# 强制方向
+	backpack.grid[Vector2i(0, 1)].data.direction = ItemData.Direction.RIGHT
 	
 	var paper = item_db.get_item_by_id("paper_ball")
 	backpack.place_item(paper, Vector2i(4, 4))
 	backpack.grid[Vector2i(4, 4)].current_pollution = 10 
 	
 	var resolver = ImpactResolver.new(backpack, context)
-	# 点击数学课本。它会传导给病历夹，并触发双重撞击。
 	_apply_actions(resolver.resolve_impact(Vector2i(0, 1), ItemData.Direction.RIGHT))
 	
-	# 1. 正常撞击：7分
-	# 2. 联动撞击：7分
-	# 总分 = 14
 	assert_eq(gs.current_score, 14, "Math book should trigger Clipboard twice")

@@ -13,9 +13,17 @@ func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackMa
 	var target_item = null
 	var _target_hit_pos = Vector2i(-1, -1)
 	
+	# 获取步进向量
+	var step = Vector2i.ZERO
+	match instance.data.direction:
+		ItemData.Direction.UP: step = Vector2i(0, -1)
+		ItemData.Direction.DOWN: step = Vector2i(0, 1)
+		ItemData.Direction.LEFT: step = Vector2i(-1, 0)
+		ItemData.Direction.RIGHT: step = Vector2i(1, 0)
+
 	for offset in instance.data.shape:
 		var pos = instance.root_pos + offset
-		var found_pos = resolver._find_next_item(pos, instance.data.direction, [], instance)
+		var found_pos = resolver._find_next_item(pos + step, instance.data.direction, [], instance)
 		if found_pos != Vector2i(-1, -1):
 			target_item = backpack.grid[found_pos]
 			_target_hit_pos = found_pos
