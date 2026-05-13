@@ -25,6 +25,15 @@ func test_new_route_progress_starts_at_first_node():
 	assert_true(run_manager.can_enter_route_node(0))
 	assert_false(run_manager.can_enter_route_node(1))
 
+func test_reset_route_progress_clears_completion_state():
+	run_manager.is_run_complete = true
+	run_manager.is_run_active = false
+	run_manager.reset_route_progress()
+	assert_false(run_manager.is_run_active)
+	assert_false(run_manager.is_run_complete)
+	assert_eq(run_manager.current_act, 1)
+	assert_eq(run_manager.current_route_index, 0)
+
 func test_advance_route_node_unlocks_next_node():
 	var completed = run_manager.advance_route_node()
 	assert_eq(completed.get("id"), "battle_1")
@@ -46,6 +55,14 @@ func test_route_wraps_to_next_act_after_last_node():
 	assert_eq(run_manager.current_route_index, 0)
 	assert_true(run_manager.completed_route_nodes.is_empty())
 
+func test_run_completes_after_max_act_route_finish():
+	for _i in range(RouteConfig.get_route_size() * RouteConfig.MAX_ACT):
+		run_manager.advance_route_node()
+	assert_false(run_manager.is_run_active)
+	assert_true(run_manager.is_run_complete)
+	assert_eq(run_manager.current_act, RouteConfig.MAX_ACT)
+	assert_false(run_manager.can_enter_route_node(run_manager.current_route_index))
+
 func test_deserialize_old_save_defaults_route_fields():
 	run_manager.deserialize_run({
 		"shards": 12,
@@ -57,6 +74,7 @@ func test_deserialize_old_save_defaults_route_fields():
 	assert_eq(run_manager.current_route_id, RouteConfig.DEFAULT_ROUTE_ID)
 	assert_eq(run_manager.current_act, 1)
 	assert_eq(run_manager.current_route_index, 0)
+	assert_false(run_manager.is_run_complete)
 	assert_eq(run_manager.get_current_route_node().get("id"), "battle_1")
 
 func test_scene_mapping_supports_current_route_node_types():

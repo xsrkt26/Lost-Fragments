@@ -14,9 +14,9 @@ func _ready():
 	
 	# 检查是否有存档
 	var rm = get_node_or_null("/root/RunManager")
-	if rm and rm.saver.has_save():
+	if rm and rm.saver.has_save() and not rm.is_run_complete:
 		continue_button.disabled = false
-		continue_button.text = "继续梦境 (深度: %d)" % rm.current_depth
+		continue_button.text = "继续梦境 (第 %d 场景)" % rm.current_act
 	else:
 		continue_button.disabled = true
 		continue_button.text = "继续梦境 (无存档)"

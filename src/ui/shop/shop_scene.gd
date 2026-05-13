@@ -67,6 +67,7 @@ func _on_back_pressed():
 	var rm = get_node_or_null("/root/RunManager")
 	if rm and rm.get_current_route_node_type() == RouteConfig.NODE_SHOP:
 		rm.advance_route_node()
-		GlobalScene.transition_to(GlobalScene.SceneType.HUB, false)
+		var next_scene = GlobalScene.SceneType.MAIN_MENU if rm.is_run_complete else GlobalScene.SceneType.HUB
+		GlobalScene.transition_to(next_scene, false)
 	else:
 		GlobalScene.go_back()

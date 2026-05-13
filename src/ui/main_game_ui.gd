@@ -116,7 +116,8 @@ func _show_result_popup(is_victory: bool):
 		btn.pressed.connect(func():
 			if rm:
 				rm.win_battle(5 + rm.current_depth * 2)
-			GlobalScene.transition_to(GlobalScene.SceneType.HUB, false)
+			var next_scene = GlobalScene.SceneType.MAIN_MENU if rm and rm.is_run_complete else GlobalScene.SceneType.HUB
+			GlobalScene.transition_to(next_scene, false)
 		)
 	else:
 		title.text = "梦境惊醒"

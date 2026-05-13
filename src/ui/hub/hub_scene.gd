@@ -14,11 +14,14 @@ func _ready():
 	print("[Hub] 已进入梦境路线。")
 	GlobalInput.set_context(GlobalInput.Context.WORLD)
 	GlobalAudio.play_bgm("hub")
+	var rm = get_node_or_null("/root/RunManager")
+	if rm and rm.is_run_complete:
+		GlobalScene.transition_to(GlobalScene.SceneType.MAIN_MENU, false)
+		return
 	if interactions:
 		interactions.hide()
 	_build_route_ui()
 
-	var rm = get_node_or_null("/root/RunManager")
 	if rm and not rm.route_changed.is_connected(_on_route_changed):
 		rm.route_changed.connect(_on_route_changed)
 

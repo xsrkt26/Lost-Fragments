@@ -31,6 +31,7 @@ var current_act: int = 1
 var current_route_index: int = 0
 var completed_route_nodes: Array[int] = []
 var is_run_active: bool = false
+var is_run_complete: bool = false
 
 var saver: SaveManager = null
 
@@ -47,7 +48,7 @@ func start_new_run():
 	print("[RunManager] 开启新的一局...")
 	
 	# 核心修复：重置全局战斗状态 (San值、分数等)
-	var gs = get_node_or_null("/root/GameState")
+	var gs = get_node_or_null("/root/GameState") if is_inside_tree() else null
 	if gs:
 		gs.reset_game()
 	
@@ -57,6 +58,7 @@ func start_new_run():
 	current_depth = 1
 	reset_route_progress()
 	is_run_active = true
+	is_run_complete = false
 	
 	save_current_state()
 	run_started.emit()
@@ -76,6 +78,7 @@ func win_battle(reward_shards: int):
 func fail_run():
 	print("[RunManager] 梦境惊醒... 运行结束。")
 	is_run_active = false
+	is_run_complete = false
 	if saver:
 		saver.delete_save()
 	run_finished.emit(false)
@@ -97,6 +100,7 @@ func reset_route_progress(route_id: String = RouteConfig.DEFAULT_ROUTE_ID):
 	current_act = 1
 	current_route_index = 0
 	completed_route_nodes = []
+	is_run_complete = false
 	_emit_route_changed()
 
 func get_route_nodes() -> Array:
@@ -163,6 +167,10 @@ func advance_route_node(expected_node_id: String = "") -> Dictionary:
 	current_route_index += 1
 
 	if current_route_index >= RouteConfig.get_route_size(current_route_id):
+		if current_act >= RouteConfig.MAX_ACT:
+			_complete_run()
+			_emit_route_changed()
+			return current_node
 		current_act += 1
 		current_route_index = 0
 		completed_route_nodes = []
@@ -170,6 +178,17 @@ func advance_route_node(expected_node_id: String = "") -> Dictionary:
 	save_current_state()
 	_emit_route_changed()
 	return current_node
+
+func _complete_run() -> void:
+	print("[RunManager] 已完成全部 ", RouteConfig.MAX_ACT, " 个场景，整局胜利。")
+	is_run_active = false
+	is_run_complete = true
+	current_act = RouteConfig.MAX_ACT
+	current_route_index = max(0, RouteConfig.get_route_size(current_route_id) - 1)
+	completed_route_nodes = []
+	if saver:
+		saver.delete_save()
+	run_finished.emit(true)
 
 func _emit_route_changed():
 	route_changed.emit(current_act, current_route_index, get_current_route_node())
@@ -190,7 +209,8 @@ func serialize_run() -> Dictionary:
 		"act": current_act,
 		"route_index": current_route_index,
 		"completed_route_nodes": completed_route_nodes,
-		"is_active": is_run_active
+		"is_active": is_run_active,
+		"is_complete": is_run_complete
 	}
 
 func deserialize_run(data: Dictionary):
@@ -206,6 +226,7 @@ func deserialize_run(data: Dictionary):
 	for index in Array(data.get("completed_route_nodes", [])):
 		completed_route_nodes.append(int(index))
 	is_run_active = data.get("is_active", true)
+	is_run_complete = data.get("is_complete", false)
 	_emit_route_changed()
 
 func _to_string_array(value: Variant) -> Array[String]:
