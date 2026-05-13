@@ -1,0 +1,100 @@
+[
+	{
+		"id": "forgotten_cache",
+		"title": "遗忘储物箱",
+		"description": "一只褪色的储物箱半埋在路边。里面剩下几件还能带走的东西。",
+		"earliest_act": 1,
+		"choices": [
+			{
+				"id": "take_shards",
+				"title": "带走散落碎片",
+				"description": "获得 10 碎片。",
+				"effects": [
+					{"type": "shards", "amount": 10}
+				]
+			},
+			{
+				"id": "take_item",
+				"title": "翻找旧物",
+				"description": "获得 1 个皱纸团，加入卡组。",
+				"effects": [
+					{"type": "item", "id": "paper_ball"}
+				]
+			}
+		]
+	},
+	{
+		"id": "quiet_rest",
+		"title": "安静休息处",
+		"description": "短暂的空白让梦境平稳下来。你可以恢复一些梦值，或继续搜寻资源。",
+		"earliest_act": 1,
+		"choices": [
+			{
+				"id": "recover_sanity",
+				"title": "停下休息",
+				"description": "回复 15 梦值。",
+				"effects": [
+					{"type": "sanity", "amount": 15}
+				]
+			},
+			{
+				"id": "keep_searching",
+				"title": "继续搜寻",
+				"description": "获得 6 碎片。",
+				"effects": [
+					{"type": "shards", "amount": 6}
+				]
+			}
+		]
+	},
+	{
+		"id": "ornament_peddler",
+		"title": "饰品摊",
+		"description": "摊主把一枚旧饰品推到你面前，只要付出一点碎片就能带走它。",
+		"earliest_act": 1,
+		"choices": [
+			{
+				"id": "trade_for_watch",
+				"title": "交换旧怀表",
+				"description": "花费 8 碎片，获得饰品“旧怀表”。",
+				"cost_shards": 8,
+				"effects": [
+					{"type": "ornament", "id": "old_pocket_watch"}
+				]
+			},
+			{
+				"id": "decline_trade",
+				"title": "只拿零钱",
+				"description": "获得 4 碎片。",
+				"effects": [
+					{"type": "shards", "amount": 4}
+				]
+			}
+		]
+	},
+	{
+		"id": "loose_straps",
+		"title": "松开的背包带",
+		"description": "背包边缘的锁扣松动了一些。调整它需要花费资源，但可以让后续构筑空间更宽。",
+		"earliest_act": 2,
+		"choices": [
+			{
+				"id": "expand_backpack",
+				"title": "整理背包空间",
+				"description": "花费 6 碎片，背包可用区域宽高各 +1，最高 7x7。",
+				"cost_shards": 6,
+				"effects": [
+					{"type": "backpack_space", "width_delta": 1, "height_delta": 1}
+				]
+			},
+			{
+				"id": "take_shards",
+				"title": "拆下碎片",
+				"description": "获得 8 碎片。",
+				"effects": [
+					{"type": "shards", "amount": 8}
+				]
+			}
+		]
+	}
+]

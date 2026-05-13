@@ -54,6 +54,10 @@ text = "事件系统尚未实装。本节点用于验证局外路线推进。"
 horizontal_alignment = 1
 autowrap_mode = 3
 
+[node name="ChoiceContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
 [node name="ContinueButton" type="Button" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
 text = "继续"

@@ -23,12 +23,18 @@ const INITIAL_DECK: Array[String] = [
 	"tin_can", "tin_can", "tin_can", "tin_can", "tin_can"
 ]
 const NO_SCORE_TARGET := -1
+const BACKPACK_GRID_WIDTH := 7
+const BACKPACK_GRID_HEIGHT := 7
+const INITIAL_BACKPACK_USABLE_WIDTH := 5
+const INITIAL_BACKPACK_USABLE_HEIGHT := 5
 
 # --- 状态数据 ---
 var current_shards: int = INITIAL_SHARDS
 var current_deck: Array[String] = INITIAL_DECK.duplicate()
 var current_backpack_items: Array[Dictionary] = []
 var current_ornaments: Array[String] = []
+var backpack_usable_width: int = INITIAL_BACKPACK_USABLE_WIDTH
+var backpack_usable_height: int = INITIAL_BACKPACK_USABLE_HEIGHT
 var current_depth: int = 1
 var current_route_id: String = RouteConfig.DEFAULT_ROUTE_ID
 var current_act: int = 1
@@ -60,6 +66,8 @@ func start_new_run():
 	current_deck = INITIAL_DECK.duplicate()
 	current_backpack_items.clear()
 	current_ornaments = []
+	backpack_usable_width = INITIAL_BACKPACK_USABLE_WIDTH
+	backpack_usable_height = INITIAL_BACKPACK_USABLE_HEIGHT
 	current_depth = 1
 	reset_route_progress()
 	is_run_active = true
@@ -176,6 +184,80 @@ func buy_shop_offer(offer: Dictionary) -> bool:
 	shards_changed.emit(current_shards)
 	save_current_state()
 	return true
+
+func apply_event_choice(choice: Dictionary) -> bool:
+	var cost_shards = max(0, int(choice.get("cost_shards", 0)))
+	if current_shards < cost_shards:
+		return false
+
+	var effects = _to_dictionary_array(choice.get("effects", []))
+	if effects.is_empty():
+		return false
+
+	var snapshot = {
+		"shards": current_shards,
+		"deck": current_deck.duplicate(),
+		"ornaments": current_ornaments.duplicate(),
+		"backpack_width": backpack_usable_width,
+		"backpack_height": backpack_usable_height,
+	}
+
+	current_shards -= cost_shards
+	if cost_shards > 0:
+		shards_changed.emit(current_shards)
+
+	for effect in effects:
+		if not _apply_event_effect(effect):
+			_restore_event_snapshot(snapshot)
+			return false
+
+	save_current_state()
+	return true
+
+func get_backpack_grid_config() -> Dictionary:
+	return {
+		"grid_width": BACKPACK_GRID_WIDTH,
+		"grid_height": BACKPACK_GRID_HEIGHT,
+		"usable_width": clampi(backpack_usable_width, 1, BACKPACK_GRID_WIDTH),
+		"usable_height": clampi(backpack_usable_height, 1, BACKPACK_GRID_HEIGHT),
+	}
+
+func _apply_event_effect(effect: Dictionary) -> bool:
+	var effect_type = str(effect.get("type", ""))
+	match effect_type:
+		RewardGenerator.TYPE_SHARDS, RewardGenerator.TYPE_ITEM, RewardGenerator.TYPE_ORNAMENT:
+			return apply_reward(effect)
+		"sanity":
+			var amount = int(effect.get("amount", 0))
+			if amount == 0:
+				return false
+			var gs = get_node_or_null("/root/GameState") if is_inside_tree() else null
+			if gs == null or not gs.has_method("heal_sanity"):
+				return false
+			gs.heal_sanity(amount)
+			return true
+		"backpack_space":
+			var width_delta = int(effect.get("width_delta", 0))
+			var height_delta = int(effect.get("height_delta", 0))
+			var next_width = clampi(backpack_usable_width + width_delta, INITIAL_BACKPACK_USABLE_WIDTH, BACKPACK_GRID_WIDTH)
+			var next_height = clampi(backpack_usable_height + height_delta, INITIAL_BACKPACK_USABLE_HEIGHT, BACKPACK_GRID_HEIGHT)
+			if next_width == backpack_usable_width and next_height == backpack_usable_height:
+				return false
+			backpack_usable_width = next_width
+			backpack_usable_height = next_height
+			return true
+	return false
+
+func _restore_event_snapshot(snapshot: Dictionary) -> void:
+	current_shards = int(snapshot.get("shards", current_shards))
+	current_deck = _to_string_array(snapshot.get("deck", current_deck))
+	current_ornaments = _to_string_array(snapshot.get("ornaments", current_ornaments))
+	backpack_usable_width = int(snapshot.get("backpack_width", backpack_usable_width))
+	backpack_usable_height = int(snapshot.get("backpack_height", backpack_usable_height))
+	shards_changed.emit(current_shards)
+	deck_changed.emit(current_deck)
+	ornaments_changed.emit(current_ornaments)
+	save_current_state()
 
 func save_backpack_state(backpack: BackpackManager) -> void:
 	current_backpack_items.clear()
@@ -343,6 +425,8 @@ func serialize_run() -> Dictionary:
 		"deck": current_deck,
 		"backpack_items": current_backpack_items,
 		"ornaments": current_ornaments,
+		"backpack_usable_width": backpack_usable_width,
+		"backpack_usable_height": backpack_usable_height,
 		"depth": current_depth,
 		"route_id": current_route_id,
 		"act": current_act,
@@ -358,6 +442,8 @@ func deserialize_run(data: Dictionary):
 	current_deck = _to_string_array(data.get("deck", INITIAL_DECK))
 	current_backpack_items = _to_dictionary_array(data.get("backpack_items", []))
 	current_ornaments = _to_string_array(data.get("ornaments", []))
+	backpack_usable_width = clampi(int(data.get("backpack_usable_width", INITIAL_BACKPACK_USABLE_WIDTH)), 1, BACKPACK_GRID_WIDTH)
+	backpack_usable_height = clampi(int(data.get("backpack_usable_height", INITIAL_BACKPACK_USABLE_HEIGHT)), 1, BACKPACK_GRID_HEIGHT)
 	current_depth = data.get("depth", 1)
 	current_route_id = RouteConfig.normalize_route_id(data.get("route_id", RouteConfig.DEFAULT_ROUTE_ID))
 	current_act = max(1, int(data.get("act", 1)))

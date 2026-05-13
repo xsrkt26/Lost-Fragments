@@ -72,6 +72,7 @@ func _initialize_battle_data():
 	print("[BattleManager] 正在从 RunManager 初始化战斗数据...")
 	var rm = get_node_or_null("/root/RunManager")
 	if rm:
+		_apply_backpack_grid_config(rm)
 		_current_battle_deck = Array(rm.current_deck).duplicate()
 		_current_battle_deck.shuffle()
 		_load_ornaments_from_run(rm)
@@ -79,6 +80,21 @@ func _initialize_battle_data():
 		print("[BattleManager] 洗牌完成，当前战斗卡包大小: ", _current_battle_deck.size())
 	else:
 		print("[BattleManager] 警告: 未找到 RunManager，使用空卡包运行。")
+
+func _apply_backpack_grid_config(rm) -> void:
+	if rm == null or not rm.has_method("get_backpack_grid_config"):
+		return
+	var config = rm.get_backpack_grid_config()
+	var grid_width = int(config.get("grid_width", 7))
+	var grid_height = int(config.get("grid_height", 7))
+	if backpack_manager.grid_width != grid_width or backpack_manager.grid_height != grid_height:
+		return
+	backpack_manager.setup_grid(
+		grid_width,
+		grid_height,
+		int(config.get("usable_width", 5)),
+		int(config.get("usable_height", 5))
+	)
 
 func _load_ornaments_from_run(rm) -> void:
 	active_ornaments.clear()

@@ -1,0 +1,103 @@
+extends GutTest
+
+const EventDatabaseScript = preload("res://src/autoload/event_database.gd")
+const RunManagerScript = preload("res://src/autoload/run_manager.gd")
+const BattleManagerScript = preload("res://src/battle/battle_manager.gd")
+
+var event_db
+
+func before_each():
+	event_db = get_node_or_null("/root/EventDatabase")
+	if event_db == null:
+		event_db = autofree(EventDatabaseScript.new())
+	if event_db.events.is_empty():
+		event_db.load_all_events()
+
+func _make_run_manager(act: int = 1, route_index: int = 2):
+	var rm = autofree(RunManagerScript.new())
+	rm.current_act = act
+	rm.current_route_index = route_index
+	rm.current_shards = 20
+	rm.current_deck = [] as Array[String]
+	rm.current_ornaments = [] as Array[String]
+	rm.backpack_usable_width = RunManagerScript.INITIAL_BACKPACK_USABLE_WIDTH
+	rm.backpack_usable_height = RunManagerScript.INITIAL_BACKPACK_USABLE_HEIGHT
+	rm.is_run_active = true
+	return rm
+
+func test_event_database_loads_events_and_filters_by_act():
+	var all_events = event_db.get_all_events()
+	var act_one = event_db.get_available_events(1)
+	var act_two = event_db.get_available_events(2)
+	var act_one_ids = act_one.map(func(event_data): return event_data.id)
+	var act_two_ids = act_two.map(func(event_data): return event_data.id)
+
+	assert_true(all_events.size() >= 4)
+	assert_true(act_one_ids.has("forgotten_cache"))
+	assert_false(act_one_ids.has("loose_straps"))
+	assert_true(act_two_ids.has("loose_straps"))
+
+func test_pick_event_for_run_is_deterministic():
+	var rm = _make_run_manager(1, 2)
+
+	var first_pick = event_db.pick_event_for_run(rm)
+	var second_pick = event_db.pick_event_for_run(rm)
+
+	assert_not_null(first_pick)
+	assert_eq(first_pick.id, second_pick.id)
+
+func test_apply_event_choice_updates_long_term_state():
+	var rm = _make_run_manager(2, 2)
+
+	var accepted = rm.apply_event_choice({
+		"cost_shards": 6,
+		"effects": [
+			{"type": "backpack_space", "width_delta": 1, "height_delta": 1},
+			{"type": "item", "id": "paper_ball"},
+			{"type": "ornament", "id": "old_pocket_watch"}
+		]
+	})
+	var grid_config = rm.get_backpack_grid_config()
+
+	assert_true(accepted)
+	assert_eq(rm.current_shards, 14)
+	assert_eq(rm.current_deck, ["paper_ball"])
+	assert_eq(rm.current_ornaments, ["old_pocket_watch"])
+	assert_eq(grid_config.usable_width, 6)
+	assert_eq(grid_config.usable_height, 6)
+
+func test_apply_event_choice_rejects_invalid_choices_without_partial_state():
+	var rm = _make_run_manager(1, 2)
+	rm.current_shards = 5
+
+	assert_false(rm.apply_event_choice({
+		"cost_shards": 6,
+		"effects": [{"type": "shards", "amount": 99}]
+	}))
+	assert_eq(rm.current_shards, 5)
+
+	rm.current_shards = 20
+	rm.current_ornaments = ["old_pocket_watch"] as Array[String]
+	assert_false(rm.apply_event_choice({
+		"cost_shards": 3,
+		"effects": [{"type": "ornament", "id": "old_pocket_watch"}]
+	}))
+	assert_eq(rm.current_shards, 20)
+	assert_eq(rm.current_ornaments, ["old_pocket_watch"])
+
+func test_backpack_space_persists_and_applies_to_battle_manager():
+	var rm = _make_run_manager(2, 2)
+	assert_true(rm.apply_event_choice({
+		"effects": [{"type": "backpack_space", "width_delta": 2, "height_delta": 2}]
+	}))
+	var serialized = rm.serialize_run()
+
+	var restored = autofree(RunManagerScript.new())
+	restored.deserialize_run(serialized)
+	assert_eq(restored.backpack_usable_width, 7)
+	assert_eq(restored.backpack_usable_height, 7)
+
+	var battle_manager = add_child_autofree(BattleManagerScript.new())
+	battle_manager._apply_backpack_grid_config(restored)
+	assert_eq(battle_manager.backpack_manager.usable_width, 7)
+	assert_eq(battle_manager.backpack_manager.usable_height, 7)
