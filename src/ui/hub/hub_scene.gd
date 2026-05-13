@@ -39,6 +39,16 @@ func _input(event):
 		if event.is_action_pressed("ui_accept") or Input.is_key_pressed(KEY_E):
 			_enter_current_route_node()
 
+func _unhandled_input(event):
+	if overlay_root.get_child_count() > 0:
+		return
+	if not GlobalInput.is_context(GlobalInput.Context.WORLD):
+		return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		if player and player.has_method("move_to_global_x"):
+			player.move_to_global_x(event.position.x)
+			get_viewport().set_input_as_handled()
+
 func _build_route_ui():
 	if route_panel and is_instance_valid(route_panel):
 		route_panel.queue_free()
@@ -172,6 +182,7 @@ func _open_backpack_overlay():
 	var ui_scene = load("res://src/ui/main_game_ui.tscn")
 	var overlay = ui_scene.instantiate()
 	overlay_root.add_child(overlay)
+	_add_backpack_close_button()
 	
 	# 关键定制：隐藏战斗专属元素
 	if overlay.has_node("ContentLayer/DreamcatcherPanel"):
@@ -183,6 +194,15 @@ func _open_backpack_overlay():
 	var bg = overlay.get_node("Background")
 	if bg:
 		bg.color = Color(0, 0, 0, 0.6) # 变为半透明背景
+
+func _add_backpack_close_button():
+	var close_button = Button.new()
+	close_button.name = "CloseBackpackButton"
+	close_button.text = "关闭"
+	close_button.custom_minimum_size = Vector2(88, 42)
+	close_button.position = Vector2(1160, 24)
+	close_button.pressed.connect(_close_backpack_overlay)
+	overlay_root.add_child(close_button)
 
 func _close_backpack_overlay():
 	print("[Hub] 正在关闭背包浮层")

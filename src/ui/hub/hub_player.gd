@@ -3,11 +3,23 @@ extends CharacterBody2D
 ## 枢纽场景角色控制器：强兼容版
 @export var speed: float = 400.0
 @export var gravity: float = 1200.0
+@export var click_stop_distance: float = 6.0
+
+var has_move_target: bool = false
+var move_target_x: float = 0.0
+
+func move_to_global_x(target_x: float):
+	move_target_x = target_x
+	has_move_target = true
+
+func clear_move_target():
+	has_move_target = false
 
 func _physics_process(delta):
 	# 0. 输入状态检查
 	if not GlobalInput.can_move():
 		velocity.x = 0 # 强制静止
+		clear_move_target()
 		if not is_on_floor():
 			velocity.y += gravity * delta
 		move_and_slide()
@@ -28,10 +40,21 @@ func _physics_process(delta):
 
 	# 3. 计算速度
 	if direction != 0:
+		clear_move_target()
 		velocity.x = direction * speed
 		# 处理旋转/翻转
 		if $Sprite2D:
 			$Sprite2D.flip_h = (direction < 0)
+	elif has_move_target:
+		var distance = move_target_x - global_position.x
+		if abs(distance) <= click_stop_distance:
+			clear_move_target()
+			velocity.x = 0
+		else:
+			var move_dir = sign(distance)
+			velocity.x = move_dir * speed
+			if $Sprite2D:
+				$Sprite2D.flip_h = (move_dir < 0)
 	else:
 		# 平滑减速
 		velocity.x = move_toward(velocity.x, 0, speed * 0.2)
