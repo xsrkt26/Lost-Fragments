@@ -1,5 +1,7 @@
 extends GutTest
 
+const BattleManagerScript = preload("res://src/battle/battle_manager.gd")
+
 func before_each():
 	var rm = get_node_or_null("/root/RunManager")
 	if rm:
@@ -25,3 +27,31 @@ func test_reaching_boss_target_does_not_auto_end_battle():
 
 	assert_eq(ui.score_label.text, "得分: 50 / 50")
 	assert_false(ui._is_battle_ended)
+
+func test_draw_lock_updates_button_disabled_state():
+	var ui = autofree(load("res://src/ui/main_game_ui.gd").new())
+	var manager = autofree(BattleManagerScript.new())
+	ui.draw_button = autofree(Button.new())
+	ui.battle_manager = manager
+	manager.battle_state = BattleManager.BattleState.INTERACTIVE
+
+	ui._set_draw_locked(false)
+	assert_false(ui.draw_button.disabled)
+
+	ui._set_draw_locked(true)
+	assert_true(ui.draw_button.disabled)
+
+func test_draw_interaction_requires_interactive_battle_state():
+	var ui = autofree(load("res://src/ui/main_game_ui.gd").new())
+	var manager = autofree(BattleManagerScript.new())
+	ui.battle_manager = manager
+	manager.battle_state = BattleManager.BattleState.INTERACTIVE
+
+	assert_true(ui._is_draw_interaction_available())
+
+	manager.battle_state = BattleManager.BattleState.DRAWING
+	assert_false(ui._is_draw_interaction_available())
+
+	manager.battle_state = BattleManager.BattleState.INTERACTIVE
+	ui._draw_locked = true
+	assert_false(ui._is_draw_interaction_available())

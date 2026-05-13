@@ -49,6 +49,7 @@ func _refresh_grid():
 		var slot = ColorRect.new()
 		slot.custom_minimum_size = grid_step
 		slot.name = "Slot_%d_%d" % [pos.x, pos.y]
+		slot.tooltip_text = "可用格"
 		grid_container.add_child(slot)
 	
 	update_slot_visuals()
@@ -64,14 +65,18 @@ func update_slot_visuals(ignore_item_data: ItemData = null):
 		
 		if not manager.is_pos_usable(pos):
 			slot.color = COLOR_LOCKED
+			slot.tooltip_text = "锁定格"
 		elif manager.grid.has(pos):
 			var occupied_item = manager.grid[pos].data
 			if ignore_item_data and ignore_item_data.runtime_id != -1 and occupied_item.runtime_id == ignore_item_data.runtime_id:
 				slot.color = COLOR_EMPTY # 如果是自己正在被拖拽，原地显示为空闲
+				slot.tooltip_text = "可用格"
 			else:
 				slot.color = COLOR_OCCUPIED
+				slot.tooltip_text = occupied_item.item_name
 		else:
 			slot.color = COLOR_EMPTY
+			slot.tooltip_text = "可用格"
 
 ## 高亮显示预测的放置结果 (由外部在 Drag 过程中调用)
 func highlight_placement(root_pos: Vector2i, item_data: ItemData):

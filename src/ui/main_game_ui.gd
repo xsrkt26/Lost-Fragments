@@ -6,14 +6,22 @@ extends Control
 @onready var sanity_label = $ContentLayer/StatsPanel/VBox/SanityLabel
 @onready var score_label = $ContentLayer/StatsPanel/VBox/ScoreLabel
 @onready var draw_button = $ContentLayer/DreamcatcherPanel/DrawButton
+@onready var dreamcatcher_panel = $ContentLayer/DreamcatcherPanel
+@onready var draw_spawn_point = get_node_or_null(draw_spawn_point_path)
 @onready var trash_bin = $ContentLayer/GridPanel/TrashBin
 @onready var ornaments_area = $ContentLayer/OrnamentsPanel/Slots
 
+@export var draw_spawn_point_path: NodePath = "ContentLayer/DreamcatcherPanel/DrawSpawnPoint"
+
 var battle_manager: BattleManager
 var _is_battle_ended: bool = false
+var _draw_locked: bool = false
+var _dreamcatcher_base_scale := Vector2.ONE
 
 func _ready():
 	print("[MainGameUI Debug] UI初始化开始...")
+	if dreamcatcher_panel:
+		_dreamcatcher_base_scale = dreamcatcher_panel.scale
 	
 	# 设置手动结束按钮文本 (对齐设计需求)
 	var menu_btn = $ContentLayer/MenuButton
@@ -24,6 +32,9 @@ func _ready():
 	if draw_button:
 		# 强制确保按钮是可见的且接收鼠标
 		draw_button.visible = true
+		draw_button.tooltip_text = "捕梦"
+	if trash_bin:
+		trash_bin.tooltip_text = "丢弃"
 	
 	# 容错：自动初始化逻辑
 	await get_tree().create_timer(0.1).timeout
@@ -68,6 +79,7 @@ func setup(p_battle_manager: BattleManager):
 		gs.score_changed.connect(_on_score_changed)
 		gs.game_over.connect(_on_game_over)
 		_update_stats_display(gs.current_sanity, gs.current_score)
+	_sync_draw_button_state()
 
 func _on_game_over():
 	if _is_battle_ended: return
@@ -224,9 +236,8 @@ func _on_item_drawn(item_data: ItemData):
 	card.scale = Vector2(0.7, 0.7)
 	
 	# 初始位置：抽卡区中心
-	var dc_panel = $ContentLayer/DreamcatcherPanel
-	var draw_center = dc_panel.global_position + (dc_panel.size * dc_panel.scale) / 2.0
-	card.global_position = draw_center - (card.size * card.scale) / 2.0
+	card.global_position = _get_draw_spawn_position(card)
+	_play_item_spawn_animation(card)
 	
 	# 连接拖拽信号
 	_connect_item_ui_signals(card)
@@ -300,9 +311,14 @@ func _handle_item_dropped(item_ui: Control, mouse_pos: Vector2, pivot_offset: Ve
 	battle_manager.request_place_item(item_ui, root_grid_pos)
 
 func _on_draw_button_pressed():
-	if _is_battle_ended: return
-	if battle_manager:
-		battle_manager.request_draw()
+	if not _is_draw_interaction_available():
+		return
+	_set_draw_locked(true)
+	await _play_dreamcatcher_animation()
+	if battle_manager and not _is_battle_ended:
+		await battle_manager.request_draw()
+	if not _is_battle_ended:
+		_set_draw_locked(false)
 
 func _input(event):
 	# 输入权限检查
@@ -317,6 +333,41 @@ func _on_menu_button_pressed():
 		battle_manager.request_finish_battle("manual")
 	else:
 		_finish_battle_from_current_state()
+
+func _is_draw_interaction_available() -> bool:
+	return not _is_battle_ended and not _draw_locked and battle_manager != null and battle_manager.battle_state == BattleManager.BattleState.INTERACTIVE
+
+func _set_draw_locked(locked: bool) -> void:
+	_draw_locked = locked
+	_sync_draw_button_state()
+
+func _sync_draw_button_state() -> void:
+	if draw_button:
+		draw_button.disabled = _draw_locked or _is_battle_ended or battle_manager == null or battle_manager.battle_state != BattleManager.BattleState.INTERACTIVE
+
+func _play_dreamcatcher_animation() -> void:
+	if dreamcatcher_panel == null or not is_inside_tree():
+		return
+	var tween = create_tween()
+	tween.tween_property(dreamcatcher_panel, "scale", _dreamcatcher_base_scale * 1.04, 0.08)
+	tween.tween_property(dreamcatcher_panel, "scale", _dreamcatcher_base_scale, 0.12)
+	await tween.finished
+
+func _get_draw_spawn_position(card: Control) -> Vector2:
+	var spawn_center: Vector2
+	if draw_spawn_point:
+		spawn_center = draw_spawn_point.global_position + draw_spawn_point.size / 2.0
+	else:
+		spawn_center = dreamcatcher_panel.global_position + (dreamcatcher_panel.size * dreamcatcher_panel.scale) / 2.0
+	return spawn_center - (card.size * card.scale) / 2.0
+
+func _play_item_spawn_animation(card: Control) -> void:
+	card.modulate.a = 0.0
+	var target_scale = card.scale
+	card.scale = target_scale * 0.65
+	var tween = create_tween()
+	tween.tween_property(card, "modulate:a", 1.0, 0.12)
+	tween.parallel().tween_property(card, "scale", target_scale, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 ## 根据当前得分评估并结束战斗 (满足手动结束按钮需求)
 func _evaluate_and_end_battle():
