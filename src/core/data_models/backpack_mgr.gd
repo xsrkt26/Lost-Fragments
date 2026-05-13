@@ -34,6 +34,9 @@ var usable_height: int = 5
 ## 核心网格字典：Key 是 Vector2i 坐标，Value 是 ItemInstance
 var grid: Dictionary = {}
 
+func _exit_tree() -> void:
+	grid.clear()
+
 func setup_grid(w: int, h: int, uw: int = -1, uh: int = -1) -> void:
 	grid_width = w
 	grid_height = h

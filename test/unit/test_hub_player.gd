@@ -3,7 +3,7 @@ extends GutTest
 var player
 
 func before_each():
-	player = autofree(load("res://src/ui/hub/hub_player.gd").new())
+	player = add_child_autofree(load("res://src/ui/hub/hub_player.gd").new())
 
 func test_mouse_move_target_is_set_and_cleared():
 	player.move_to_global_x(420.0)

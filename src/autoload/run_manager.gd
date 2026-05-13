@@ -31,9 +31,11 @@ var current_route_index: int = 0
 var completed_route_nodes: Array[int] = []
 var is_run_active: bool = false
 
-@onready var saver = SaveManager.new()
+var saver: SaveManager = null
 
 func _ready():
+	if saver == null:
+		saver = SaveManager.new()
 	add_child(saver)
 	# 自动尝试恢复存档
 	if saver.has_save():
@@ -73,7 +75,8 @@ func win_battle(reward_shards: int):
 func fail_run():
 	print("[RunManager] 梦境惊醒... 运行结束。")
 	is_run_active = false
-	saver.delete_save()
+	if saver:
+		saver.delete_save()
 	run_finished.emit(false)
 
 ## 购买卡牌

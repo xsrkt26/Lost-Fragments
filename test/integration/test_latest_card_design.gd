@@ -15,7 +15,8 @@ func before_each():
 	backpack.setup_grid(7, 7, 7, 7)
 	context = GameContext.new(gs)
 	item_db = get_node_or_null("/root/ItemDatabase")
-	item_db.load_all_items()
+	if item_db.items.is_empty():
+		item_db.load_all_items()
 
 func _apply_actions(actions: Array[GameAction]):
 	for action in actions:

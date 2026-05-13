@@ -3,11 +3,10 @@ extends "res://addons/gut/test.gd"
 var ItemData = load("res://src/core/item_data.gd")
 var BackpackManager = load("res://src/core/data_models/backpack_mgr.gd")
 var BattleManager = load("res://src/battle/battle_manager.gd")
+const MockItemUIBase = preload("res://test/support/mock_item_ui.gd")
 
-class MockItemUI extends Control:
-	var item_data: Resource
-	var item_instance: Object
-	func _play_rotate_tween(): pass
+class MockItemUI extends MockItemUIBase:
+	pass
 
 class MockBackpackUI extends Control:
 	var item_ui_map = {}
@@ -28,6 +27,9 @@ class MockBackpackUI extends Control:
 		
 	func add_item_visual(_item_ui, _pos): pass
 	func update_item_mapping(_old, _new): pass
+
+func after_all():
+	await get_tree().create_timer(0.25).timeout
 
 func test_item_data_rotation_normalization_1x2():
 	var item = ItemData.new()
