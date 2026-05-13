@@ -1,6 +1,6 @@
 extends Control
 
-## 商店场景：允许玩家购买新卡牌
+## 商店场景：允许玩家购买物品和饰品
 
 const RouteConfig = preload("res://src/core/route/route_config.gd")
 
@@ -29,36 +29,43 @@ func _update_shard_display():
 		shard_label.text = "碎片: " + str(rm.current_shards)
 
 func _populate_shelf():
-	# 模拟商店货架
+	var rm = get_node_or_null("/root/RunManager")
 	var item_db = get_node_or_null("/root/ItemDatabase")
-	if not item_db: return
+	var ornament_db = get_node_or_null("/root/OrnamentDatabase")
+	if rm == null or item_db == null:
+		return
 	
 	for child in shelf.get_children():
 		child.queue_free()
-		
-	# 随机挑选 3 个物品出售
-	var keys = item_db.items.keys()
-	keys.shuffle()
 	
-	for i in range(min(3, keys.size())):
-		var item = item_db.items[keys[i]]
-		_add_shop_item(item)
+	var offers = rm.generate_current_shop_offers(item_db, ornament_db, 4) if rm.has_method("generate_current_shop_offers") else []
+	for offer in offers:
+		_add_shop_offer(offer)
 
-func _add_shop_item(item_data: ItemData):
+func _add_shop_offer(offer: Dictionary):
 	var btn = Button.new()
-	var shop_cost = max(1, abs(item_data.price))
-	btn.text = item_data.item_name + "\n价格: " + str(shop_cost)
+	btn.text = _format_offer_text(offer)
+	btn.tooltip_text = str(offer.get("description", ""))
 	btn.custom_minimum_size = Vector2(200, 100)
-	btn.pressed.connect(func(): _buy_item(item_data))
+	btn.pressed.connect(func(): _buy_offer(offer, btn))
 	shelf.add_child(btn)
 
-func _buy_item(item_data: ItemData):
+func _format_offer_text(offer: Dictionary) -> String:
+	var title = str(offer.get("title", "商品"))
+	var price = int(offer.get("price", 0))
+	match str(offer.get("type", "")):
+		"item":
+			return "%s\n物品 | %d 碎片" % [title, price]
+		"ornament":
+			return "%s\n%s饰品 | %d 碎片" % [title, str(offer.get("rarity", "")), price]
+	return "%s\n%d 碎片" % [title, price]
+
+func _buy_offer(offer: Dictionary, button: Button):
 	var rm = get_node_or_null("/root/RunManager")
-	var shop_cost = max(1, abs(item_data.price))
-	if rm and rm.current_shards >= shop_cost:
-		rm.current_shards -= shop_cost
-		rm.current_deck.append(item_data.id)
-		print("[Shop] 购买成功: ", item_data.item_name)
+	if rm and rm.has_method("buy_shop_offer") and rm.buy_shop_offer(offer):
+		print("[Shop] 购买成功: ", offer.get("title", ""))
+		button.disabled = true
+		button.text = str(offer.get("title", "商品")) + "\n已购买"
 		_update_shard_display()
 	else:
 		print("[Shop] 购买失败：碎片不足！")

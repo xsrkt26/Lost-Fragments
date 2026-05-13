@@ -5,6 +5,7 @@ extends Node
 
 const RouteConfig = preload("res://src/core/route/route_config.gd")
 const RewardGenerator = preload("res://src/core/rewards/reward_generator.gd")
+const ShopGenerator = preload("res://src/core/rewards/shop_generator.gd")
 
 # --- 核心信号 ---
 signal run_started
@@ -142,6 +143,37 @@ func apply_reward(reward: Dictionary) -> bool:
 			return true
 		_:
 			return false
+	save_current_state()
+	return true
+
+func generate_current_shop_offers(item_db: Node, ornament_db: Node, count: int = 4) -> Array[Dictionary]:
+	return ShopGenerator.generate_offers(self, item_db, ornament_db, count)
+
+func buy_shop_offer(offer: Dictionary) -> bool:
+	var price = max(1, int(offer.get("price", 0)))
+	if current_shards < price:
+		return false
+
+	var offer_type = str(offer.get("type", ""))
+	match offer_type:
+		ShopGenerator.TYPE_ITEM:
+			var item_id = str(offer.get("id", ""))
+			if item_id == "":
+				return false
+			current_shards -= price
+			current_deck.append(item_id)
+			deck_changed.emit(current_deck)
+		ShopGenerator.TYPE_ORNAMENT:
+			var ornament_id = str(offer.get("id", ""))
+			if ornament_id == "" or current_ornaments.has(ornament_id):
+				return false
+			current_shards -= price
+			current_ornaments.append(ornament_id)
+			ornaments_changed.emit(current_ornaments)
+		_:
+			return false
+
+	shards_changed.emit(current_shards)
 	save_current_state()
 	return true
 
