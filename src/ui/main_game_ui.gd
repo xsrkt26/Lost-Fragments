@@ -67,8 +67,16 @@ func setup(p_battle_manager: BattleManager):
 
 func _on_game_over():
 	if _is_battle_ended: return
+	var gs = get_node_or_null("/root/GameState")
+	if gs and gs.current_sanity > 0:
+		return
+	print("[MainGameUI] 收到梦值归零信号，正在按当前战斗规则结算...")
+	_finish_battle_from_current_state()
+
+func _on_defeat():
+	if _is_battle_ended: return
 	_is_battle_ended = true
-	print("[MainGameUI] 收到游戏结束信号，正在显示失败浮窗...")
+	print("[MainGameUI] 未满足当前战斗目标，正在显示失败浮窗...")
 	_show_result_popup(false)
 
 func _on_victory():
@@ -97,12 +105,13 @@ func _show_result_popup(is_victory: bool):
 	# 设置文本
 	var gs = get_node("/root/GameState")
 	var rm = get_node_or_null("/root/RunManager")
-	var target = rm.get_target_score() if rm else 100
+	var score_rule = _get_current_score_rule()
+	var target_text = _format_target_text(score_rule.has_target, score_rule.target)
 	
 	if is_victory:
 		title.text = "梦境圆满"
 		title.add_theme_color_override("font_color", Color("#ec3073")) # 暖粉/金色
-		score_label.text = "最终得分: %d / %d" % [gs.current_score, target]
+		score_label.text = "最终得分: %d / %s" % [gs.current_score, target_text]
 		btn.text = "继续梦境"
 		btn.pressed.connect(func():
 			if rm:
@@ -112,7 +121,7 @@ func _show_result_popup(is_victory: bool):
 	else:
 		title.text = "梦境惊醒"
 		title.add_theme_color_override("font_color", Color("#555555")) # 灰色
-		score_label.text = "遗憾离场 (得分: %d / %d)" % [gs.current_score, target]
+		score_label.text = "遗憾离场 (得分: %d / %s)" % [gs.current_score, target_text]
 		btn.text = "回到现实"
 		btn.pressed.connect(func():
 			if rm:
@@ -189,22 +198,30 @@ func _input(event):
 		_return_to_hub()
 
 func _on_menu_button_pressed():
-	_evaluate_and_end_battle()
+	_finish_battle_from_current_state()
 
 ## 根据当前得分评估并结束战斗 (满足手动结束按钮需求)
 func _evaluate_and_end_battle():
+	_finish_battle_from_current_state()
+
+func _finish_battle_from_current_state():
 	if _is_battle_ended: return
 	
 	var gs = get_node("/root/GameState")
 	var rm = get_node_or_null("/root/RunManager")
-	var target = rm.get_target_score() if rm else 50
+	var score_rule = _get_current_score_rule()
 	
-	print("[MainGameUI] 玩家手动结束战斗. 当前得分: ", gs.current_score, " 目标: ", target)
+	print("[MainGameUI] 正在结束战斗. 当前得分: ", gs.current_score, " 目标: ", _format_target_text(score_rule.has_target, score_rule.target))
 	
-	if gs.current_score >= target:
+	if rm and rm.has_method("is_current_battle_score_success"):
+		if rm.is_current_battle_score_success(gs.current_score):
+			_on_victory()
+		else:
+			_on_defeat()
+	elif not score_rule.has_target or gs.current_score >= score_rule.target:
 		_on_victory()
 	else:
-		_on_game_over()
+		_on_defeat()
 
 func _return_to_hub():
 	GlobalScene.transition_to(GlobalScene.SceneType.HUB)
@@ -221,10 +238,11 @@ func _on_score_changed(new_val):
 
 func _update_stats_display(san, score):
 	var gs = get_node_or_null("/root/GameState")
-	var rm = get_node_or_null("/root/RunManager")
-	var target = rm.get_target_score() if rm else 50
+	var score_rule = _get_current_score_rule()
 	var max_san = gs.max_sanity if gs else 100
-		
+	_apply_stats_display(san, score, max_san, score_rule)
+
+func _apply_stats_display(san: int, score: int, max_san: int, score_rule: Dictionary):
 	if sanity_label:
 		sanity_label.text = "梦值: %d / %d" % [san, max_san]
 		# 梦值低时变红
@@ -234,13 +252,27 @@ func _update_stats_display(san, score):
 			sanity_label.add_theme_color_override("font_color", Color(0.8, 0.2, 0.2))
 	
 	if score_label:
-		score_label.text = "得分: %d / %d" % [score, target]
-		# 达成目标时变绿
-		if score >= target:
+		score_label.text = "得分: %d / %s" % [score, _format_target_text(score_rule.has_target, score_rule.target)]
+		# 有目标且达成时变绿；无目标时保持默认深色。
+		if score_rule.has_target and score >= score_rule.target:
 			score_label.add_theme_color_override("font_color", Color(0.2, 0.8, 0.2))
 		else:
 			score_label.add_theme_color_override("font_color", Color(0.2, 0.16, 0.13))
-		
-	# 胜利判定
-	if score >= target:
-		_on_victory()
+
+func _get_current_score_rule() -> Dictionary:
+	var rm = get_node_or_null("/root/RunManager")
+	if rm and rm.has_method("get_current_battle_config"):
+		var config = rm.get_current_battle_config()
+		return {
+			"has_target": bool(config.get("has_score_target", false)),
+			"target": int(config.get("target_score", -1))
+		}
+	return {
+		"has_target": true,
+		"target": 50
+	}
+
+func _format_target_text(has_target: bool, target: int) -> String:
+	if not has_target or target < 0:
+		return "无"
+	return str(target)

@@ -19,6 +19,7 @@ const INITIAL_DECK: Array[String] = [
 	"alarm_clock", "alarm_clock", "alarm_clock", "alarm_clock", "alarm_clock",
 	"tin_can", "tin_can", "tin_can", "tin_can", "tin_can"
 ]
+const NO_SCORE_TARGET := -1
 
 # --- 状态数据 ---
 var current_shards: int = INITIAL_SHARDS
@@ -124,6 +125,31 @@ func get_scene_type_for_node(node: Dictionary) -> int:
 func get_current_node_scene_type() -> int:
 	return get_scene_type_for_node(get_current_route_node())
 
+func get_current_battle_config() -> Dictionary:
+	var node_type = get_current_route_node_type()
+	var has_target = node_type == RouteConfig.NODE_BOSS_BATTLE
+	return {
+		"node_type": node_type,
+		"is_boss": has_target,
+		"has_score_target": has_target,
+		"target_score": _get_boss_target_score() if has_target else NO_SCORE_TARGET
+	}
+
+func current_battle_has_score_target() -> bool:
+	return bool(get_current_battle_config().get("has_score_target", false))
+
+func get_current_battle_target_score() -> int:
+	return int(get_current_battle_config().get("target_score", NO_SCORE_TARGET))
+
+func is_current_battle_score_success(score: int) -> bool:
+	var config = get_current_battle_config()
+	if not config.get("has_score_target", false):
+		return true
+	return score >= int(config.get("target_score", NO_SCORE_TARGET))
+
+func _get_boss_target_score() -> int:
+	return 30 + current_act * 20
+
 func advance_route_node(expected_node_id: String = "") -> Dictionary:
 	if not is_run_active:
 		return {}
@@ -187,7 +213,6 @@ func _to_string_array(value: Variant) -> Array[String]:
 	for entry in Array(value):
 		result.append(str(entry))
 	return result
-## 获取当前深度的目标分数
+## 获取当前战斗的目标分数。无分数目标时返回 NO_SCORE_TARGET。
 func get_target_score() -> int:
-	# 简单逻辑：第一关 50，随后每关递增
-	return 30 + (current_depth * 20)
+	return get_current_battle_target_score()

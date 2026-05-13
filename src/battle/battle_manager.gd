@@ -357,7 +357,10 @@ func _try_consume_insurance_contract():
 	var rm = get_node_or_null("/root/RunManager")
 	if gs == null or rm == null:
 		return
-	if gs.current_score >= rm.get_target_score():
+	if rm.has_method("current_battle_has_score_target") and not rm.current_battle_has_score_target():
+		return
+	var target_score = rm.get_current_battle_target_score() if rm.has_method("get_current_battle_target_score") else rm.get_target_score()
+	if target_score < 0 or gs.current_score >= target_score:
 		return
 
 	for instance in backpack_manager.get_all_instances():

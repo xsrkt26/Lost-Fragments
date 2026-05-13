@@ -64,3 +64,24 @@ func test_scene_mapping_supports_current_route_node_types():
 	assert_eq(run_manager.get_scene_type_for_node({"type": RouteConfig.NODE_BOSS_BATTLE}), GlobalScene.SceneType.BATTLE)
 	assert_eq(run_manager.get_scene_type_for_node({"type": RouteConfig.NODE_SHOP}), GlobalScene.SceneType.SHOP)
 	assert_eq(run_manager.get_scene_type_for_node({"type": RouteConfig.NODE_EVENT}), GlobalScene.SceneType.EVENT)
+
+func test_normal_battle_has_no_score_target():
+	run_manager.current_route_index = 0
+	var config = run_manager.get_current_battle_config()
+	assert_false(config.has_score_target)
+	assert_eq(config.target_score, run_manager.NO_SCORE_TARGET)
+	assert_true(run_manager.is_current_battle_score_success(0))
+
+func test_boss_battle_requires_score_target():
+	run_manager.current_route_index = 6
+	var config = run_manager.get_current_battle_config()
+	assert_true(config.is_boss)
+	assert_true(config.has_score_target)
+	assert_eq(config.target_score, 50)
+	assert_false(run_manager.is_current_battle_score_success(49))
+	assert_true(run_manager.is_current_battle_score_success(50))
+
+func test_boss_target_scales_by_act():
+	run_manager.current_route_index = 6
+	run_manager.current_act = 3
+	assert_eq(run_manager.get_current_battle_target_score(), 90)
