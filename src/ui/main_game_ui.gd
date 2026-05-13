@@ -53,6 +53,7 @@ func setup(p_battle_manager: BattleManager):
 	# 连接逻辑信号
 	battle_manager.item_drawn.connect(_on_item_drawn)
 	backpack_ui.item_dropped_on_grid.connect(battle_manager.request_place_item)
+	_render_existing_backpack_items()
 	
 	# 连接状态更新信号
 	gs = get_node_or_null("/root/GameState")
@@ -101,6 +102,8 @@ func _show_result_popup(is_victory: bool):
 	# 自动清理背包外物品 (核心需求)
 	if battle_manager:
 		battle_manager.discard_all_outside_items()
+		if battle_manager.has_method("persist_backpack_to_run"):
+			battle_manager.persist_backpack_to_run()
 		
 	# 禁用背景输入
 	GlobalInput.set_context(GlobalInput.Context.LOCKED)
@@ -163,6 +166,22 @@ func _on_item_drawn(item_data: ItemData):
 	card.global_position = draw_center - (card.size * card.scale) / 2.0
 	
 	# 连接拖拽信号
+	_connect_item_ui_signals(card)
+
+func _render_existing_backpack_items():
+	if not battle_manager or not backpack_ui:
+		return
+	var item_ui_scene = load("res://src/ui/item/item_ui.tscn")
+	for instance in battle_manager.backpack_manager.get_all_instances():
+		var card = item_ui_scene.instantiate()
+		add_child(card)
+		card.setup(instance.data, battle_manager.context)
+		card.item_instance = instance
+		battle_manager.managed_item_uis.append(card)
+		_connect_item_ui_signals(card)
+		backpack_ui.add_item_visual(card, instance.root_pos)
+
+func _connect_item_ui_signals(card: Control):
 	card.dropped.connect(func(_mouse_pos, _pivot): _handle_item_dropped(card, _mouse_pos, _pivot))
 	card.drag_moved.connect(func(_item_ui, _mouse_pos, _pivot): _handle_item_dragged(_item_ui, _mouse_pos, _pivot))
 	card.rotation_requested.connect(_handle_item_rotation_requested)

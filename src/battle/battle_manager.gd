@@ -70,9 +70,21 @@ func _initialize_battle_data():
 	if rm:
 		_current_battle_deck = Array(rm.current_deck).duplicate()
 		_current_battle_deck.shuffle()
+		_restore_backpack_from_run(rm)
 		print("[BattleManager] 洗牌完成，当前战斗卡包大小: ", _current_battle_deck.size())
 	else:
 		print("[BattleManager] 警告: 未找到 RunManager，使用空卡包运行。")
+
+func _restore_backpack_from_run(rm) -> void:
+	if rm == null or not rm.has_method("restore_backpack_state"):
+		return
+	var item_db = get_node_or_null("/root/ItemDatabase")
+	rm.restore_backpack_state(backpack_manager, item_db)
+
+func persist_backpack_to_run() -> void:
+	var rm = get_node_or_null("/root/RunManager")
+	if rm and rm.has_method("save_backpack_state"):
+		rm.save_backpack_state(backpack_manager)
 
 ## 处理物品在背包内被旋转的逻辑请求
 func request_rotate_item(item_ui: Control, mouse_global_pos: Vector2, pivot_offset: Vector2i):
