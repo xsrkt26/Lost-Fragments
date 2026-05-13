@@ -2,6 +2,8 @@ extends Control
 
 ## 商店场景：允许玩家购买新卡牌
 
+const RouteConfig = preload("res://src/core/route/route_config.gd")
+
 @onready var shard_label = $MarginContainer/VBoxContainer/Header/ShardLabel
 @onready var shelf = $MarginContainer/VBoxContainer/ScrollContainer/GridContainer
 @onready var back_button = $MarginContainer/VBoxContainer/Header/BackButton
@@ -62,4 +64,9 @@ func _buy_item(item_data: ItemData):
 		print("[Shop] 购买失败：碎片不足！")
 
 func _on_back_pressed():
-	GlobalScene.go_back()
+	var rm = get_node_or_null("/root/RunManager")
+	if rm and rm.get_current_route_node_type() == RouteConfig.NODE_SHOP:
+		rm.advance_route_node()
+		GlobalScene.transition_to(GlobalScene.SceneType.HUB, false)
+	else:
+		GlobalScene.go_back()

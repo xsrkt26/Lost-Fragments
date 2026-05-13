@@ -4,13 +4,23 @@ extends Node2D
 ## 交互模式：进入区域后按 E 键触发
 
 @onready var overlay_root = $CanvasLayer/OverlayRoot
+@onready var player = $Player
+@onready var interactions = $Interactions
 
-var current_zone: String = "" # 记录当前所在的交互区: "battle", "shop", "gallery"
+var current_zone: String = ""
+var route_panel: Control
 
 func _ready():
-	print("[Hub] 已进入梦境整备室。按 A/D 移动，站在区域内按 E 交互。")
+	print("[Hub] 已进入梦境路线。")
 	GlobalInput.set_context(GlobalInput.Context.WORLD)
 	GlobalAudio.play_bgm("hub")
+	if interactions:
+		interactions.hide()
+	_build_route_ui()
+
+	var rm = get_node_or_null("/root/RunManager")
+	if rm and not rm.route_changed.is_connected(_on_route_changed):
+		rm.route_changed.connect(_on_route_changed)
 
 func _input(event):
 	# 输入权限检查
@@ -24,18 +34,100 @@ func _input(event):
 			GlobalScene.go_back()
 		return
 
-	# 仅在探索模式下允许 E 键交互
+	# 兼容旧触发区：当前已改为路线按钮驱动。
 	if GlobalInput.is_context(GlobalInput.Context.WORLD):
 		if event.is_action_pressed("ui_accept") or Input.is_key_pressed(KEY_E):
-			if current_zone == "": return
-			
-			match current_zone:
-				"battle":
-					_enter_battle()
-				"shop":
-					_enter_shop()
-				"gallery":
-					_enter_gallery()
+			_enter_current_route_node()
+
+func _build_route_ui():
+	if route_panel and is_instance_valid(route_panel):
+		route_panel.queue_free()
+
+	route_panel = Control.new()
+	route_panel.name = "RoutePanel"
+	route_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	route_panel.custom_minimum_size = Vector2(0, 130)
+	$CanvasLayer.add_child(route_panel)
+
+	var act_label = Label.new()
+	act_label.name = "ActLabel"
+	act_label.position = Vector2(24, 86)
+	act_label.size = Vector2(260, 28)
+	route_panel.add_child(act_label)
+
+	var node_row = HBoxContainer.new()
+	node_row.name = "NodeRow"
+	node_row.position = Vector2(180, 24)
+	node_row.size = Vector2(920, 70)
+	node_row.add_theme_constant_override("separation", 8)
+	route_panel.add_child(node_row)
+
+	_refresh_route_ui()
+
+func _refresh_route_ui():
+	if not route_panel or not is_instance_valid(route_panel):
+		return
+	var rm = get_node_or_null("/root/RunManager")
+	if not rm:
+		return
+	var act_label = route_panel.get_node_or_null("ActLabel")
+	if act_label:
+		act_label.text = "第 %d 场景" % rm.current_act
+	var node_row = route_panel.get_node_or_null("NodeRow")
+	if not node_row:
+		return
+	for child in node_row.get_children():
+		child.queue_free()
+
+	var nodes = rm.get_route_nodes()
+	for i in range(nodes.size()):
+		var node = nodes[i]
+		var button = Button.new()
+		button.custom_minimum_size = Vector2(96, 54)
+		button.tooltip_text = node.get("label", "")
+		button.text = _get_route_button_text(rm, node, i)
+		button.disabled = not rm.can_enter_route_node(i)
+		button.pressed.connect(func(): _enter_route_node(i))
+		node_row.add_child(button)
+
+func _get_route_button_text(rm, node: Dictionary, index: int) -> String:
+	var prefix = "."
+	if rm.completed_route_nodes.has(index):
+		prefix = "✓"
+	elif index == rm.current_route_index:
+		prefix = ">"
+	return "%s %s" % [prefix, node.get("label", "节点")]
+
+func _on_route_changed(_act: int, _route_index: int, _node: Dictionary):
+	_refresh_route_ui()
+
+func _enter_current_route_node():
+	var rm = get_node_or_null("/root/RunManager")
+	if rm:
+		_enter_route_node(rm.current_route_index)
+
+func _enter_route_node(index: int):
+	var rm = get_node_or_null("/root/RunManager")
+	if not rm or not rm.can_enter_route_node(index):
+		print("[Hub] 节点未解锁，无法进入: ", index)
+		return
+	var node = rm.get_current_route_node()
+	print("[Hub] 进入路线节点: ", node.get("id", ""))
+	await _move_player_to_route_index(index)
+	GlobalScene.transition_to(rm.get_current_node_scene_type())
+
+func _move_player_to_route_index(index: int):
+	if not player:
+		return
+	GlobalInput.set_context(GlobalInput.Context.LOCKED)
+	var nodes = get_node_or_null("CanvasLayer/RoutePanel/NodeRow")
+	var target_x = 160.0 + float(index) * 110.0
+	if nodes and index < nodes.get_child_count():
+		var button = nodes.get_child(index)
+		target_x = button.global_position.x + button.size.x * 0.5
+	var tween = create_tween()
+	tween.tween_property(player, "global_position:x", target_x, 0.35)
+	await tween.finished
 
 # --- 区域进入/退出判定 ---
 
@@ -58,13 +150,13 @@ func _on_zone_body_exited(_body):
 # --- 场景切换逻辑 ---
 
 func _enter_battle():
-	GlobalScene.transition_to(GlobalScene.SceneType.BATTLE)
+	_enter_current_route_node()
 
 func _enter_shop():
-	GlobalScene.transition_to(GlobalScene.SceneType.SHOP)
+	_enter_current_route_node()
 
 func _enter_gallery():
-	GlobalScene.transition_to(GlobalScene.SceneType.GALLERY)
+	print("[Hub] 图鉴请从主菜单进入。")
 
 # --- 浮动背包逻辑 ---
 

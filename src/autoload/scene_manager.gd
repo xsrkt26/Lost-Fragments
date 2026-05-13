@@ -10,6 +10,7 @@ enum SceneType {
 	HUB,
 	BATTLE,
 	SHOP,
+	EVENT,
 	GALLERY,
 	DEBUG
 }
@@ -19,6 +20,7 @@ const SCENE_PATHS = {
 	SceneType.HUB: "res://src/ui/hub/hub_scene.tscn",
 	SceneType.BATTLE: "res://src/ui/main_game_ui.tscn",
 	SceneType.SHOP: "res://src/ui/shop/shop_scene.tscn",
+	SceneType.EVENT: "res://src/ui/event/event_scene.tscn",
 	SceneType.GALLERY: "res://src/ui/gallery/gallery_scene.tscn",
 	SceneType.DEBUG: "res://src/ui/debug/debug_sandbox.tscn"
 }

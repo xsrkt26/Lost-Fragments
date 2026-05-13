@@ -107,7 +107,7 @@ func _show_result_popup(is_victory: bool):
 		btn.pressed.connect(func():
 			if rm:
 				rm.win_battle(5 + rm.current_depth * 2)
-			GlobalScene.transition_to(GlobalScene.SceneType.HUB)
+			GlobalScene.transition_to(GlobalScene.SceneType.HUB, false)
 		)
 	else:
 		title.text = "梦境惊醒"
