@@ -68,6 +68,9 @@ func request_rotate_item(item_ui: Control, mouse_global_pos: Vector2, pivot_offs
 	print("[BattleManager] 收到旋转请求: ", item_data.item_name)
 	
 	var old_pos = _find_item_old_pos(item_data)
+	if old_pos == Vector2i(-1, -1):
+		_rotate_outside_item(item_ui, mouse_global_pos, pivot_offset)
+		return
 	if old_pos != Vector2i(-1, -1):
 		# 1. 尝试将物品从逻辑中移除
 		backpack_manager.remove_by_runtime_id(item_data.runtime_id)
@@ -123,7 +126,7 @@ func request_place_item(item_ui: Control, grid_pos: Vector2i):
 	var old_shape = _get_logical_shape_in_grid(item_data)
 	
 	if grid_pos == Vector2i(-1, -1):
-		_handle_place_failure(item_ui, old_pos, old_shape)
+		request_place_item_outside(item_ui)
 		return
 
 	# 在检查可放置性之前，先把物品从网格中临时移除
@@ -145,6 +148,7 @@ func request_place_item(item_ui: Control, grid_pos: Vector2i):
 	
 	var old_data = item_data
 	var new_instance = backpack_manager.grid[grid_pos]
+	item_ui.set("item_instance", new_instance)
 	item_ui.set("item_data", new_instance.data)
 	
 	if is_instance_valid(backpack_ui):
@@ -155,6 +159,64 @@ func request_place_item(item_ui: Control, grid_pos: Vector2i):
 	
 	print("[BattleManager] 物品已放置")
 
+## 处理物品放置到背包外的逻辑
+func request_place_item_outside(item_ui: Control):
+	var item_data = item_ui.get("item_data") as ItemData
+	if not item_data: return
+
+	var old_pos = _find_item_old_pos(item_data)
+	if old_pos != Vector2i(-1, -1):
+		backpack_manager.remove_by_runtime_id(item_data.runtime_id)
+	_remove_item_visual_mapping(item_data)
+	item_ui.set("item_instance", null)
+	_move_item_visual_outside(item_ui, item_ui.global_position)
+
+	if is_instance_valid(backpack_ui) and backpack_ui.has_method("update_slot_visuals"):
+		backpack_ui.update_slot_visuals()
+
+	print("[BattleManager] Item placed outside backpack")
+
+func _rotate_outside_item(item_ui: Control, _mouse_global_pos: Vector2, pivot_offset: Vector2i):
+	var item_data = item_ui.get("item_data") as ItemData
+	if not item_data: return
+
+	var new_pivot_offset = item_data.get_rotated_offset(pivot_offset)
+	item_data.rotate_90()
+	if item_ui.has_method("_sync_visuals"):
+		item_ui._sync_visuals()
+
+	var pivot_delta = Vector2(pivot_offset.x - new_pivot_offset.x, pivot_offset.y - new_pivot_offset.y)
+	_move_item_visual_outside(item_ui, item_ui.global_position + pivot_delta * Vector2(100.0, 94.0) * 0.7)
+	GlobalAudio.play_sfx("place")
+	print("[BattleManager] Outside item rotated")
+
+func _move_item_visual_outside(item_ui: Control, global_pos: Vector2):
+	var target_parent = _get_outside_item_parent()
+	if target_parent and item_ui.get_parent() != target_parent:
+		if item_ui.get_parent():
+			item_ui.get_parent().remove_child(item_ui)
+		target_parent.add_child(item_ui)
+
+	item_ui.scale = Vector2(0.7, 0.7)
+	item_ui.global_position = global_pos
+	item_ui.z_index = 0
+
+func _get_outside_item_parent() -> Node:
+	if is_instance_valid(backpack_ui):
+		var grid_panel = backpack_ui.get_parent()
+		if grid_panel and grid_panel.get_parent():
+			return grid_panel.get_parent()
+	if get_parent():
+		return get_parent()
+	return self
+
+func _remove_item_visual_mapping(item_data: ItemData):
+	if not is_instance_valid(backpack_ui):
+		return
+	var item_ui_map = backpack_ui.get("item_ui_map")
+	if item_ui_map is Dictionary and item_ui_map.has(item_data.runtime_id):
+		item_ui_map.erase(item_data.runtime_id)
+		backpack_ui.set("item_ui_map", item_ui_map)
 func _get_logical_shape_in_grid(item_data: ItemData) -> Array[Vector2i]:
 	var old_pos = _find_item_old_pos(item_data)
 	if old_pos != Vector2i(-1, -1):

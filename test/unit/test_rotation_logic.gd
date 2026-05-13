@@ -151,3 +151,47 @@ func test_rotation_360_degree_stability():
 	for i in range(4):
 		item.rotate_90()
 	assert_eq(item.shape, [Vector2i(0,0), Vector2i(1,0), Vector2i(2,0)] as Array[Vector2i], "360 rotation should return to original normalized shape")
+func test_place_item_outside_removes_grid_occupancy():
+	var manager = autofree(BattleManager.new())
+	add_child(manager)
+	manager.backpack_manager.setup_grid(7, 7, 5, 5)
+	var mock_bp_ui = autofree(MockBackpackUI.new())
+	add_child(mock_bp_ui)
+	manager.backpack_ui = mock_bp_ui
+
+	var item = ItemData.new(); item.runtime_id = 501
+	item.shape = [Vector2i(0,0), Vector2i(1,0)] as Array[Vector2i]
+	manager.backpack_manager.place_item(item, Vector2i(1, 1))
+	var data = manager.backpack_manager.grid[Vector2i(1, 1)].data
+
+	var mock_ui = autofree(MockItemUI.new())
+	mock_ui.item_data = data
+	mock_ui.item_instance = manager.backpack_manager.grid[Vector2i(1, 1)]
+
+	manager.request_place_item(mock_ui, Vector2i(-1, -1))
+
+	assert_eq(manager.backpack_manager.grid.size(), 0)
+	assert_null(mock_ui.item_instance)
+
+func test_rotation_outside_backpack_rotates_without_grid_placement():
+	var manager = autofree(BattleManager.new())
+	add_child(manager)
+	manager.backpack_manager.setup_grid(7, 7, 5, 5)
+	var mock_bp_ui = autofree(MockBackpackUI.new())
+	add_child(mock_bp_ui)
+	manager.backpack_ui = mock_bp_ui
+
+	var item = ItemData.new(); item.runtime_id = 601
+	item.shape = [Vector2i(0,0), Vector2i(0,1)] as Array[Vector2i]
+	item.direction = ItemData.Direction.UP
+
+	var mock_ui = autofree(MockItemUI.new())
+	mock_ui.item_data = item
+	mock_ui.item_instance = null
+
+	manager.request_rotate_item(mock_ui, Vector2(-100, -100), Vector2i(0, 0))
+
+	assert_eq(manager.backpack_manager.grid.size(), 0)
+	assert_null(mock_ui.item_instance)
+	assert_eq(item.direction, ItemData.Direction.RIGHT)
+	assert_true(item.shape.has(Vector2i(1, 0)))
