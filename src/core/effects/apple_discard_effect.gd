@@ -19,8 +19,4 @@ func on_discard_instance(instance: BackpackManager.ItemInstance, context: GameCo
 	return action
 
 func on_discard(_item_data: ItemData, context: GameContext) -> GameAction:
-	if context and context.state:
-		context.state.add_score(score_amount)
-	var action = GameAction.new(GameAction.Type.NUMERIC, "Apple discard score")
-	action.value = {"type": "score", "amount": score_amount}
-	return action
+	return null

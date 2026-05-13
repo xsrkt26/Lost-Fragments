@@ -87,3 +87,42 @@ func test_isolation_box_reduces_pollution_sanity_loss():
 	_apply_actions(actions)
 
 	assert_eq(gs.current_sanity, 98)
+
+func test_leaky_pen_only_pollutes_if_next_item_is_waste():
+	var source = item_db.get_item_by_id("baseball")
+	var pen = item_db.get_item_by_id("leaky_pen")
+	var blocker = item_db.get_item_by_id("apple")
+	var waste = item_db.get_item_by_id("paper_ball")
+	backpack.place_item(source, Vector2i(0, 0))
+	backpack.place_item(pen, Vector2i(1, 0))
+	backpack.place_item(blocker, Vector2i(3, 0))
+	backpack.place_item(waste, Vector2i(4, 0))
+
+	var source_instance = backpack.grid[Vector2i(0, 0)]
+	var blocker_instance = backpack.grid[Vector2i(3, 0)]
+	var waste_instance = backpack.grid[Vector2i(4, 0)]
+	blocker_instance.data.direction = ItemData.Direction.DOWN
+
+	var resolver = ImpactResolver.new(backpack, context)
+	var actions = resolver.resolve_impact(Vector2i(0, 0), ItemData.Direction.RIGHT, source_instance)
+	_apply_actions(actions)
+
+	assert_eq(blocker_instance.current_pollution, 0)
+	assert_eq(waste_instance.current_pollution, 0)
+
+func test_wet_cardboard_box_uses_whole_shape_to_find_next_item():
+	var source = item_db.get_item_by_id("baseball")
+	var cardboard = item_db.get_item_by_id("wet_cardboard_box")
+	var target = item_db.get_item_by_id("apple")
+	backpack.place_item(source, Vector2i(0, 0))
+	backpack.place_item(cardboard, Vector2i(1, 0))
+	backpack.place_item(target, Vector2i(3, 1))
+
+	var source_instance = backpack.grid[Vector2i(0, 0)]
+	var target_instance = backpack.grid[Vector2i(3, 1)]
+
+	var resolver = ImpactResolver.new(backpack, context)
+	var actions = resolver.resolve_impact(Vector2i(0, 0), ItemData.Direction.RIGHT, source_instance)
+	_apply_actions(actions)
+
+	assert_eq(target_instance.current_pollution, 3)
