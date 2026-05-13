@@ -47,6 +47,8 @@ func setup(p_battle_manager: BattleManager):
 		print("[MainGameUI] 错误: backpack_ui 引用为空！")
 	
 	battle_manager.backpack_ui = backpack_ui
+	if not battle_manager.battle_finish_requested.is_connected(_on_battle_finish_requested):
+		battle_manager.battle_finish_requested.connect(_on_battle_finish_requested)
 	
 	# 连接逻辑信号
 	battle_manager.item_drawn.connect(_on_item_drawn)
@@ -71,19 +73,29 @@ func _on_game_over():
 	if gs and gs.current_sanity > 0:
 		return
 	print("[MainGameUI] 收到梦值归零信号，正在按当前战斗规则结算...")
-	_finish_battle_from_current_state()
+	if battle_manager and battle_manager.has_method("request_finish_battle"):
+		battle_manager.request_finish_battle("sanity_depleted")
+	else:
+		_finish_battle_from_current_state()
 
 func _on_defeat():
 	if _is_battle_ended: return
 	_is_battle_ended = true
+	if battle_manager and battle_manager.has_method("mark_battle_finished"):
+		battle_manager.mark_battle_finished()
 	print("[MainGameUI] 未满足当前战斗目标，正在显示失败浮窗...")
 	_show_result_popup(false)
 
 func _on_victory():
 	if _is_battle_ended: return
 	_is_battle_ended = true
+	if battle_manager and battle_manager.has_method("mark_battle_finished"):
+		battle_manager.mark_battle_finished()
 	print("[MainGameUI] 达成目标分数，正在显示胜利浮窗...")
 	_show_result_popup(true)
+
+func _on_battle_finish_requested(_reason: String):
+	_finish_battle_from_current_state()
 
 func _show_result_popup(is_victory: bool):
 	# 自动清理背包外物品 (核心需求)
@@ -199,11 +211,17 @@ func _input(event):
 		_return_to_hub()
 
 func _on_menu_button_pressed():
-	_finish_battle_from_current_state()
+	if battle_manager and battle_manager.has_method("request_finish_battle"):
+		battle_manager.request_finish_battle("manual")
+	else:
+		_finish_battle_from_current_state()
 
 ## 根据当前得分评估并结束战斗 (满足手动结束按钮需求)
 func _evaluate_and_end_battle():
-	_finish_battle_from_current_state()
+	if battle_manager and battle_manager.has_method("request_finish_battle"):
+		battle_manager.request_finish_battle("manual")
+	else:
+		_finish_battle_from_current_state()
 
 func _finish_battle_from_current_state():
 	if _is_battle_ended: return

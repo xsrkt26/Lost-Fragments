@@ -122,6 +122,22 @@
 
 当前状态：梦值归零直接触发失败弹窗；战斗达到目标会自动结束。
 
+实现状态：已完成基础版本。
+
+本次实现范围：
+
+- `BattleManager` 新增轻量战斗状态机：`INTERACTIVE`、`DRAWING`、`RESOLVING`、`FINISHING`、`FINISHED`。
+- 新增统一结束请求入口 `request_finish_battle(reason)` 和信号 `battle_finish_requested(reason)`。
+- 手动结束和梦值归零都先进入 `BattleManager.request_finish_battle()`，再由 UI 统一结算胜负和结果弹窗。
+- 如果结束请求发生在抽取或结算中，会记录为 pending，等当前结算段落结束后再发出结束信号。
+- 得分达标不会自动结束，仍需玩家手动结束或梦值归零触发结束请求。
+- 战斗最终弹窗出现后调用 `mark_battle_finished()`，阻止重复结束请求。
+
+实现假设：
+
+- 当前“结算段落”覆盖 `request_draw()` 内部抽取、抽到物品效果、全局抽取监听，以及 `_run_impact_sequence()` 撞击序列。
+- 更细的输入锁、动画回调和多段异步结算会在 P3-12 捕梦表现与抽取区域中继续细化。
+
 策划目标：
 
 - 捕梦后先完整结算抽到物品和背包内物品效果。

@@ -7,6 +7,15 @@ extends Node
 signal turn_started
 signal turn_finished
 signal item_drawn(item_data: ItemData)
+signal battle_finish_requested(reason: String)
+
+enum BattleState {
+	INTERACTIVE,
+	DRAWING,
+	RESOLVING,
+	FINISHING,
+	FINISHED
+}
 
 var backpack_manager: BackpackManager
 var context: GameContext
@@ -33,6 +42,8 @@ func _init():
 var _current_battle_deck: Array[String] = []
 var draw_count: int = 0 # 记录当前局内抽取次数
 var managed_item_uis: Array[Control] = [] # 追踪当前战场上所有的物品 UI
+var battle_state: BattleState = BattleState.INTERACTIVE
+var _pending_finish_reason: String = ""
 
 func _ready():
 	print("[BattleManager] 节点就绪")
@@ -310,9 +321,13 @@ func trigger_impact_at(pos: Vector2i):
 	_run_impact_sequence(pos, instance.data.direction, instance)
 
 func request_draw():
+	if battle_state != BattleState.INTERACTIVE:
+		return
+	battle_state = BattleState.DRAWING
 	if _current_battle_deck.is_empty():
 		_initialize_battle_data()
 	if _current_battle_deck.is_empty():
+		_settle_interactive_state()
 		return
 	
 	GlobalAudio.play_sfx("draw")
@@ -320,7 +335,9 @@ func request_draw():
 	var item_db = get_node_or_null("/root/ItemDatabase")
 	var item = item_db.get_item_by_id(item_id)
 	if item:
+		battle_state = BattleState.RESOLVING
 		_process_new_item_acquisition(item)
+	_settle_interactive_state()
 
 func _process_new_item_acquisition(item: ItemData):
 	if not item: return
@@ -376,6 +393,9 @@ func _try_consume_insurance_contract():
 		return
 
 func _run_impact_sequence(start_pos: Vector2i, dir: ItemData.Direction, source: BackpackManager.ItemInstance = null):
+	if battle_state == BattleState.FINISHING or battle_state == BattleState.FINISHED:
+		return
+	battle_state = BattleState.RESOLVING
 	turn_started.emit()
 	var resolver = ImpactResolver.new(backpack_manager, context)
 	var actions = resolver.resolve_impact(start_pos, dir, source)
@@ -387,6 +407,7 @@ func _run_impact_sequence(start_pos: Vector2i, dir: ItemData.Direction, source: 
 	await player.play_sequence(actions, ui_map, context)
 	player.queue_free()
 	turn_finished.emit()
+	_settle_interactive_state()
 
 func _find_item_old_pos(item_data: ItemData) -> Vector2i:
 	for pos in backpack_manager.grid.keys():
@@ -407,3 +428,29 @@ func debug_clear_all():
 		backpack_manager.grid.clear()
 		if is_instance_valid(backpack_ui) and backpack_ui.has_method("_refresh_grid"):
 			backpack_ui._refresh_grid()
+
+func request_finish_battle(reason: String = "manual") -> bool:
+	if battle_state == BattleState.FINISHING or battle_state == BattleState.FINISHED:
+		return false
+	if battle_state == BattleState.DRAWING or battle_state == BattleState.RESOLVING:
+		_pending_finish_reason = reason
+		return true
+	_emit_finish_requested(reason)
+	return true
+
+func mark_battle_finished() -> void:
+	_pending_finish_reason = ""
+	battle_state = BattleState.FINISHED
+
+func _settle_interactive_state() -> void:
+	if battle_state == BattleState.FINISHING or battle_state == BattleState.FINISHED:
+		return
+	battle_state = BattleState.INTERACTIVE
+	if _pending_finish_reason != "":
+		var reason = _pending_finish_reason
+		_pending_finish_reason = ""
+		_emit_finish_requested(reason)
+
+func _emit_finish_requested(reason: String) -> void:
+	battle_state = BattleState.FINISHING
+	battle_finish_requested.emit(reason)
