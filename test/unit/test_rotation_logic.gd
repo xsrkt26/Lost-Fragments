@@ -1,7 +1,7 @@
 extends "res://addons/gut/test.gd"
 
 var ItemData = load("res://src/core/item_data.gd")
-var BackpackManager = load("res://src/core/data_models/backpack_mgr.gd")
+var BackpackManager = load("res://src/core/backpack/backpack_manager.gd")
 var BattleManager = load("res://src/battle/battle_manager.gd")
 const MockItemUIBase = preload("res://test/support/mock_item_ui.gd")
 

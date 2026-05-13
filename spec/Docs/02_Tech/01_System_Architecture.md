@@ -40,13 +40,18 @@
 res://
 ├── src/
 │   ├── core/           # 逻辑层
-│   │   ├── data_models/ # 核心数据结构 (BackpackMgr, context)
-│   │   ├── effects/     # 47种物品的效果脚本实现
-│   │   └── resolver/    # 撞击解析物理核心
+│   │   ├── backpack/    # 背包网格与运行时物品实例
+│   │   ├── effects/     # 物品效果脚本实现
+│   │   ├── events/      # 事件数据结构
+│   │   ├── ornaments/   # 饰品数据与饰品效果
+│   │   ├── rewards/     # 奖励与商店生成器
+│   │   └── route/       # 路线节点配置
 │   ├── battle/         # 流程控制
+│   ├── debug/          # 手工调试场景，不进入自动化测试收集
 │   ├── ui/             # 表现层
 │   └── autoload/       # 全局事件总线与持久化
 ├── data/               # 静态资源
 ├── test/               # 工业级测试套件 (unit/integration)
+├── tools/              # 仓库级工具脚本
 └── spec/               # 设计与技术协议
 ```

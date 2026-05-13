@@ -1,19 +1,21 @@
 # Silent GUT Test Runner for AI Agents
-# Usage: .\scripts\run_tests_silent.ps1
+# Usage: .\tools\run_tests_silent.ps1
 
-$godotPath = "C:\Users\XSrkT\Downloads\Godot_v4.6.2-stable_win64.exe\Godot_v4.6.2-stable_win64_console.exe"
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+$defaultGodotPath = "D:\COde\Godot\Godot_v4.6.2-stable_win64.exe\Godot_v4.6.2-stable_win64_console.exe"
+$godotPath = if ($env:GODOT_BIN) { $env:GODOT_BIN } else { $defaultGodotPath }
 $gutScript = "addons/gut/gut_cmdln.gd"
 $timeoutSeconds = 60
 
 # Run Godot and capture BOTH output and errors to temporary files
-$tempLog = "test_run.tmp"
-$tempErr = "test_err.tmp"
+$tempLog = Join-Path $env:TEMP "go_dot_game_gut_stdout.tmp"
+$tempErr = Join-Path $env:TEMP "go_dot_game_gut_stderr.tmp"
 
 # Clean up old logs
 if (Test-Path $tempLog) { Remove-Item $tempLog }
 if (Test-Path $tempErr) { Remove-Item $tempErr }
 
-$process = Start-Process -FilePath $godotPath -ArgumentList "--path", ".", "-s", $gutScript, "--headless", "-gexit", "-glog=0" -NoNewWindow -PassThru -RedirectStandardOutput $tempLog -RedirectStandardError $tempErr
+$process = Start-Process -FilePath $godotPath -ArgumentList "--path", $repoRoot, "-s", $gutScript, "--headless", "-gexit", "-glog=0" -NoNewWindow -PassThru -RedirectStandardOutput $tempLog -RedirectStandardError $tempErr
 
 # Wait for process with timeout
 $timeoutReached = $false
@@ -27,6 +29,8 @@ while (-not $process.HasExited) {
     Start-Sleep -Milliseconds 500
 }
 $timer.Stop()
+$process.Refresh()
+$exitCode = $process.ExitCode
 
 if ($timeoutReached) {
     Write-Host "TEST_RESULTS: FAIL (TIMEOUT reached after $timeoutSeconds seconds)"
@@ -40,7 +44,10 @@ if (Test-Path $tempErr) { $errors = Get-Content $tempErr; Remove-Item $tempErr }
 
 $failedTests = @()
 $totals = @()
-$isFailed = ($process.ExitCode -ne 0)
+$fatalErrors = @()
+$sawAllTestsPassed = $false
+$sawSummary = $false
+$isFailed = $false
 $inSummary = $false
 $currentFile = "Unknown File"
 
@@ -51,7 +58,12 @@ foreach ($line in $output) {
     # Detect summary section
     if ($line -match "Run Summary") {
         $inSummary = $true
+        $sawSummary = $true
         continue
+    }
+
+    if ($line -match "All tests passed") {
+        $sawAllTestsPassed = $true
     }
     
     if ($inSummary) {
@@ -70,6 +82,19 @@ foreach ($line in $output) {
     }
 }
 
+$allOutput = @($output) + @($errors)
+$fatalErrors = $allOutput | Select-String -Pattern "SCRIPT ERROR|Parse Error|Resource still in use|resources still in use|ObjectDB instances leaked" | Select-Object -First 5 -Unique
+
+if ($failedTests.Count -gt 0 -or $fatalErrors.Count -gt 0) {
+    $isFailed = $true
+}
+elseif ($sawSummary -and $sawAllTestsPassed) {
+    $isFailed = $false
+}
+else {
+    $isFailed = $true
+}
+
 if ($isFailed) {
     Write-Host "TEST_RESULTS: FAIL"
     
@@ -81,10 +106,9 @@ if ($isFailed) {
         }
     }
 
-    $uniqueErrors = $errors | Select-String "SCRIPT ERROR" | Select-Object -First 3 -Unique
-    if ($uniqueErrors) {
-        Write-Host "SCRIPT_ERRORS_DETECTED: YES"
-        foreach ($err in $uniqueErrors) {
+    if ($fatalErrors) {
+        Write-Host "FATAL_OUTPUT_DETECTED: YES"
+        foreach ($err in $fatalErrors) {
             Write-Host "  $($err.ToString().Trim())"
         }
     }
@@ -95,7 +119,7 @@ if ($isFailed) {
             Write-Host "  $total"
         }
     } else {
-        Write-Host "SUMMARY: No summary found (Process exit code: $($process.ExitCode))"
+        Write-Host "SUMMARY: No summary found (Process exit code: $exitCode)"
     }
     exit 1
 } else {

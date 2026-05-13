@@ -67,7 +67,9 @@
 - `test_discard_logic.gd` 已移除动态 `GDScript.new()` mock。
 - 新增 `test/support/mock_item_ui.gd` 作为固定 mock UI。
 - `test_discard_logic.gd` 的 mock UI 已统一由 GUT 管理，并对丢弃释放路径增加 orphan 断言。
-- 非 GUT 工具脚本 `test_instance_ui.gd` 已移动为 `tools/check_instance_ui.gd`，避免被 GUT 收集。
+- 非 GUT 工具脚本 `test_instance_ui.gd` 已移动为 `tools/godot/check_instance_ui.gd`，避免被 GUT 收集。
+- 根目录工具脚本已归档到 `tools/audio/`、`tools/ui/` 和 `tools/run_tests_silent.ps1`；手工调试场景已归档到 `src/debug/manual/`，避免混在核心逻辑目录中。
+- `GlobalAudio` 在 headless 测试环境下不创建音频播放器，避免 BGM 淡入淡出流程在测试退出期残留 `AudioStreamPlaybackWAV` 资源。
 - `test_hub_player.gd` 中的 `CharacterBody2D` mock 已改为挂树管理，避免物理对象裸实例造成退出期资源警告。
 - `BackpackManager._exit_tree()` 已统一清空运行时 `grid`，释放物品实例与其深拷贝资源引用。
 - `RunManager` 的 `SaveManager` 子节点已改为 `_ready()` 中创建并挂树，避免纯逻辑测试路径产生裸节点。

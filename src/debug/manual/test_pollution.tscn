@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://src/core/test_pollution.gd" id="1_g234b"]
+[ext_resource type="Script" path="res://src/debug/manual/test_pollution.gd" id="1_g234b"]
 
 [node name="TestPollution" type="Node2D"]
 script = ExtResource("1_g234b")

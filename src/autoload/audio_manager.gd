@@ -24,8 +24,14 @@ var _bgm_player: AudioStreamPlayer
 var _sfx_pool: Array[AudioStreamPlayer] = []
 var _pool_size: int = 12
 var _fade_tween: Tween = null
+var _audio_disabled: bool = false
 
 func _ready():
+	_audio_disabled = DisplayServer.get_name() == "headless"
+	if _audio_disabled:
+		AudioServer.set_bus_mute(0, true)
+		print("[GlobalAudio] 音频管理器已就绪。")
+		return
 	_setup_audio_nodes()
 	AudioServer.set_bus_mute(0, true)
 	print("[GlobalAudio] 音频管理器已就绪。")
@@ -43,6 +49,9 @@ func _setup_audio_nodes():
 
 func _exit_tree():
 	# 退出时强制停止并清理播放器引用，彻底防止内存泄漏
+	if _fade_tween and is_instance_valid(_fade_tween):
+		_fade_tween.kill()
+	_fade_tween = null
 	if _bgm_player:
 		_bgm_player.stop()
 		_bgm_player.stream = null
@@ -54,6 +63,8 @@ func _exit_tree():
 
 ## 播放 BGM，修复了淡入淡出冲突
 func play_bgm(bgm_key: String, fade_time: float = 1.0):
+	if _audio_disabled:
+		return
 	if not BGM_PATHS.has(bgm_key): return
 	var path = BGM_PATHS[bgm_key]
 	if not FileAccess.file_exists(path): return
@@ -81,6 +92,8 @@ func play_bgm(bgm_key: String, fade_time: float = 1.0):
 		_bgm_player.volume_db = 0.0
 
 func stop_bgm(fade_time: float = 1.0):
+	if _audio_disabled:
+		return
 	if _fade_tween and _fade_tween.is_running():
 		_fade_tween.kill()
 	if fade_time > 0:
@@ -91,6 +104,8 @@ func stop_bgm(fade_time: float = 1.0):
 		_bgm_player.stop()
 
 func play_sfx(sfx_key: String, pitch_range: float = 0.1):
+	if _audio_disabled:
+		return
 	if not SFX_PATHS.has(sfx_key): return
 	var path = SFX_PATHS[sfx_key]
 	if not FileAccess.file_exists(path): return
