@@ -43,6 +43,7 @@
     *   本地全量命令使用 Godot 4.6.2 headless 执行 `addons/gut/gut_cmdln.gd`。
     *   `.github/workflows/gut.yml` 已接入 GitHub Actions，在 `main` 分支 push 和 pull request 时自动下载 Godot 4.6.2 stable Linux 版并运行全量 GUT。
     *   工作流缓存 Godot 可执行文件，避免每次运行重复下载。
+    *   `test/integration/test_scene_smoke.gd` 维护固定关键场景 headless 冒烟列表，覆盖主菜单、Hub、局内 UI、商店和调试沙盒，验证场景可加载、可实例化、启动帧有效且不会新增 orphan。
 
 ### 2. 鼠标悬浮显示卡牌信息 (Card Hover Tooltip)
 *   **状态**: 已完成基础版本。

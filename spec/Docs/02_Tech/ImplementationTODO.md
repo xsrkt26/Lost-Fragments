@@ -468,6 +468,7 @@
 
 - `test/unit/test_card_tooltip.gd` 覆盖物品污染层数变化后的 UI 同步、全局卡牌悬浮说明的动态污染显示，以及空物品数据不会保留旧悬浮窗。
 - `test/unit/test_shop_system.gd` 覆盖商店物品商品使用全局卡牌悬浮说明。
+- `test/integration/test_scene_smoke.gd` 作为每次 AI 改动后的固定 headless 场景冒烟测试，覆盖 `src/ui/main_menu/main_menu.tscn`、`src/ui/hub/hub_scene.tscn`、`src/ui/main_game_ui.tscn`、`src/ui/shop/shop_scene.tscn` 和 `src/ui/debug/debug_sandbox.tscn`。
 
 实现假设：
 
