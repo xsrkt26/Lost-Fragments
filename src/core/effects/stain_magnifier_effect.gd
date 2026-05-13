@@ -26,8 +26,8 @@ func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackMa
 		
 		# 2. 触发一次额外撞击
 		if context.battle:
-			# 使用 call_deferred，让这轮撞击在当前的撞击链结束后再开一个新链，防止递归层级过深
+			# Queue this as a new chain after the current impact chain finishes.
 			print("[Effect] 污点放大镜指挥 ", max_pollution_instance.data.item_name, " 触发额外撞击！")
-			context.battle.call_deferred("trigger_impact_at", max_pollution_instance.root_pos)
+			context.battle.queue_impact_at(max_pollution_instance.root_pos, -1, max_pollution_instance, "stain_magnifier")
 			
 	return GameAction.new(GameAction.Type.EFFECT, "污点放大镜扫视全场")

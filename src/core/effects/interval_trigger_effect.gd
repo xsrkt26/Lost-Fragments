@@ -22,4 +22,4 @@ func on_global_item_drawn(_new_item: ItemData, my_instance: BackpackManager.Item
 			
 		print("[Effect] ", my_instance.data.item_name, " 达到触发间隔，正在自动发起撞击！")
 		# 自动发起撞击
-		context.battle.call_deferred("trigger_impact_at", my_instance.root_pos)
+		context.battle.queue_impact_at(my_instance.root_pos, -1, my_instance, "interval_trigger")

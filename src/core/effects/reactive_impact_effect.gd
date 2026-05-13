@@ -25,5 +25,5 @@ func _on_any_item_impacted(hit_instance, _source_instance, my_data, context):
 	var my_pos = context.battle._find_item_old_pos(my_data)
 	if my_pos != Vector2i(-1, -1):
 		print("[Effect] 梦境燃料罐感应到撞击，开始连锁! 源: ", hit_instance.data.item_name)
-		# 为了防止无限递归，我们异步触发
-		context.battle.call_deferred("trigger_impact_at", my_pos)
+		# Queue this as a new chain to avoid recursive impact resolution.
+		context.battle.queue_impact_at(my_pos, -1, null, "reactive_impact")

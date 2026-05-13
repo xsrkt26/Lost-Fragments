@@ -44,6 +44,9 @@ var draw_count: int = 0 # 记录当前局内抽取次数
 var managed_item_uis: Array[Control] = [] # 追踪当前战场上所有的物品 UI
 var battle_state: BattleState = BattleState.INTERACTIVE
 var _pending_finish_reason: String = ""
+var _impact_queue: Array[Dictionary] = []
+var _impact_queue_sequence: int = 0
+var _is_processing_impact_queue: bool = false
 
 func _ready():
 	print("[BattleManager] 节点就绪")
@@ -327,10 +330,24 @@ func _handle_place_failure(item_ui: Control, old_pos: Vector2i, _old_shape: Arra
 		tween.tween_property(item_ui, "scale", Vector2(0.7, 0.7), 0.1)
 
 func trigger_impact_at(pos: Vector2i):
-	if not backpack_manager.grid.has(pos):
-		return
-	var instance = backpack_manager.grid[pos]
-	_run_impact_sequence(pos, instance.data.direction, instance)
+	queue_impact_at(pos, -1, null, "direct")
+
+func queue_impact_at(pos: Vector2i, direction: int = -1, source: BackpackManager.ItemInstance = null, reason: String = "queued") -> bool:
+	var instance = _resolve_impact_source(pos, source)
+	if instance == null or instance.data == null:
+		return false
+
+	var impact_direction = direction
+	if impact_direction < 0:
+		impact_direction = instance.data.direction
+
+	_impact_queue_sequence += 1
+	_impact_queue.append(_make_impact_queue_item(instance.root_pos, impact_direction, instance, reason))
+	_sort_impact_queue()
+
+	if battle_state == BattleState.INTERACTIVE and not _is_processing_impact_queue:
+		call_deferred("_process_impact_queue")
+	return true
 
 func request_draw():
 	if battle_state != BattleState.INTERACTIVE:
@@ -349,6 +366,7 @@ func request_draw():
 	if item:
 		battle_state = BattleState.RESOLVING
 		_process_new_item_acquisition(item)
+		await _process_impact_queue()
 	_settle_interactive_state()
 
 func _process_new_item_acquisition(item: ItemData):
@@ -404,7 +422,30 @@ func _try_consume_insurance_contract():
 		gs.heal_sanity(recovery)
 		return
 
-func _run_impact_sequence(start_pos: Vector2i, dir: ItemData.Direction, source: BackpackManager.ItemInstance = null):
+func _process_impact_queue() -> void:
+	if _is_processing_impact_queue:
+		return
+	if battle_state == BattleState.FINISHING or battle_state == BattleState.FINISHED:
+		_impact_queue.clear()
+		return
+
+	_is_processing_impact_queue = true
+	while not _impact_queue.is_empty():
+		if battle_state == BattleState.FINISHING or battle_state == BattleState.FINISHED:
+			_impact_queue.clear()
+			break
+
+		var queue_item = _dequeue_next_impact()
+		if not _is_impact_queue_item_valid(queue_item):
+			continue
+
+		var source = queue_item["source"] as BackpackManager.ItemInstance
+		await _run_impact_sequence(source.root_pos, queue_item["direction"], source, false)
+
+	_is_processing_impact_queue = false
+	_settle_interactive_state()
+
+func _run_impact_sequence(start_pos: Vector2i, dir: ItemData.Direction, source: BackpackManager.ItemInstance = null, settle_after: bool = true):
 	if battle_state == BattleState.FINISHING or battle_state == BattleState.FINISHED:
 		return
 	battle_state = BattleState.RESOLVING
@@ -419,7 +460,60 @@ func _run_impact_sequence(start_pos: Vector2i, dir: ItemData.Direction, source: 
 	await player.play_sequence(actions, ui_map, context)
 	player.queue_free()
 	turn_finished.emit()
-	_settle_interactive_state()
+	if settle_after:
+		_settle_interactive_state()
+
+func _resolve_impact_source(pos: Vector2i, source: BackpackManager.ItemInstance = null) -> BackpackManager.ItemInstance:
+	if source != null:
+		if _is_instance_in_grid(source):
+			return source
+		return null
+	if backpack_manager.grid.has(pos):
+		return backpack_manager.grid[pos]
+	return null
+
+func _is_instance_in_grid(instance: BackpackManager.ItemInstance) -> bool:
+	if instance == null:
+		return false
+	if backpack_manager.grid.has(instance.root_pos) and backpack_manager.grid[instance.root_pos] == instance:
+		return true
+	for value in backpack_manager.grid.values():
+		if value == instance:
+			return true
+	return false
+
+func _make_impact_queue_item(pos: Vector2i, direction: int, source: BackpackManager.ItemInstance, reason: String) -> Dictionary:
+	return {
+		"pos": pos,
+		"direction": direction,
+		"source": source,
+		"reason": reason,
+		"priority": _get_impact_priority(pos),
+		"sequence": _impact_queue_sequence,
+	}
+
+func _get_impact_priority(pos: Vector2i) -> int:
+	return pos.y * max(1, backpack_manager.grid_width) + pos.x
+
+func _sort_impact_queue() -> void:
+	_impact_queue.sort_custom(_compare_impact_queue_items)
+
+func _compare_impact_queue_items(a: Dictionary, b: Dictionary) -> bool:
+	var a_priority = int(a.get("priority", 0))
+	var b_priority = int(b.get("priority", 0))
+	if a_priority == b_priority:
+		return int(a.get("sequence", 0)) < int(b.get("sequence", 0))
+	return a_priority < b_priority
+
+func _dequeue_next_impact() -> Dictionary:
+	_sort_impact_queue()
+	return _impact_queue.pop_front()
+
+func _is_impact_queue_item_valid(queue_item: Dictionary) -> bool:
+	if queue_item.is_empty() or not queue_item.has("source"):
+		return false
+	var source = queue_item["source"] as BackpackManager.ItemInstance
+	return _is_instance_in_grid(source)
 
 func _find_item_old_pos(item_data: ItemData) -> Vector2i:
 	for pos in backpack_manager.grid.keys():

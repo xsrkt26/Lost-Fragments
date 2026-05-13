@@ -225,6 +225,25 @@
 
 当前状态：已有单条撞击链解析，但缺少多个物品同时发起撞击时的全局调度规则。
 
+实现状态：已完成基础版本。
+
+本次实现范围：
+
+- `BattleManager` 新增统一撞击队列 `queue_impact_at(pos, direction, source, reason)`，旧入口 `trigger_impact_at(pos)` 保留并改为入队。
+- 队列项记录来源物品、方向、触发原因、左上优先级和入队序号；优先级按 `y * grid_width + x` 计算，保证同一行从左到右、行与行从上到下。
+- `request_draw()` 在抽取物品和全局抽取监听结束后，会等待本结算窗口内的撞击队列处理完成，再回到可操作状态或发出 pending 结束请求。
+- 每次只弹出一条撞击链，等待 `ImpactResolver` 与 `SequencePlayer` 完整结算后再处理下一条；结算过程中新增的撞击继续进入同一队列并重新排序。
+- `interval_trigger`、`reactive_impact`、`same_item_draw`、`stain_magnifier`、`tag_reactive` 等延迟撞击效果已统一改为入队，不再直接 `call_deferred("trigger_impact_at")`。
+
+实现假设：
+
+- “同时发起”以同一抽取/撞击结算窗口内进入队列的撞击为准；新入队的撞击会参与剩余队列排序，但不会打断已经开始播放的当前撞击链。
+- 如果来源物品已离开背包或不再有效，该队列项会被跳过，避免已删除物品触发幽灵撞击。
+
+自动化测试：
+
+- `test/unit/test_impact_queue.gd` 覆盖左上优先级排序、同窗口新增撞击重新排序、空格/失效来源拒绝，以及旧 `trigger_impact_at()` 入口兼容入队。
+
 策划目标：
 
 - 多个物品同时发起撞击时，按左上优先级排序。
