@@ -8,6 +8,7 @@ extends CanvasLayer
 @onready var status_label = $PanelContainer/MarginContainer/VBoxContainer/StatusLabel
 
 func _ready():
+	add_to_group("card_tooltip")
 	panel.hide()
 	# 初始透明度为0，用于淡入
 	panel.modulate.a = 0

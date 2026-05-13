@@ -6,8 +6,13 @@ extends Control
 @export var item_data: ItemData
 var item_instance: BackpackManager.ItemInstance: # 逻辑实例
 	set(v):
+		if item_instance and item_instance.pollution_changed.is_connected(_on_item_pollution_changed):
+			item_instance.pollution_changed.disconnect(_on_item_pollution_changed)
 		item_instance = v
-		if v: _sync_visuals()
+		if item_instance and not item_instance.pollution_changed.is_connected(_on_item_pollution_changed):
+			item_instance.pollution_changed.connect(_on_item_pollution_changed)
+		_sync_visuals()
+		_refresh_hover_tooltip()
 
 # --- 视觉节点引用 ---
 @onready var background = $Background
@@ -23,6 +28,7 @@ signal rotation_requested(item_ui: Control, mouse_global_pos: Vector2, pivot_off
 
 # --- 交互变量 ---
 var _is_dragging: bool = false
+var _is_hovered: bool = false
 var _drag_offset: Vector2 = Vector2.ZERO
 var _held_pivot_offset: Vector2i = Vector2i.ZERO # 拖拽时鼠标按在哪个格子上
 
@@ -35,6 +41,12 @@ func _ready():
 	gui_input.connect(_on_gui_input)
 	mouse_entered.connect(_on_mouse_entered)
 	mouse_exited.connect(_on_mouse_exited)
+
+func _exit_tree():
+	if item_instance and item_instance.pollution_changed.is_connected(_on_item_pollution_changed):
+		item_instance.pollution_changed.disconnect(_on_item_pollution_changed)
+	if _is_hovered:
+		GlobalTooltip.hide()
 
 func setup(p_data: ItemData, _context: GameContext = null):
 	item_data = p_data
@@ -110,11 +122,21 @@ func _on_gui_input(event: InputEvent):
 
 func _on_mouse_entered():
 	# 只要不是在拖拽中，就显示提示
-	if not _is_dragging:
+	_is_hovered = true
+	if not _is_dragging and item_data:
 		GlobalTooltip.show_item(item_data, item_instance)
 
 func _on_mouse_exited():
+	_is_hovered = false
 	GlobalTooltip.hide()
+
+func _on_item_pollution_changed(_new_val: int):
+	_sync_visuals()
+	_refresh_hover_tooltip()
+
+func _refresh_hover_tooltip():
+	if _is_hovered and not _is_dragging and item_data:
+		GlobalTooltip.show_item(item_data, item_instance)
 
 func _start_drag():
 	_is_dragging = true

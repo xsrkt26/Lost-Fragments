@@ -40,7 +40,13 @@
 *   **执行方式**: 支持编辑器内 GUI 面板一键执行，以及命令行 Headless 运行以接入 CI/CD。
 
 ### 2. 鼠标悬浮显示卡牌信息 (Card Hover Tooltip)
+*   **状态**: 已完成基础版本。
 *   **目标**: 在游戏主界面实时查看卡牌效果及当前附加的动态状态（如污染层数）。
 *   **数据层**: 在 `ItemData` 中新增 `@export_multiline var description: String` 效果描述字段。
 *   **UI层**: 新建全局复用的 `CardTooltip.tscn` 悬浮窗组件。
 *   **交互逻辑**: 在 `ItemUI` 中监听 `mouse_entered` 触发延迟（如 0.3 秒）显示，`mouse_exited` 隐藏，并能动态读取 `ItemInstance` 的状态进行渲染。
+*   **当前实现**:
+    *   `GlobalTooltip` 作为 Autoload 统一管理卡牌悬浮窗，负责延迟显示、关键词高亮、自动定位和空数据隐藏。
+    *   `ItemUI` 在鼠标悬停时显示卡牌说明，拖拽时隐藏；绑定 `ItemInstance.pollution_changed` 后实时刷新污染角标和悬浮窗动态状态。
+    *   `CardTooltip` 进入 `card_tooltip` 分组，便于测试和调试定位。
+*   **自动化测试**: `test/unit/test_card_tooltip.gd` 覆盖污染 UI 同步、动态污染悬浮显示和空物品数据保护。

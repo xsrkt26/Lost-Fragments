@@ -33,6 +33,11 @@ func _ready():
 
 ## 显示卡牌提示
 func show_item(item_data: ItemData, instance_data: Variant = null):
+	if item_data == null:
+		hide()
+		return
+	if _tooltip_instance == null:
+		return
 	# 停止当前的延迟或隐藏
 	_delay_timer.stop()
 	
