@@ -29,6 +29,7 @@
 ## 三、 待开发功能 (Pending Features)
 
 ### 1. 全自动测试工作流 (Automated Testing Workflow)
+*   **状态**: 已完成基础版本。
 *   **目标**: 引入标准测试框架，支持逻辑的回归测试，保证重构与新增功能不破坏原有机制。
 *   **加固标准 (Reinforced Standards)**:
     *   **多场景覆盖**: 每张卡牌必须包含 2-3 个场景测试，包括：
@@ -38,6 +39,10 @@
     *   **联动稳定性 (Synergy & Stability)**: 建立专门的联动测试集，模拟跨流派连招（如机械+书籍、污染+净化），验证单帧高频 Action 产出下的系统稳定性。
 *   **方案**: 引入 **GUT (Godot Unit Test)** 框架，在 `test/` 目录下建立单元测试与集成测试。
 *   **执行方式**: 支持编辑器内 GUI 面板一键执行，以及命令行 Headless 运行以接入 CI/CD。
+*   **当前实现**:
+    *   本地全量命令使用 Godot 4.6.2 headless 执行 `addons/gut/gut_cmdln.gd`。
+    *   `.github/workflows/gut.yml` 已接入 GitHub Actions，在 `main` 分支 push 和 pull request 时自动下载 Godot 4.6.2 stable Linux 版并运行全量 GUT。
+    *   工作流缓存 Godot 可执行文件，避免每次运行重复下载。
 
 ### 2. 鼠标悬浮显示卡牌信息 (Card Hover Tooltip)
 *   **状态**: 已完成基础版本。

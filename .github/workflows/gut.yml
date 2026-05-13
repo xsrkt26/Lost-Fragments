@@ -1,0 +1,39 @@
+name: GUT
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  gut:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GODOT_VERSION: 4.6.2
+      GODOT_STATUS: stable
+      GODOT_BIN: /tmp/godot/Godot_v4.6.2-stable_linux.x86_64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Godot
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: /tmp/godot
+          key: godot-${{ env.GODOT_VERSION }}-${{ env.GODOT_STATUS }}-linux-x86_64
+
+      - name: Install Godot
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p /tmp/godot
+          curl -L -o /tmp/godot/godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_STATUS}/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64.zip"
+          unzip -q /tmp/godot/godot.zip -d /tmp/godot
+
+      - name: Run GUT
+        run: |
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --headless --path . -s addons/gut/gut_cmdln.gd -gexit -glog=0
