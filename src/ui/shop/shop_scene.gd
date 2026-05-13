@@ -48,6 +48,8 @@ func _add_shop_offer(offer: Dictionary):
 	btn.text = _format_offer_text(offer)
 	btn.tooltip_text = str(offer.get("description", ""))
 	btn.custom_minimum_size = Vector2(200, 100)
+	btn.mouse_entered.connect(func(): _show_offer_tooltip(offer))
+	btn.mouse_exited.connect(_hide_offer_tooltip)
 	btn.pressed.connect(func(): _buy_offer(offer, btn))
 	shelf.add_child(btn)
 
@@ -62,6 +64,7 @@ func _format_offer_text(offer: Dictionary) -> String:
 	return "%s\n%d 碎片" % [title, price]
 
 func _buy_offer(offer: Dictionary, button: Button):
+	GlobalTooltip.hide()
 	var rm = get_node_or_null("/root/RunManager")
 	if rm and rm.has_method("buy_shop_offer") and rm.buy_shop_offer(offer):
 		print("[Shop] 购买成功: ", offer.get("title", ""))
@@ -83,7 +86,22 @@ func _get_offer_price(offer: Dictionary) -> int:
 		return rm.get_current_shop_offer_price(offer)
 	return int(offer.get("price", 0))
 
+func _show_offer_tooltip(offer: Dictionary) -> void:
+	if str(offer.get("type", "")) != "item":
+		GlobalTooltip.hide()
+		return
+	var item_db = get_node_or_null("/root/ItemDatabase")
+	var item = item_db.get_item_by_id(str(offer.get("id", ""))) if item_db and item_db.has_method("get_item_by_id") else null
+	if item:
+		GlobalTooltip.show_item(item)
+	else:
+		GlobalTooltip.hide()
+
+func _hide_offer_tooltip() -> void:
+	GlobalTooltip.hide()
+
 func _on_back_pressed():
+	GlobalTooltip.hide()
 	var rm = get_node_or_null("/root/RunManager")
 	if rm and rm.get_current_route_node_type() == RouteConfig.NODE_SHOP:
 		rm.advance_route_node()
