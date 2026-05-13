@@ -4,6 +4,7 @@ extends Node
 ## 负责跨场景保存金钱、卡组、深度等核心数据。
 
 const RouteConfig = preload("res://src/core/route/route_config.gd")
+const RewardGenerator = preload("res://src/core/rewards/reward_generator.gd")
 
 # --- 核心信号 ---
 signal run_started
@@ -115,6 +116,32 @@ func remove_ornament(ornament_id: String) -> bool:
 		return false
 	current_ornaments.erase(ornament_id)
 	ornaments_changed.emit(current_ornaments)
+	save_current_state()
+	return true
+
+func generate_current_reward_options(item_db: Node, ornament_db: Node, count: int = 3) -> Array[Dictionary]:
+	return RewardGenerator.generate_options(self, item_db, ornament_db, count)
+
+func apply_reward(reward: Dictionary) -> bool:
+	var reward_type = str(reward.get("type", ""))
+	match reward_type:
+		RewardGenerator.TYPE_SHARDS:
+			var amount = max(0, int(reward.get("amount", 0)))
+			current_shards += amount
+			shards_changed.emit(current_shards)
+		RewardGenerator.TYPE_ITEM:
+			var item_id = str(reward.get("id", ""))
+			if item_id == "":
+				return false
+			current_deck.append(item_id)
+			deck_changed.emit(current_deck)
+		RewardGenerator.TYPE_ORNAMENT:
+			var ornament_id = str(reward.get("id", ""))
+			if not add_ornament(ornament_id):
+				return false
+			return true
+		_:
+			return false
 	save_current_state()
 	return true
 

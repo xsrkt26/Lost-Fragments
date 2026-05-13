@@ -128,13 +128,13 @@ func _show_result_popup(is_victory: bool):
 		title.text = "梦境圆满"
 		title.add_theme_color_override("font_color", Color("#ec3073")) # 暖粉/金色
 		score_label.text = "最终得分: %d / %s" % [gs.current_score, target_text]
-		btn.text = "继续梦境"
-		btn.pressed.connect(func():
-			if rm:
-				rm.win_battle(5 + rm.current_depth * 2)
-			var next_scene = GlobalScene.SceneType.MAIN_MENU if rm and rm.is_run_complete else GlobalScene.SceneType.HUB
-			GlobalScene.transition_to(next_scene, false)
-		)
+		var reward_options = _get_reward_options(rm)
+		if reward_options.is_empty():
+			btn.text = "继续梦境"
+			btn.pressed.connect(func(): _complete_victory_route(rm))
+		else:
+			btn.hide()
+			_add_reward_choices(popup, reward_options, rm)
 	else:
 		title.text = "梦境惊醒"
 		title.add_theme_color_override("font_color", Color("#555555")) # 灰色
@@ -145,6 +145,58 @@ func _show_result_popup(is_victory: bool):
 				rm.fail_run()
 			GlobalScene.transition_to(GlobalScene.SceneType.MAIN_MENU)
 		)
+
+func _get_reward_options(rm) -> Array[Dictionary]:
+	if rm == null or not rm.has_method("generate_current_reward_options"):
+		return []
+	var item_db = get_node_or_null("/root/ItemDatabase")
+	var ornament_db = get_node_or_null("/root/OrnamentDatabase")
+	return rm.generate_current_reward_options(item_db, ornament_db, 3)
+
+func _add_reward_choices(popup: Control, reward_options: Array[Dictionary], rm) -> void:
+	var panel = popup.get_node("Panel")
+	panel.custom_minimum_size = Vector2(640, 360)
+	panel.offset_left = -320.0
+	panel.offset_top = -180.0
+	panel.offset_right = 320.0
+	panel.offset_bottom = 180.0
+
+	var container = popup.get_node("Panel/VBoxContainer")
+	var reward_row = HBoxContainer.new()
+	reward_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	reward_row.add_theme_constant_override("separation", 12)
+	container.add_child(reward_row)
+	container.move_child(reward_row, max(0, container.get_child_count() - 2))
+
+	for reward in reward_options:
+		var reward_button = Button.new()
+		reward_button.custom_minimum_size = Vector2(180, 92)
+		reward_button.text = _format_reward_button_text(reward)
+		reward_button.tooltip_text = str(reward.get("description", ""))
+		reward_button.pressed.connect(func():
+			if rm and rm.has_method("apply_reward"):
+				rm.apply_reward(reward)
+			_complete_victory_route(rm)
+		)
+		reward_row.add_child(reward_button)
+
+func _format_reward_button_text(reward: Dictionary) -> String:
+	var title = str(reward.get("title", "奖励"))
+	var reward_type = str(reward.get("type", ""))
+	match reward_type:
+		"item":
+			return "%s\n物品" % title
+		"ornament":
+			return "%s\n%s饰品" % [title, str(reward.get("rarity", ""))]
+		"shards":
+			return title
+	return title
+
+func _complete_victory_route(rm) -> void:
+	if rm:
+		rm.win_battle(0)
+	var next_scene = GlobalScene.SceneType.MAIN_MENU if rm and rm.is_run_complete else GlobalScene.SceneType.HUB
+	GlobalScene.transition_to(next_scene, false)
 
 func _on_item_drawn(item_data: ItemData):
 	var item_ui_scene = load("res://src/ui/item/item_ui.tscn")
