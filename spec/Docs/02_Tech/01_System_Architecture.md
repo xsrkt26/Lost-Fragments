@@ -7,6 +7,7 @@
 ### 1. 数据驱动与资源隔离
 * **自定义资源 (Custom Resources)**: 采用 `ItemData`, `ItemEffect` 等存储。
 * **物理副本隔离**: `BackpackManager` 在放置物品时，必须对 `ItemData` 执行 `duplicate(true)`。这确保了同一类卡牌（如多个“纸团”）在背包中拥有独立的污染层数和属性，互不干扰。
+* **运行时身份连续**: 物品变身、进化或替换静态数据时，必须保留原 `runtime_id`，并通过统一事件同步 UI 映射，避免逻辑实例和表现节点脱节。
 
 ### 2. 状态锁定机制 (State Locking)
 * **防腐 (Preservation)**: 通过 `ItemInstance` 的属性 Setter 实现逻辑层保护。当 `is_preserved` 为真时，任何试图修改 `current_pollution` 的操作（含直接赋值）均会被拦截。

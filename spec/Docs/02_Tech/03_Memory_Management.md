@@ -72,3 +72,4 @@
 - `BackpackManager._exit_tree()` 已统一清空运行时 `grid`，释放物品实例与其深拷贝资源引用。
 - `RunManager` 的 `SaveManager` 子节点已改为 `_ready()` 中创建并挂树，避免纯逻辑测试路径产生裸节点。
 - `test_rotation_logic.gd` 在脚本结束后等待短生命周期 Tween / 音频资源释放，避免测试进程退出阶段误报资源残留。
+- `BackpackManager.replace_item_data()` 已统一保留原物品 `runtime_id` 并广播替换事件，避免物品变身/进化后 UI 映射持有失效资源身份。

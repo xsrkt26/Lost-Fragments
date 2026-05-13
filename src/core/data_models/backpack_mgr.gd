@@ -35,6 +35,7 @@ class ItemInstance extends RefCounted:
 				bus.pollution_changed.emit(self, old_value, new_value)
 
 signal grid_changed
+signal item_data_replaced(old_data, new_instance)
 
 var grid_width: int = 7
 var grid_height: int = 7
@@ -119,23 +120,33 @@ func place_item(item_data: ItemData, root_pos: Vector2i) -> bool:
 	return true
 
 ## 替换指定位置物品的数据 (用于变身、进化等逻辑)
-func replace_item_data(pos: Vector2i, new_data: ItemData):
-	if not grid.has(pos): return
+func replace_item_data(pos: Vector2i, new_data: ItemData) -> bool:
+	if not grid.has(pos) or new_data == null:
+		return false
 	
 	var instance: ItemInstance = grid[pos]
 	var root_pos = instance.root_pos
+	var old_data = instance.data
+	var replacement = new_data.duplicate(true)
+	replacement.runtime_id = old_data.runtime_id
 	
 	# 如果形状改变，需要先清理旧网格，再重新放置
 	# 如果形状一致，直接修改 data 即可
-	if instance.data.shape == new_data.shape:
-		instance.data = new_data.duplicate(true)
+	if old_data.shape == replacement.shape:
+		instance.data = replacement
 		grid_changed.emit()
+		item_data_replaced.emit(old_data, instance)
+		return true
 	else:
-		var old_data = remove_item_at(root_pos)
-		if not place_item(new_data, root_pos):
+		var removed_data = remove_item_at(root_pos)
+		if place_item(replacement, root_pos):
+			item_data_replaced.emit(old_data, grid[root_pos])
+			return true
+		else:
 			# 如果新形状放不下，回退到原物品
 			print("[BackpackManager] 变身/替换失败，空间不足，回退。")
-			place_item(old_data, root_pos)
+			place_item(removed_data, root_pos)
+			return false
 
 ## 根据运行时 ID 彻底移除物品 (最高优先级，防任何引用误差)
 func remove_by_runtime_id(rid: int):

@@ -167,6 +167,12 @@
 - 新战斗初始化时，`BattleManager` 从 `RunManager.current_backpack_items` 重建背包逻辑实例。
 - `MainGameUI` 会为已恢复的背包物品生成对应 `ItemUI`，保持可拖拽、可旋转、可丢弃。
 - 存档序列化新增 `backpack_items` 字段，旧存档默认空背包，保持兼容。
+- 物品变身、进化或替换数据时会保留原 `runtime_id`，并通知战斗 UI 同步物品显示与映射，避免苹果核变回苹果等效果后丢失拖拽、悬浮或动画定位。
+
+自动化测试：
+
+- `test/unit/test_backpack_persistence.gd` 覆盖背包状态保存、衍生物品过滤、污染不跨战斗保存，以及恢复时保留位置、方向、形状和 runtime id。
+- `test/unit/test_backpack_manager.gd` 覆盖替换同形状和不同形状物品时保留 `runtime_id`，并发出替换事件。
 
 实现假设：
 

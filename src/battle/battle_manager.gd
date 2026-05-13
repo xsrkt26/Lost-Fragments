@@ -37,6 +37,8 @@ func _init():
 	add_child(backpack_manager)
 	# 7x7 总格，5x5 可用
 	backpack_manager.setup_grid(7, 7, 5, 5)
+	if not backpack_manager.item_data_replaced.is_connected(_on_backpack_item_data_replaced):
+		backpack_manager.item_data_replaced.connect(_on_backpack_item_data_replaced)
 
 # --- 运行相关的逻辑变量 ---
 var _current_battle_deck: Array[String] = []
@@ -370,6 +372,26 @@ func _remove_item_visual_mapping(item_data: ItemData):
 	if item_ui_map is Dictionary and item_ui_map.has(item_data.runtime_id):
 		item_ui_map.erase(item_data.runtime_id)
 		backpack_ui.set("item_ui_map", item_ui_map)
+
+func _on_backpack_item_data_replaced(old_data: ItemData, new_instance: BackpackManager.ItemInstance) -> void:
+	if not is_instance_valid(backpack_ui) or old_data == null or new_instance == null:
+		return
+	var item_ui_map = backpack_ui.get("item_ui_map")
+	if not (item_ui_map is Dictionary):
+		return
+
+	var item_ui = item_ui_map.get(old_data.runtime_id)
+	if item_ui == null:
+		item_ui = item_ui_map.get(new_instance.data.runtime_id)
+	if not is_instance_valid(item_ui):
+		return
+
+	item_ui.set("item_data", new_instance.data)
+	item_ui.set("item_instance", new_instance)
+	if item_ui.has_method("_sync_visuals"):
+		item_ui._sync_visuals()
+	if backpack_ui.has_method("update_item_mapping"):
+		backpack_ui.update_item_mapping(old_data, new_instance.data)
 
 func _get_logical_shape_in_grid(item_data: ItemData) -> Array[Vector2i]:
 	var old_pos = _find_item_old_pos(item_data)
