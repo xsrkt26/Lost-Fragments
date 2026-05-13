@@ -55,4 +55,4 @@
     *   `ItemUI` 在鼠标悬停时显示卡牌说明，拖拽时隐藏；绑定 `ItemInstance.pollution_changed` 后实时刷新污染角标和悬浮窗动态状态。
     *   商店物品商品复用同一套全局卡牌悬浮窗，饰品商品仍使用按钮 tooltip 展示饰品效果文本。
     *   `CardTooltip` 进入 `card_tooltip` 分组，便于测试和调试定位。
-*   **自动化测试**: `test/unit/test_card_tooltip.gd` 覆盖污染 UI 同步、动态污染悬浮显示和空物品数据保护。
+*   **自动化测试**: `test/unit/test_card_tooltip.gd` 覆盖污染 UI 同步、动态污染悬浮显示和空物品数据保护；`test/unit/test_shop_system.gd` 覆盖商店物品商品使用统一卡牌悬浮窗。
