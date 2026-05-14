@@ -5,7 +5,7 @@ extends Resource
 ## 定义物品的静态属性、形状以及携带的效果
 
 enum Direction { UP, DOWN, LEFT, RIGHT }
-enum TransmissionMode { NORMAL, OMNI, NONE }
+enum TransmissionMode { NORMAL, OMNI, NONE, MECHANICAL_LEFT, MECHANICAL_RIGHT, MECHANICAL_BIDIRECTIONAL, MECHANICAL_OMNI }
 
 @export var id: String
 @export var item_name: String

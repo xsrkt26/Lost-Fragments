@@ -9,6 +9,8 @@ class ImpactResolutionContext:
 	var hit_count: int = 0
 	var mechanical_hit_count: int = 0
 	var turn_transmission_count: int = 0
+	var bidirectional_transmission_count: int = 0
+	var successful_mechanical_transmission_count: int = 0
 
 	func has_seen(instance: Variant) -> bool:
 		return hit_instances.has(instance) or blocked_instances.has(instance)
@@ -33,6 +35,8 @@ class ImpactResolutionContext:
 			"hit_count": hit_count,
 			"mechanical_hit_count": mechanical_hit_count,
 			"turn_transmission_count": turn_transmission_count,
+			"bidirectional_transmission_count": bidirectional_transmission_count,
+			"successful_mechanical_transmission_count": successful_mechanical_transmission_count,
 		}
 
 var backpack: BackpackManager
@@ -50,6 +54,7 @@ func resolve_impact(start_pos: Vector2i, dir: ItemData.Direction, source: Backpa
 	visited = []
 	resolution_context = ImpactResolutionContext.new()
 	_resolve_recursive(start_pos, dir, actions_history, source)
+	_apply_after_resolution_effects(actions_history)
 	return actions_history
 
 func get_current_resolution_summary() -> Dictionary:
@@ -59,7 +64,7 @@ func block_instance_for_current_resolution(instance: BackpackManager.ItemInstanc
 	resolution_context.block_instance(instance)
 	visited.append({"target": instance, "dir": direction})
 
-func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions: Array[GameAction], source_instance: BackpackManager.ItemInstance = null, active_filters: Array[String] = [], ignore_visited: bool = false) -> bool:
+func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions: Array[GameAction], source_instance: BackpackManager.ItemInstance = null, active_filters: Array[String] = [], ignore_visited: bool = false, branch_flags: Dictionary = {}) -> bool:
 	var filters: Array[String] = active_filters
 	if source_instance and not source_instance.data.hit_filter_tags.is_empty():
 		filters = source_instance.data.hit_filter_tags
@@ -111,13 +116,30 @@ func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions:
 		ItemData.TransmissionMode.NORMAL:
 			if instance.data.direction == dir:
 				for offset in instance.data.shape:
-					if _resolve_recursive(instance.root_pos + offset, instance.data.direction, actions, instance, filters, false):
+					if _resolve_recursive(instance.root_pos + offset, instance.data.direction, actions, instance, filters, false, branch_flags):
 						did_hit_others = true
 		ItemData.TransmissionMode.OMNI:
 			for next_dir in [ItemData.Direction.UP, ItemData.Direction.DOWN, ItemData.Direction.LEFT, ItemData.Direction.RIGHT]:
 				for offset in instance.data.shape:
-					if _resolve_recursive(instance.root_pos + offset, next_dir, actions, instance, filters, false):
+					if _resolve_recursive(instance.root_pos + offset, next_dir, actions, instance, filters, false, branch_flags):
 						did_hit_others = true
+		ItemData.TransmissionMode.MECHANICAL_LEFT:
+			if _resolve_mechanical_transmission(instance, [_relative_left(instance.data.direction)], actions, false, branch_flags):
+				did_hit_others = true
+		ItemData.TransmissionMode.MECHANICAL_RIGHT:
+			if _resolve_mechanical_transmission(instance, [_relative_right(instance.data.direction)], actions, false, branch_flags):
+				did_hit_others = true
+		ItemData.TransmissionMode.MECHANICAL_BIDIRECTIONAL:
+			if resolution_context.mechanical_hit_count >= 3:
+				if _resolve_mechanical_transmission(instance, [_relative_left(instance.data.direction), _relative_right(instance.data.direction)], actions, true, branch_flags):
+					did_hit_others = true
+		ItemData.TransmissionMode.MECHANICAL_OMNI:
+			if not branch_flags.get("suppress_star_ring_bearing", false) and not instance.data.get_meta("star_ring_bearing_used", false):
+				instance.data.set_meta("star_ring_bearing_used", true)
+				var next_flags = branch_flags.duplicate(true)
+				next_flags["suppress_star_ring_bearing"] = true
+				if _resolve_mechanical_transmission(instance, [ItemData.Direction.UP, ItemData.Direction.RIGHT, ItemData.Direction.DOWN, ItemData.Direction.LEFT], actions, false, next_flags):
+					did_hit_others = true
 
 	for effect in instance.data.effects:
 		if effect.has_method("after_impact"):
@@ -128,6 +150,34 @@ func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions:
 				actions.append(post_action)
 
 	return true
+
+func _resolve_mechanical_transmission(instance: BackpackManager.ItemInstance, directions: Array[int], actions: Array[GameAction], is_bidirectional: bool, branch_flags: Dictionary) -> bool:
+	var hit_any = false
+	for next_dir in directions:
+		var branch_hit = false
+		for offset in instance.data.shape:
+			if _resolve_recursive(instance.root_pos + offset, next_dir, actions, instance, ["机械"] as Array[String], false, branch_flags):
+				branch_hit = true
+		if branch_hit:
+			hit_any = true
+			resolution_context.turn_transmission_count += 1
+			resolution_context.successful_mechanical_transmission_count += 1
+	if hit_any and is_bidirectional:
+		resolution_context.bidirectional_transmission_count += 1
+	return hit_any
+
+func _apply_after_resolution_effects(actions: Array[GameAction]) -> void:
+	for instance in resolution_context.hit_instances:
+		if instance == null or instance.data == null:
+			continue
+		var total_multiplier = 1 + instance.current_pollution
+		for effect in instance.data.effects:
+			if effect.has_method("after_resolution"):
+				var post_action = effect.after_resolution(instance, self, context, total_multiplier)
+				if post_action:
+					if post_action.item_instance == null:
+						post_action.item_instance = instance
+					actions.append(post_action)
 
 func _has_seen_instance(instance: BackpackManager.ItemInstance) -> bool:
 	if resolution_context.has_seen(instance):
@@ -181,3 +231,27 @@ func _direction_to_step(dir: ItemData.Direction) -> Vector2i:
 		ItemData.Direction.RIGHT:
 			return Vector2i(1, 0)
 	return Vector2i.ZERO
+
+func _relative_left(dir: ItemData.Direction) -> ItemData.Direction:
+	match dir:
+		ItemData.Direction.UP:
+			return ItemData.Direction.LEFT
+		ItemData.Direction.RIGHT:
+			return ItemData.Direction.UP
+		ItemData.Direction.DOWN:
+			return ItemData.Direction.RIGHT
+		ItemData.Direction.LEFT:
+			return ItemData.Direction.DOWN
+	return ItemData.Direction.LEFT
+
+func _relative_right(dir: ItemData.Direction) -> ItemData.Direction:
+	match dir:
+		ItemData.Direction.UP:
+			return ItemData.Direction.RIGHT
+		ItemData.Direction.RIGHT:
+			return ItemData.Direction.DOWN
+		ItemData.Direction.DOWN:
+			return ItemData.Direction.LEFT
+		ItemData.Direction.LEFT:
+			return ItemData.Direction.UP
+	return ItemData.Direction.RIGHT

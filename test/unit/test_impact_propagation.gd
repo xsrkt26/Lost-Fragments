@@ -212,3 +212,195 @@ func test_resolution_summary_tracks_distinct_and_mechanical_hits():
 	assert_eq(summary.hit_count, 2)
 	assert_eq(summary.mechanical_hit_count, 2)
 	assert_eq(summary.turn_transmission_count, 0)
+
+func test_left_mechanical_transmission_uses_item_relative_direction():
+	var source_data = _make_test_item("virtual_source")
+	source_data.direction = ItemData.Direction.UP
+	var source_instance = BackpackManager.ItemInstance.new(source_data, Vector2i(2, 4))
+
+	var elbow = item_db.get_item_by_id("left_transmission_elbow")
+	assert_true(backpack.place_item(elbow, Vector2i(2, 2)))
+	var elbow_instance = backpack.grid[Vector2i(2, 2)]
+	elbow_instance.data.direction = ItemData.Direction.UP
+
+	var target = _make_test_item("mechanical_target")
+	target.tags = ["机械"] as Array[String]
+	target.transmission_mode = ItemData.TransmissionMode.NONE
+	assert_true(backpack.place_item(target, Vector2i(1, 2)))
+
+	var non_mechanical = _make_test_item("non_mechanical")
+	non_mechanical.transmission_mode = ItemData.TransmissionMode.NONE
+	assert_true(backpack.place_item(non_mechanical, Vector2i(3, 2)))
+
+	var resolver = ImpactResolver.new(backpack, context)
+	var actions = resolver.resolve_impact(source_instance.root_pos, ItemData.Direction.UP, source_instance)
+
+	var hit_ids = _impact_ids(actions)
+	assert_true(hit_ids.has("left_transmission_elbow"))
+	assert_true(hit_ids.has("mechanical_target"))
+	assert_false(hit_ids.has("non_mechanical"))
+	assert_eq(resolver.get_current_resolution_summary().turn_transmission_count, 1)
+
+func test_mechanical_transmission_stops_on_non_mechanical_neighbor():
+	var source_data = _make_test_item("virtual_source")
+	source_data.direction = ItemData.Direction.RIGHT
+	var source_instance = BackpackManager.ItemInstance.new(source_data, Vector2i(1, 1))
+
+	var crank = item_db.get_item_by_id("crankshaft")
+	assert_true(backpack.place_item(crank, Vector2i(2, 1)))
+	var crank_instance = backpack.grid[Vector2i(2, 1)]
+	crank_instance.data.direction = ItemData.Direction.RIGHT
+
+	var blocker = _make_test_item("non_mechanical_blocker")
+	blocker.transmission_mode = ItemData.TransmissionMode.NONE
+	assert_true(backpack.place_item(blocker, Vector2i(2, 2)))
+
+	var hidden_mechanical = _make_test_item("hidden_mechanical")
+	hidden_mechanical.tags = ["机械"] as Array[String]
+	hidden_mechanical.transmission_mode = ItemData.TransmissionMode.NONE
+	assert_true(backpack.place_item(hidden_mechanical, Vector2i(2, 3)))
+
+	var resolver = ImpactResolver.new(backpack, context)
+	var actions = resolver.resolve_impact(source_instance.root_pos, ItemData.Direction.RIGHT, source_instance)
+	var hit_ids = _impact_ids(actions)
+
+	assert_true(hit_ids.has("crankshaft"))
+	assert_false(hit_ids.has("non_mechanical_blocker"))
+	assert_false(hit_ids.has("hidden_mechanical"))
+	assert_eq(resolver.get_current_resolution_summary().turn_transmission_count, 0)
+
+func test_bidirectional_transmission_records_turn_and_bidirectional_context():
+	backpack.setup_grid(6, 6)
+	var source_data = _make_test_item("virtual_source")
+	source_data.direction = ItemData.Direction.RIGHT
+	var source_instance = BackpackManager.ItemInstance.new(source_data, Vector2i(0, 2))
+
+	var gear_one = _make_test_item("mechanical_one")
+	gear_one.tags = ["机械"] as Array[String]
+	gear_one.direction = ItemData.Direction.RIGHT
+	assert_true(backpack.place_item(gear_one, Vector2i(1, 2)))
+
+	var gear_two = _make_test_item("mechanical_two")
+	gear_two.tags = ["机械"] as Array[String]
+	gear_two.direction = ItemData.Direction.RIGHT
+	assert_true(backpack.place_item(gear_two, Vector2i(2, 2)))
+
+	var dual = item_db.get_item_by_id("dual_axis_wheel")
+	assert_true(backpack.place_item(dual, Vector2i(3, 2)))
+	var dual_instance = backpack.grid[Vector2i(3, 2)]
+	dual_instance.data.direction = ItemData.Direction.RIGHT
+
+	var upper = _make_test_item("upper_mechanical")
+	upper.tags = ["机械"] as Array[String]
+	upper.transmission_mode = ItemData.TransmissionMode.NONE
+	assert_true(backpack.place_item(upper, Vector2i(3, 1)))
+
+	var lower = _make_test_item("lower_mechanical")
+	lower.tags = ["机械"] as Array[String]
+	lower.transmission_mode = ItemData.TransmissionMode.NONE
+	assert_true(backpack.place_item(lower, Vector2i(3, 4)))
+
+	var resolver = ImpactResolver.new(backpack, context)
+	resolver.resolve_impact(source_instance.root_pos, ItemData.Direction.RIGHT, source_instance)
+	var summary = resolver.get_current_resolution_summary()
+
+	assert_eq(summary.mechanical_hit_count, 5)
+	assert_eq(summary.turn_transmission_count, 2)
+	assert_eq(summary.bidirectional_transmission_count, 1)
+
+func test_mechanical_after_resolution_scores_from_final_summary():
+	var source_data = _make_test_item("virtual_source")
+	source_data.direction = ItemData.Direction.RIGHT
+	var source_instance = BackpackManager.ItemInstance.new(source_data, Vector2i(0, 0))
+
+	var gear_one = _make_test_item("mechanical_one")
+	gear_one.tags = ["机械"] as Array[String]
+	gear_one.direction = ItemData.Direction.RIGHT
+	assert_true(backpack.place_item(gear_one, Vector2i(1, 0)))
+
+	var gear_two = _make_test_item("mechanical_two")
+	gear_two.tags = ["机械"] as Array[String]
+	gear_two.direction = ItemData.Direction.RIGHT
+	assert_true(backpack.place_item(gear_two, Vector2i(2, 0)))
+
+	var differential = item_db.get_item_by_id("differential")
+	assert_true(backpack.place_item(differential, Vector2i(3, 0)))
+	var differential_instance = backpack.grid[Vector2i(3, 0)]
+
+	var resolver = ImpactResolver.new(backpack, context)
+	var actions = resolver.resolve_impact(source_instance.root_pos, ItemData.Direction.RIGHT, source_instance)
+
+	assert_eq(_score_for_instance(actions, differential_instance), 6)
+
+func test_crankshaft_scores_only_when_right_transmission_hits_mechanical():
+	var source_data = _make_test_item("virtual_source")
+	source_data.direction = ItemData.Direction.RIGHT
+	var source_instance = BackpackManager.ItemInstance.new(source_data, Vector2i(1, 1))
+
+	var crank = item_db.get_item_by_id("crankshaft")
+	assert_true(backpack.place_item(crank, Vector2i(2, 1)))
+	var crank_instance = backpack.grid[Vector2i(2, 1)]
+	crank_instance.data.direction = ItemData.Direction.RIGHT
+
+	var target = _make_test_item("mechanical_target")
+	target.tags = ["机械"] as Array[String]
+	target.transmission_mode = ItemData.TransmissionMode.NONE
+	assert_true(backpack.place_item(target, Vector2i(2, 2)))
+
+	var resolver = ImpactResolver.new(backpack, context)
+	var actions = resolver.resolve_impact(source_instance.root_pos, ItemData.Direction.RIGHT, source_instance)
+
+	assert_eq(_score_for_instance(actions, crank_instance), 10)
+	assert_eq(resolver.get_current_resolution_summary().turn_transmission_count, 1)
+
+func test_star_ring_bearing_triggers_once_and_suppresses_nested_star_rings():
+	backpack.setup_grid(7, 7)
+	var source_data = _make_test_item("virtual_source")
+	source_data.direction = ItemData.Direction.DOWN
+	var source_instance = BackpackManager.ItemInstance.new(source_data, Vector2i(3, 2))
+
+	var star = item_db.get_item_by_id("star_ring_bearing")
+	assert_true(backpack.place_item(star, Vector2i(3, 3)))
+	var first_star = backpack.grid[Vector2i(3, 3)]
+
+	var nested_star = item_db.get_item_by_id("star_ring_bearing")
+	assert_true(backpack.place_item(nested_star, Vector2i(1, 3)))
+
+	var nested_target = _make_test_item("nested_target")
+	nested_target.tags = ["机械"] as Array[String]
+	nested_target.transmission_mode = ItemData.TransmissionMode.NONE
+	assert_true(backpack.place_item(nested_target, Vector2i(1, 2)))
+
+	var resolver = ImpactResolver.new(backpack, context)
+	var actions = resolver.resolve_impact(source_instance.root_pos, ItemData.Direction.DOWN, source_instance)
+	var hit_ids = _impact_ids(actions)
+
+	assert_true(hit_ids.has("star_ring_bearing"))
+	assert_false(hit_ids.has("nested_target"))
+	assert_eq(resolver.get_current_resolution_summary().turn_transmission_count, 1)
+
+	var second_resolver = ImpactResolver.new(backpack, context)
+	var second_actions = second_resolver.resolve_impact(source_instance.root_pos, ItemData.Direction.DOWN, source_instance)
+	assert_eq(_impact_count_for_instance(second_actions, first_star), 1)
+	assert_eq(second_resolver.get_current_resolution_summary().turn_transmission_count, 0)
+
+func _impact_ids(actions: Array[GameAction]) -> Array[String]:
+	var ids: Array[String] = []
+	for action in actions:
+		if action.type == GameAction.Type.IMPACT and action.item_instance != null:
+			ids.append(action.item_instance.data.id)
+	return ids
+
+func _score_for_instance(actions: Array[GameAction], instance: BackpackManager.ItemInstance) -> int:
+	var score = 0
+	for action in actions:
+		if action.type == GameAction.Type.NUMERIC and action.item_instance == instance and action.value.type == "score":
+			score += int(action.value.amount)
+	return score
+
+func _impact_count_for_instance(actions: Array[GameAction], instance: BackpackManager.ItemInstance) -> int:
+	var count = 0
+	for action in actions:
+		if action.type == GameAction.Type.IMPACT and action.item_instance == instance:
+			count += 1
+	return count

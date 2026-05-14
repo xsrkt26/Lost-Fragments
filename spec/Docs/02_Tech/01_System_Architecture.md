@@ -108,6 +108,8 @@
 
 `ImpactResolver` 会为每个撞击源创建独立的 `ImpactResolutionContext`。上下文记录本次已经命中过的物品、本次命中物品数、本次命中机械物品数和本次转向传动次数。同一次撞击结算中，同一个物品最多被命中一次；如果后续分支再次指向同一物品，该分支停止，不触发 `被撞`，也不增加统计。旧效果脚本仍可通过兼容的 `visited` 字段屏蔽目标，但新代码应优先调用 `block_instance_for_current_resolution()`。
 
+机械传动由 `ImpactResolver` 内部处理：`MECHANICAL_LEFT`、`MECHANICAL_RIGHT`、`MECHANICAL_BIDIRECTIONAL` 和 `MECHANICAL_OMNI` 分支只命中紧贴的机械物品，不穿过空格或非机械物品。结算上下文额外记录双向传动和成功机械传动统计；需要“本次撞击结算全部停止后”触发的物品效果通过 `after_resolution()` 在整次结算末尾统一执行。
+
 ### 5. 播种与梦境之种
 
 `BackpackManager.sow_seed()` 是统一播种入口：

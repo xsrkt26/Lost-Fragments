@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/core/item_data.gd" id="item"]
+
+[resource]
+script = ExtResource("item")
+id = "right_transmission_elbow"
+item_name = "右传动弯管"
+description = "被撞：向右传动！每次撞击结算限1次。"
+tags = Array[String](["机械", "传动"])
+price = 8
+base_cost = 3
+can_draw = true
+can_rotate = true
+runtime_id = -1
+shape = Array[Vector2i]([Vector2i(0, 0), Vector2i(0, 1)])
+direction = 3
+transmission_mode = 4
+hit_filter_tags = Array[String]([])
+effects = Array[Resource]([])
