@@ -3,10 +3,10 @@ extends RefCounted
 
 const TYPE_ITEM := "item"
 const TYPE_ORNAMENT := "ornament"
+const EconomyConfig = preload("res://src/core/rewards/economy_config.gd")
 const WeightedRandom = preload("res://src/core/random/weighted_random.gd")
 
 const TAG_WEIGHT_STEP := 2.0
-const BASE_REFRESH_COST := 5
 
 static func generate_offers(run_manager: Node, item_db: Node, ornament_db: Node, count: int = 4, rng: RandomNumberGenerator = null, excluded_keys: Array = []) -> Array[Dictionary]:
 	var offers: Array[Dictionary] = []
@@ -33,7 +33,7 @@ static func generate_offers(run_manager: Node, item_db: Node, ornament_db: Node,
 	return stripped
 
 static func calculate_refresh_cost(act: int, refresh_count: int) -> int:
-	return max(1, BASE_REFRESH_COST + max(1, act) * 2 + max(0, refresh_count) * 3)
+	return EconomyConfig.shop_refresh_cost(act, refresh_count)
 
 static func make_offer_key(offer: Dictionary) -> String:
 	return "%s:%s" % [str(offer.get("type", "")), str(offer.get("id", ""))]
@@ -119,20 +119,10 @@ static func _strip_offer_metadata(offer: Dictionary) -> Dictionary:
 	return result
 
 static func _calculate_item_price(item, act: int) -> int:
-	var base_price = max(1, abs(int(item.price)))
-	var multiplier = 1.0 + float(max(0, act - 1)) * 0.08
-	return max(1, roundi(float(base_price) * multiplier))
+	return EconomyConfig.shop_item_price(int(item.price), act)
 
 static func _calculate_ornament_price(ornament, act: int) -> int:
-	var base_price = max(1, int(ornament.price))
-	var rarity_surcharge := 0.0
-	match str(ornament.rarity):
-		"进阶":
-			rarity_surcharge = 0.08
-		"稀有":
-			rarity_surcharge = 0.16
-	var multiplier = 1.0 + float(max(0, act - 1)) * 0.1 + rarity_surcharge
-	return max(1, roundi(float(base_price) * multiplier))
+	return EconomyConfig.shop_ornament_price(int(ornament.price), str(ornament.rarity), act)
 
 static func _get_item_weight(item, build_tags: Dictionary) -> float:
 	var price = int(item.price)

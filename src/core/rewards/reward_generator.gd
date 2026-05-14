@@ -4,6 +4,7 @@ extends RefCounted
 const TYPE_SHARDS := "shards"
 const TYPE_ITEM := "item"
 const TYPE_ORNAMENT := "ornament"
+const EconomyConfig = preload("res://src/core/rewards/economy_config.gd")
 const RouteConfig = preload("res://src/core/route/route_config.gd")
 const WeightedRandom = preload("res://src/core/random/weighted_random.gd")
 const RARITY_WEIGHT := {
@@ -222,7 +223,7 @@ static func _make_ornament_reward(ornament) -> Dictionary:
 	}
 
 static func _make_shards_reward(act: int, is_boss: bool) -> Dictionary:
-	var amount = 12 + act * 4 if is_boss else 6 + act * 2
+	var amount = EconomyConfig.battle_reward_shards(act, is_boss)
 	return {
 		"type": TYPE_SHARDS,
 		"id": "shards",
