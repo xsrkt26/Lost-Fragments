@@ -29,7 +29,7 @@ func _apply_actions(actions: Array[GameAction]):
 func test_loaded_items_match_latest_design_list():
 	var expected_ids = [
 		"alarm_clock", "apple", "apple_core", "baseball", "cracked_lens",
-		"dream_seed_1x1", "dream_seed_2x2", "dream_seed_3x3", "dream_seed_4x4", "dream_seed_5x5",
+		"dream_seed_1x1", "dream_seed_2x2", "dream_seed_3x3", "dream_seed_4x4",
 		"expired_medicine", "gift_box", "insurance_contract", "joker",
 		"leaky_pen", "leftover_box", "mineral_water_bottle", "old_soccer_ball", "paper_ball",
 		"pill_bottle", "roast_chicken", "root_dream", "rusty_gear", "sad_teddy_bear",

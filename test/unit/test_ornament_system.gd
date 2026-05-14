@@ -144,10 +144,25 @@ func test_seed_upgrade_ornaments_score_and_restore_sanity():
 	manager.backpack_manager.place_item(seed, Vector2i(1, 1))
 	var instance = manager.backpack_manager.grid[Vector2i(1, 1)]
 
-	manager._on_ornament_seed_upgraded(instance, 4, 5)
+	manager._on_ornament_seed_upgraded(instance, 29, 30)
 
-	assert_eq(gs.current_score, 14)
+	assert_eq(gs.current_score, 9)
 	assert_eq(gs.current_sanity, 83)
+
+	manager._on_ornament_seed_upgraded(instance, 30, 31)
+
+	assert_eq(gs.current_score, 10)
+	assert_eq(gs.current_sanity, 83)
+
+func test_greenhouse_glass_scores_when_upgrade_crosses_seed_threshold():
+	var manager = await _make_manager(["greenhouse_glass"] as Array[String])
+	var seed = item_db.get_item_by_id("dream_seed_2x2")
+	manager.backpack_manager.place_item(seed, Vector2i(1, 1))
+	var instance = manager.backpack_manager.grid[Vector2i(1, 1)]
+
+	manager._on_ornament_seed_upgraded(instance, 9, 11)
+
+	assert_eq(gs.current_score, 9)
 
 func test_chain_end_ornaments_score_from_hit_count_thresholds():
 	var manager = await _make_manager(["chain_counter", "terminal_pressure_gauge"] as Array[String])
@@ -194,11 +209,13 @@ func test_seed_insurance_scores_when_seed_growth_cannot_fit():
 	var seed = item_db.get_item_by_id("dream_seed_1x1")
 	manager.backpack_manager.place_item(seed, Vector2i(5, 5))
 	var instance = manager.backpack_manager.grid[Vector2i(5, 5)]
+	instance.dream_seed_level = 9
+	instance.data.set_meta("dream_seed_level", 9)
 
 	manager.backpack_manager.upgrade_seed(instance, item_db, 1)
 
 	assert_eq(gs.current_score, 8)
-	assert_eq(manager.backpack_manager.grid[Vector2i(5, 5)].data.id, "dream_seed_1x1")
+	assert_false(manager.backpack_manager.grid.has(Vector2i(5, 5)))
 
 func test_recycling_coupon_discounts_next_item_after_first_item_purchase():
 	var manager = autofree(RunManagerScript.new())

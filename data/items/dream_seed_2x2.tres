@@ -1,11 +1,16 @@
-[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ItemData" load_steps=4 format=3]
 
+[ext_resource type="Script" path="res://src/core/effects/dream_seed_score_effect.gd" id="effect"]
 [ext_resource type="Script" path="res://src/core/item_data.gd" id="item"]
+
+[sub_resource type="Resource" id="1"]
+script = ExtResource("effect")
 
 [resource]
 script = ExtResource("item")
 id = "dream_seed_2x2"
 item_name = "梦境之种"
+description = "等级10-19：被撞：+当前等级x2分。升级到20级时尝试变为3x3，若空间不足则掉出背包。"
 tags = Array[String](["梦境之种"])
 price = 0
 base_cost = 0
@@ -16,4 +21,4 @@ shape = Array[Vector2i]([Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2
 direction = 3
 transmission_mode = 0
 hit_filter_tags = Array[String]([])
-effects = Array[Resource]([])
+effects = Array[Resource]([SubResource("1")])

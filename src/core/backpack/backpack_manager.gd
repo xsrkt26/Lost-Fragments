@@ -8,6 +8,7 @@ class ItemInstance extends RefCounted:
 	var data: ItemData
 	var root_pos: Vector2i
 	var is_preserved: bool = false
+	var dream_seed_level: int = 0
 	var current_pollution: int = 0:
 		set(val):
 			if is_preserved:
@@ -43,8 +44,9 @@ var usable_width: int = 5
 var usable_height: int = 5
 var blocked_cells: Dictionary = {}
 const DREAM_SEED_TAG := "梦境之种"
+const DREAM_SEED_LEGACY_TAG := "梦之种"
 const DERIVED_TAG := "衍生物品"
-const MAX_DREAM_SEED_LEVEL := 5
+const MAX_DREAM_SEED_STAGE := 4
 
 ## 核心网格字典：Key 是 Vector2i 坐标，Value 是 ItemInstance
 var grid: Dictionary = {}
@@ -126,6 +128,7 @@ func place_item(item_data: ItemData, root_pos: Vector2i) -> bool:
 		unique_data.runtime_id = randi()
 	
 	var instance = ItemInstance.new(unique_data, root_pos)
+	_initialize_seed_instance(instance)
 	for offset in unique_data.shape:
 		var target_pos = root_pos + offset
 		grid[target_pos] = instance
@@ -247,12 +250,19 @@ func sow_seed(source_instance: ItemInstance, direction: ItemData.Direction, item
 func upgrade_seed(seed_instance: ItemInstance, item_db: Node, levels: int = 1) -> ItemInstance:
 	if not _is_dream_seed(seed_instance) or item_db == null or levels <= 0:
 		return seed_instance
-	var old_level = _get_seed_level(seed_instance.data)
-	var new_level = clampi(old_level + levels, 1, MAX_DREAM_SEED_LEVEL)
+	var old_level = _get_seed_runtime_level(seed_instance)
+	var new_level = max(1, old_level + levels)
 	if new_level == old_level:
 		return seed_instance
+	var old_stage = _get_seed_stage_for_level(old_level)
+	var new_stage = _get_seed_stage_for_level(new_level)
 
-	var new_data = item_db.get_item_by_id(_get_seed_id(new_level)) if item_db.has_method("get_item_by_id") else null
+	if new_stage == old_stage:
+		_set_seed_runtime_level(seed_instance, new_level)
+		_emit_seed_upgraded(seed_instance, old_level, new_level)
+		return seed_instance
+
+	var new_data = item_db.get_item_by_id(_get_seed_id(new_stage)) if item_db.has_method("get_item_by_id") else null
 	if new_data == null:
 		return seed_instance
 	var old_data = seed_instance.data
@@ -260,18 +270,25 @@ func upgrade_seed(seed_instance: ItemInstance, item_db: Node, levels: int = 1) -
 	var runtime_seed: ItemData = new_data.duplicate(true)
 	runtime_seed.runtime_id = old_data.runtime_id
 	runtime_seed.direction = old_data.direction
+	runtime_seed.set_meta("dream_seed_level", new_level)
 	if old_data.tags.has(DERIVED_TAG) and not runtime_seed.tags.has(DERIVED_TAG):
 		runtime_seed.tags.append(DERIVED_TAG)
 
-	remove_instance(seed_instance)
-	if place_item(runtime_seed, old_root):
+	if can_place_item(runtime_seed, old_root):
+		remove_instance(seed_instance)
+		place_item(runtime_seed, old_root)
 		var upgraded_instance = grid[old_root]
+		_set_seed_runtime_level(upgraded_instance, new_level)
 		_emit_seed_upgraded(upgraded_instance, old_level, new_level)
 		return upgraded_instance
 
-	place_item(old_data, old_root)
-	_emit_seed_sow_failed(grid.get(old_root), old_data.direction)
-	return grid.get(old_root)
+	_emit_seed_sow_failed(seed_instance, old_data.direction)
+	remove_instance(seed_instance)
+	var dropped_instance = ItemInstance.new(runtime_seed, old_root)
+	_initialize_seed_instance(dropped_instance)
+	_set_seed_runtime_level(dropped_instance, new_level)
+	grid_changed.emit()
+	return dropped_instance
 
 func _get_seed_target_pos(source_instance: ItemInstance, direction: ItemData.Direction) -> Vector2i:
 	var step = _direction_to_vector(direction)
@@ -304,18 +321,66 @@ func _direction_to_vector(direction: ItemData.Direction) -> Vector2i:
 	return Vector2i.ZERO
 
 func _is_dream_seed(instance: ItemInstance) -> bool:
-	return instance != null and instance.data != null and instance.data.tags.has(DREAM_SEED_TAG)
+	return instance != null and _is_dream_seed_data(instance.data)
 
-func _get_seed_level(data: ItemData) -> int:
+func _is_dream_seed_data(data: ItemData) -> bool:
 	if data == null:
-		return 0
-	for level in range(1, MAX_DREAM_SEED_LEVEL + 1):
-		if data.id == _get_seed_id(level):
-			return level
-	return 0
+		return false
+	return data.tags.has(DREAM_SEED_TAG) or data.tags.has(DREAM_SEED_LEGACY_TAG)
 
-func _get_seed_id(level: int) -> String:
-	return "dream_seed_%dx%d" % [level, level]
+func _initialize_seed_instance(instance: ItemInstance) -> void:
+	if instance == null or not _is_dream_seed_data(instance.data):
+		return
+	if instance.data.has_meta("dream_seed_level"):
+		instance.dream_seed_level = max(1, int(instance.data.get_meta("dream_seed_level")))
+	else:
+		instance.dream_seed_level = _get_seed_min_level_for_stage(_get_seed_stage_from_data(instance.data))
+	instance.data.set_meta("dream_seed_level", instance.dream_seed_level)
+
+func _get_seed_runtime_level(instance: ItemInstance) -> int:
+	if instance == null:
+		return 0
+	if instance.dream_seed_level > 0:
+		return instance.dream_seed_level
+	if instance.data != null and instance.data.has_meta("dream_seed_level"):
+		return max(1, int(instance.data.get_meta("dream_seed_level")))
+	return _get_seed_min_level_for_stage(_get_seed_stage_from_data(instance.data))
+
+func _set_seed_runtime_level(instance: ItemInstance, level: int) -> void:
+	if instance == null or instance.data == null:
+		return
+	instance.dream_seed_level = max(1, level)
+	instance.data.set_meta("dream_seed_level", instance.dream_seed_level)
+
+func _get_seed_stage_from_data(data: ItemData) -> int:
+	if data == null:
+		return 1
+	for stage in range(1, MAX_DREAM_SEED_STAGE + 1):
+		if data.id == _get_seed_id(stage):
+			return stage
+	return 1
+
+func _get_seed_stage_for_level(level: int) -> int:
+	if level >= 30:
+		return 4
+	if level >= 20:
+		return 3
+	if level >= 10:
+		return 2
+	return 1
+
+func _get_seed_min_level_for_stage(stage: int) -> int:
+	match stage:
+		2:
+			return 10
+		3:
+			return 20
+		4:
+			return 30
+	return 1
+
+func _get_seed_id(stage: int) -> String:
+	return "dream_seed_%dx%d" % [stage, stage]
 
 func _emit_seed_sown(instance: ItemInstance) -> void:
 	var bus = get_node_or_null("/root/GlobalEventBus") if is_inside_tree() else null

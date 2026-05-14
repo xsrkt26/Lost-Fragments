@@ -126,8 +126,8 @@ func after_impact_chain_resolved(source: BackpackManager.ItemInstance, actions: 
 		"harvest_basket":
 			if not state.get("used", false):
 				for target in targets:
-					if _seed_level(target) >= 4:
-						_add_score(context, 20)
+					if _seed_stage(target) >= 4:
+						_add_score(context, 25)
 						state["used"] = true
 						break
 		"marble_spring":
@@ -205,12 +205,12 @@ func after_seed_sown(_instance: BackpackManager.ItemInstance, context: GameConte
 		"tri_phase_crown":
 			state["seed_seen"] = true
 
-func after_seed_upgraded(_instance: BackpackManager.ItemInstance, _old_level: int, new_level: int, context: GameContext, state: Dictionary) -> void:
+func after_seed_upgraded(_instance: BackpackManager.ItemInstance, old_level: int, new_level: int, context: GameContext, state: Dictionary) -> void:
 	match effect_id:
 		"greenhouse_glass":
-			_add_score(context, 2 + _seed_stage_bonus(new_level))
+			_add_score(context, 1 + _seed_level_bonus(old_level, new_level))
 		"rejuvenation_talisman":
-			if new_level >= 4 and not state.get("used", false):
+			if old_level < 30 and new_level >= 30 and not state.get("used", false):
 				_change_sanity(context, 3)
 				state["used"] = true
 		"tri_phase_crown":
@@ -330,10 +330,29 @@ func _is_seed(instance) -> bool:
 func _seed_level(instance) -> int:
 	if not _is_seed(instance):
 		return 0
-	for level in range(1, 6):
-		if instance.data.id == "dream_seed_%dx%d" % [level, level]:
-			return level
-	return 0
+	if instance.dream_seed_level > 0:
+		return instance.dream_seed_level
+	if instance.data != null and instance.data.has_meta("dream_seed_level"):
+		return int(instance.data.get_meta("dream_seed_level"))
+	return _seed_stage_min_level(_seed_stage(instance))
+
+func _seed_stage(instance) -> int:
+	if not _is_seed(instance):
+		return 0
+	for stage in range(1, 5):
+		if instance.data.id == "dream_seed_%dx%d" % [stage, stage]:
+			return stage
+	return 1
+
+func _seed_stage_min_level(stage: int) -> int:
+	match stage:
+		2:
+			return 10
+		3:
+			return 20
+		4:
+			return 30
+	return 1
 
 func _is_root_dream(instance) -> bool:
 	return instance != null and instance.data != null and instance.data.id == "root_dream"
@@ -401,13 +420,10 @@ func _mechanical_hit_count(targets: Array) -> int:
 			count += 1
 	return count
 
-func _seed_stage_bonus(new_level: int) -> int:
-	if new_level >= 4:
-		return 12
-	if new_level >= 3:
-		return 8
-	if new_level >= 2:
-		return 4
+func _seed_level_bonus(old_level: int, new_level: int) -> int:
+	for threshold in [10, 20, 30]:
+		if old_level < threshold and new_level >= threshold:
+			return 8
 	return 0
 
 func _has_same_tag_neighbor(backpack, target) -> bool:
