@@ -270,6 +270,7 @@ func upgrade_seed(seed_instance: ItemInstance, item_db: Node, levels: int = 1) -
 		return upgraded_instance
 
 	place_item(old_data, old_root)
+	_emit_seed_sow_failed(grid.get(old_root), old_data.direction)
 	return grid.get(old_root)
 
 func _get_seed_target_pos(source_instance: ItemInstance, direction: ItemData.Direction) -> Vector2i:

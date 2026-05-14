@@ -3,7 +3,7 @@ extends "res://src/core/ornaments/ornament_effect.gd"
 const WASTE_TAG := "废弃物"
 const MECHANICAL_TAG := "机械"
 const SEED_TAG := "梦境之种"
-const FOOD_IDS := ["apple", "roast_chicken", "leftover_box"]
+const FOOD_IDS := ["apple", "roast_chicken"]
 
 @export var effect_id: String = ""
 
@@ -175,9 +175,10 @@ func after_impact_chain_resolved(source: BackpackManager.ItemInstance, actions: 
 					state["scored_draw"] = draw_count
 				state["last_impact_draw"] = draw_count
 		"terminal_pressure_gauge":
-			if hit_count >= 12:
+			var mechanical_hit_count = _mechanical_hit_count(targets)
+			if mechanical_hit_count >= 12:
 				_add_score(context, 45)
-			elif hit_count >= 8:
+			elif mechanical_hit_count >= 8:
 				_add_score(context, 25)
 		"kaleidoscope":
 			if _different_tag_count(targets) >= 3:
@@ -207,9 +208,9 @@ func after_seed_sown(_instance: BackpackManager.ItemInstance, context: GameConte
 func after_seed_upgraded(_instance: BackpackManager.ItemInstance, _old_level: int, new_level: int, context: GameContext, state: Dictionary) -> void:
 	match effect_id:
 		"greenhouse_glass":
-			_add_score(context, 2 + (4 if new_level >= 3 else 0))
+			_add_score(context, 2 + _seed_stage_bonus(new_level))
 		"rejuvenation_talisman":
-			if new_level >= 5 and not state.get("used", false):
+			if new_level >= 4 and not state.get("used", false):
 				_change_sanity(context, 3)
 				state["used"] = true
 		"tri_phase_crown":
@@ -392,6 +393,22 @@ func _different_tag_count(targets: Array) -> int:
 		for tag in target.data.tags:
 			tags[tag] = true
 	return tags.size()
+
+func _mechanical_hit_count(targets: Array) -> int:
+	var count := 0
+	for target in targets:
+		if target != null and _has_tag(target.data, MECHANICAL_TAG):
+			count += 1
+	return count
+
+func _seed_stage_bonus(new_level: int) -> int:
+	if new_level >= 4:
+		return 12
+	if new_level >= 3:
+		return 8
+	if new_level >= 2:
+		return 4
+	return 0
 
 func _has_same_tag_neighbor(backpack, target) -> bool:
 	if backpack == null or target == null:

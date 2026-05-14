@@ -146,7 +146,7 @@ func test_seed_upgrade_ornaments_score_and_restore_sanity():
 
 	manager._on_ornament_seed_upgraded(instance, 4, 5)
 
-	assert_eq(gs.current_score, 6)
+	assert_eq(gs.current_score, 14)
 	assert_eq(gs.current_sanity, 83)
 
 func test_chain_end_ornaments_score_from_hit_count_thresholds():
@@ -161,7 +161,44 @@ func test_chain_end_ornaments_score_from_hit_count_thresholds():
 
 	manager._apply_ornament_impact_chain_resolved(null, actions)
 
-	assert_eq(gs.current_score, 41)
+	assert_eq(gs.current_score, 16)
+
+func test_terminal_pressure_gauge_counts_mechanical_hits_only():
+	var manager = await _make_manager(["terminal_pressure_gauge"] as Array[String])
+	var actions: Array[GameAction] = []
+	for index in range(8):
+		var action = GameAction.new(GameAction.Type.IMPACT, "hit")
+		var item = _make_draw_item(0)
+		item.tags = ["机械"] as Array[String]
+		item.runtime_id = 9100 + index
+		action.item_instance = BackpackManager.ItemInstance.new(item, Vector2i(index, 0))
+		actions.append(action)
+
+	manager._apply_ornament_impact_chain_resolved(null, actions)
+
+	assert_eq(gs.current_score, 25)
+
+func test_honey_spoon_only_counts_official_food_items():
+	var manager = await _make_manager(["honey_spoon"] as Array[String])
+	var leftover = item_db.get_item_by_id("leftover_box")
+	var apple = item_db.get_item_by_id("apple")
+
+	manager._apply_ornament_item_discarded(leftover, null, false)
+	assert_eq(gs.current_score, 0)
+
+	manager._apply_ornament_item_discarded(apple, null, false)
+	assert_eq(gs.current_score, 4)
+
+func test_seed_insurance_scores_when_seed_growth_cannot_fit():
+	var manager = await _make_manager(["seed_insurance"] as Array[String])
+	var seed = item_db.get_item_by_id("dream_seed_1x1")
+	manager.backpack_manager.place_item(seed, Vector2i(5, 5))
+	var instance = manager.backpack_manager.grid[Vector2i(5, 5)]
+
+	manager.backpack_manager.upgrade_seed(instance, item_db, 1)
+
+	assert_eq(gs.current_score, 8)
+	assert_eq(manager.backpack_manager.grid[Vector2i(5, 5)].data.id, "dream_seed_1x1")
 
 func test_recycling_coupon_discounts_next_item_after_first_item_purchase():
 	var manager = autofree(RunManagerScript.new())
