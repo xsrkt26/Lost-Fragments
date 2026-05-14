@@ -210,5 +210,9 @@ func _add_backpack_close_button():
 func _close_backpack_overlay():
 	print("[Hub] 正在关闭背包浮层")
 	for child in overlay_root.get_children():
+		if child.has_method("_on_menu_button_pressed") and child.get("battle_manager") != null:
+			var manager = child.get("battle_manager")
+			if manager and manager.has_method("persist_backpack_to_run"):
+				manager.persist_backpack_to_run()
 		child.queue_free()
 	GlobalInput.set_context(GlobalInput.Context.WORLD)

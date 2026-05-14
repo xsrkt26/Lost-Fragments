@@ -22,7 +22,7 @@
 				"title": "翻找旧物",
 				"description": "获得 1 个皱纸团，加入卡组。",
 				"effects": [
-					{"type": "item", "id": "paper_ball"}
+					{"type": "item", "id": "paper_ball", "item_destination": "deck"}
 				]
 			}
 		]

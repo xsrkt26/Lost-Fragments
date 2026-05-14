@@ -74,6 +74,7 @@ static func _make_item_reward(item) -> Dictionary:
 		"id": item.id,
 		"title": item.item_name,
 		"description": "加入卡组",
+		"item_destination": "deck",
 		"rarity": "",
 		"amount": 1,
 	}

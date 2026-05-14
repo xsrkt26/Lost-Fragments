@@ -49,7 +49,8 @@ static func _get_item_offers(item_db: Node, act: int, count: int, build_tags: Di
 			"type": TYPE_ITEM,
 			"id": item.id,
 			"title": item.item_name,
-			"description": item.description,
+			"description": "%s\n购买后暂存，整理背包时可摆放。" % item.description,
+			"item_destination": "staging",
 			"price": _calculate_item_price(item, act),
 			"weight": _get_item_weight(item, build_tags),
 		}

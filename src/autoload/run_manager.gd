@@ -14,6 +14,7 @@ signal shards_changed(new_amount: int)
 signal deck_changed(new_deck: Array)
 signal route_changed(current_act: int, route_index: int, current_node: Dictionary)
 signal ornaments_changed(current_ornaments: Array[String])
+signal pending_items_changed(pending_items: Array[Dictionary])
 
 # --- 配置项 ---
 const INITIAL_SHARDS = 10
@@ -28,6 +29,9 @@ const BACKPACK_GRID_HEIGHT := 7
 const INITIAL_BACKPACK_USABLE_WIDTH := 5
 const INITIAL_BACKPACK_USABLE_HEIGHT := 5
 const ROOT_DREAM_ID := "root_dream"
+const ITEM_DEST_DECK := "deck"
+const ITEM_DEST_BACKPACK := "backpack"
+const ITEM_DEST_STAGING := "staging"
 const INITIAL_BACKPACK_ITEMS: Array[Dictionary] = [
 	{
 		"id": ROOT_DREAM_ID,
@@ -43,6 +47,8 @@ const INITIAL_BACKPACK_ITEMS: Array[Dictionary] = [
 var current_shards: int = INITIAL_SHARDS
 var current_deck: Array[String] = INITIAL_DECK.duplicate()
 var current_backpack_items: Array[Dictionary] = []
+var pending_item_rewards: Array[Dictionary] = []
+var next_pending_item_uid: int = 1
 var current_ornaments: Array[String] = []
 var backpack_usable_width: int = INITIAL_BACKPACK_USABLE_WIDTH
 var backpack_usable_height: int = INITIAL_BACKPACK_USABLE_HEIGHT
@@ -82,6 +88,8 @@ func start_new_run():
 	current_shards = INITIAL_SHARDS
 	current_deck = INITIAL_DECK.duplicate()
 	current_backpack_items = _get_initial_backpack_items()
+	pending_item_rewards = []
+	next_pending_item_uid = 1
 	current_ornaments = []
 	backpack_usable_width = INITIAL_BACKPACK_USABLE_WIDTH
 	backpack_usable_height = INITIAL_BACKPACK_USABLE_HEIGHT
@@ -155,7 +163,7 @@ func generate_current_reward_options(item_db: Node, ornament_db: Node, count: in
 	save_current_state()
 	return options
 
-func apply_reward(reward: Dictionary) -> bool:
+func apply_reward(reward: Dictionary, item_db: Node = null) -> bool:
 	var reward_type = str(reward.get("type", ""))
 	match reward_type:
 		RewardGenerator.TYPE_SHARDS:
@@ -164,10 +172,9 @@ func apply_reward(reward: Dictionary) -> bool:
 			shards_changed.emit(current_shards)
 		RewardGenerator.TYPE_ITEM:
 			var item_id = str(reward.get("id", ""))
-			if item_id == "":
+			var destination = _get_item_destination(reward, ITEM_DEST_DECK)
+			if not grant_item(item_id, destination, item_db, "reward", false):
 				return false
-			current_deck.append(item_id)
-			deck_changed.emit(current_deck)
 		RewardGenerator.TYPE_ORNAMENT:
 			var ornament_id = str(reward.get("id", ""))
 			if not add_ornament(ornament_id):
@@ -200,7 +207,7 @@ func get_current_shop_refresh_cost() -> int:
 	var state = _get_current_shop_state()
 	return ShopGenerator.calculate_refresh_cost(current_act, int(state.get("refresh_count", 0)))
 
-func buy_shop_offer(offer: Dictionary) -> bool:
+func buy_shop_offer(offer: Dictionary, item_db: Node = null) -> bool:
 	var price = get_current_shop_offer_price(offer)
 	if current_shards < price:
 		return false
@@ -212,8 +219,9 @@ func buy_shop_offer(offer: Dictionary) -> bool:
 			if item_id == "":
 				return false
 			current_shards -= price
-			current_deck.append(item_id)
-			deck_changed.emit(current_deck)
+			if not grant_item(item_id, _get_item_destination(offer, ITEM_DEST_DECK), item_db, "shop", false):
+				current_shards += price
+				return false
 		ShopGenerator.TYPE_ORNAMENT:
 			var ornament_id = str(offer.get("id", ""))
 			if ornament_id == "" or current_ornaments.has(ornament_id):
@@ -228,6 +236,107 @@ func buy_shop_offer(offer: Dictionary) -> bool:
 	_record_shop_purchase(offer)
 	save_current_state()
 	return true
+
+func grant_item(item_id: String, destination: String = ITEM_DEST_DECK, item_db: Node = null, source: String = "", save_after: bool = true) -> bool:
+	if item_id == "":
+		return false
+	var normalized_destination = _normalize_item_destination(destination)
+	match normalized_destination:
+		ITEM_DEST_DECK:
+			current_deck.append(item_id)
+			deck_changed.emit(current_deck)
+		ITEM_DEST_BACKPACK:
+			if not _try_add_item_to_backpack_state(item_id, item_db):
+				_add_pending_item_reward(item_id, source, ITEM_DEST_BACKPACK, false)
+		ITEM_DEST_STAGING:
+			_add_pending_item_reward(item_id, source, ITEM_DEST_STAGING, false)
+		_:
+			return false
+	if save_after:
+		save_current_state()
+	return true
+
+func get_pending_item_rewards() -> Array[Dictionary]:
+	return pending_item_rewards.duplicate(true)
+
+func consume_pending_item(uid: int, save_after: bool = true) -> bool:
+	for index in pending_item_rewards.size():
+		if int(pending_item_rewards[index].get("uid", -1)) == uid:
+			pending_item_rewards.remove_at(index)
+			pending_items_changed.emit(get_pending_item_rewards())
+			if save_after:
+				save_current_state()
+			return true
+	return false
+
+func move_pending_item_to_deck(uid: int) -> bool:
+	var entry = _get_pending_item(uid)
+	if entry.is_empty():
+		return false
+	if not consume_pending_item(uid, false):
+		return false
+	current_deck.append(str(entry.get("id", "")))
+	deck_changed.emit(current_deck)
+	save_current_state()
+	return true
+
+func place_pending_item_in_backpack(uid: int, item_db: Node) -> bool:
+	var entry = _get_pending_item(uid)
+	if entry.is_empty():
+		return false
+	if not _try_add_item_to_backpack_state(str(entry.get("id", "")), item_db):
+		return false
+	return consume_pending_item(uid)
+
+func _get_pending_item(uid: int) -> Dictionary:
+	for entry in pending_item_rewards:
+		if int(entry.get("uid", -1)) == uid:
+			return entry.duplicate(true)
+	return {}
+
+func _add_pending_item_reward(item_id: String, source: String, preferred_destination: String, save_after: bool = true) -> Dictionary:
+	var entry = {
+		"uid": next_pending_item_uid,
+		"id": item_id,
+		"source": source,
+		"preferred_destination": preferred_destination,
+	}
+	next_pending_item_uid += 1
+	pending_item_rewards.append(entry)
+	pending_items_changed.emit(get_pending_item_rewards())
+	if save_after:
+		save_current_state()
+	return entry
+
+func _try_add_item_to_backpack_state(item_id: String, item_db: Node) -> bool:
+	if item_db == null or not item_db.has_method("get_item_by_id"):
+		return false
+	var item_data = item_db.get_item_by_id(item_id)
+	if item_data == null:
+		return false
+
+	var backpack = BackpackManager.new()
+	backpack.setup_grid(BACKPACK_GRID_WIDTH, BACKPACK_GRID_HEIGHT, backpack_usable_width, backpack_usable_height)
+	restore_backpack_state(backpack, item_db)
+	var target_pos = backpack.find_available_pos(item_data)
+	if target_pos == Vector2i(-1, -1):
+		backpack.free()
+		return false
+	if not backpack.place_item(item_data, target_pos):
+		backpack.free()
+		return false
+	save_backpack_state(backpack)
+	backpack.free()
+	return true
+
+func _get_item_destination(source_data: Dictionary, fallback: String) -> String:
+	return _normalize_item_destination(str(source_data.get("item_destination", source_data.get("destination", fallback))))
+
+func _normalize_item_destination(destination: String) -> String:
+	match destination:
+		ITEM_DEST_DECK, ITEM_DEST_BACKPACK, ITEM_DEST_STAGING:
+			return destination
+	return ITEM_DEST_DECK
 
 func get_current_shop_offer_price(offer: Dictionary) -> int:
 	var price = max(1, int(offer.get("price", 0)))
@@ -304,6 +413,9 @@ func apply_event_choice(choice: Dictionary) -> bool:
 	var snapshot = {
 		"shards": current_shards,
 		"deck": current_deck.duplicate(),
+		"backpack_items": current_backpack_items.duplicate(true),
+		"pending_item_rewards": pending_item_rewards.duplicate(true),
+		"next_pending_item_uid": next_pending_item_uid,
 		"ornaments": current_ornaments.duplicate(),
 		"backpack_width": backpack_usable_width,
 		"backpack_height": backpack_usable_height,
@@ -336,7 +448,8 @@ func _apply_event_effect(effect: Dictionary) -> bool:
 	var effect_type = str(effect.get("type", ""))
 	match effect_type:
 		RewardGenerator.TYPE_SHARDS, RewardGenerator.TYPE_ITEM, RewardGenerator.TYPE_ORNAMENT:
-			return apply_reward(effect)
+			var item_db = get_node_or_null("/root/ItemDatabase") if is_inside_tree() else null
+			return apply_reward(effect, item_db)
 		"sanity":
 			var amount = int(effect.get("amount", 0))
 			if amount == 0:
@@ -361,12 +474,16 @@ func _apply_event_effect(effect: Dictionary) -> bool:
 func _restore_event_snapshot(snapshot: Dictionary) -> void:
 	current_shards = int(snapshot.get("shards", current_shards))
 	current_deck = _to_string_array(snapshot.get("deck", current_deck))
+	current_backpack_items = _to_dictionary_array(snapshot.get("backpack_items", current_backpack_items))
+	pending_item_rewards = _to_dictionary_array(snapshot.get("pending_item_rewards", pending_item_rewards))
+	next_pending_item_uid = int(snapshot.get("next_pending_item_uid", next_pending_item_uid))
 	current_ornaments = _to_string_array(snapshot.get("ornaments", current_ornaments))
 	backpack_usable_width = int(snapshot.get("backpack_width", backpack_usable_width))
 	backpack_usable_height = int(snapshot.get("backpack_height", backpack_usable_height))
 	shards_changed.emit(current_shards)
 	deck_changed.emit(current_deck)
 	ornaments_changed.emit(current_ornaments)
+	pending_items_changed.emit(get_pending_item_rewards())
 	save_current_state()
 
 func save_backpack_state(backpack: BackpackManager) -> void:
@@ -580,6 +697,8 @@ func serialize_run() -> Dictionary:
 		"shards": current_shards,
 		"deck": current_deck,
 		"backpack_items": current_backpack_items,
+		"pending_item_rewards": pending_item_rewards,
+		"next_pending_item_uid": next_pending_item_uid,
 		"ornaments": current_ornaments,
 		"backpack_usable_width": backpack_usable_width,
 		"backpack_usable_height": backpack_usable_height,
@@ -602,6 +721,8 @@ func deserialize_run(data: Dictionary):
 	current_shards = data.get("shards", INITIAL_SHARDS)
 	current_deck = _to_string_array(data.get("deck", INITIAL_DECK))
 	current_backpack_items = _to_dictionary_array(data.get("backpack_items", []))
+	pending_item_rewards = _to_dictionary_array(data.get("pending_item_rewards", []))
+	next_pending_item_uid = max(int(data.get("next_pending_item_uid", 1)), _get_next_pending_uid_from_entries())
 	current_ornaments = _to_string_array(data.get("ornaments", []))
 	backpack_usable_width = clampi(int(data.get("backpack_usable_width", INITIAL_BACKPACK_USABLE_WIDTH)), 1, BACKPACK_GRID_WIDTH)
 	backpack_usable_height = clampi(int(data.get("backpack_usable_height", INITIAL_BACKPACK_USABLE_HEIGHT)), 1, BACKPACK_GRID_HEIGHT)
@@ -618,6 +739,7 @@ func deserialize_run(data: Dictionary):
 		completed_route_nodes.append(int(index))
 	is_run_active = data.get("is_active", true)
 	is_run_complete = data.get("is_complete", false)
+	pending_items_changed.emit(get_pending_item_rewards())
 	_emit_route_changed()
 
 func _to_string_array(value: Variant) -> Array[String]:
@@ -632,6 +754,12 @@ func _to_dictionary_array(value: Variant) -> Array[Dictionary]:
 		if entry is Dictionary:
 			result.append(entry)
 	return result
+
+func _get_next_pending_uid_from_entries() -> int:
+	var highest_uid := 0
+	for entry in pending_item_rewards:
+		highest_uid = max(highest_uid, int(entry.get("uid", 0)))
+	return highest_uid + 1
 
 func set_random_seed(seed_value: int) -> void:
 	_initialize_random_source(seed_value)

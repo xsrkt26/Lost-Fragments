@@ -72,15 +72,24 @@ func _format_offer_text(offer: Dictionary) -> String:
 	var price = _get_offer_price(offer)
 	match str(offer.get("type", "")):
 		"item":
-			return "%s\n物品 | %d 碎片" % [title, price]
+			return "%s\n物品/%s | %d 碎片" % [title, _format_item_destination(offer), price]
 		"ornament":
 			return "%s\n%s饰品 | %d 碎片" % [title, str(offer.get("rarity", "")), price]
 	return "%s\n%d 碎片" % [title, price]
 
+func _format_item_destination(offer: Dictionary) -> String:
+	match str(offer.get("item_destination", offer.get("destination", "deck"))):
+		"backpack":
+			return "入背包"
+		"staging":
+			return "暂存"
+	return "入卡组"
+
 func _buy_offer(offer: Dictionary, button: Button):
 	GlobalTooltip.hide()
 	var rm = get_node_or_null("/root/RunManager")
-	if rm and rm.has_method("buy_shop_offer") and rm.buy_shop_offer(offer):
+	var item_db = get_node_or_null("/root/ItemDatabase")
+	if rm and rm.has_method("buy_shop_offer") and rm.buy_shop_offer(offer, item_db):
 		print("[Shop] 购买成功: ", offer.get("title", ""))
 		button.disabled = true
 		button.text = str(offer.get("title", "商品")) + "\n已购买"

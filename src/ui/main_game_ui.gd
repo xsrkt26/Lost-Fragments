@@ -10,6 +10,8 @@ extends Control
 @onready var draw_spawn_point = get_node_or_null(draw_spawn_point_path)
 @onready var trash_bin = $ContentLayer/GridPanel/TrashBin
 @onready var ornaments_area = $ContentLayer/OrnamentsPanel/Slots
+@onready var pending_item_panel = get_node_or_null("ContentLayer/PendingItemPanel")
+@onready var pending_item_area = get_node_or_null("ContentLayer/PendingItemPanel/PendingItemArea")
 
 @export var draw_spawn_point_path: NodePath = "ContentLayer/DreamcatcherPanel/DrawSpawnPoint"
 
@@ -65,6 +67,7 @@ func setup(p_battle_manager: BattleManager):
 	battle_manager.item_drawn.connect(_on_item_drawn)
 	backpack_ui.item_dropped_on_grid.connect(battle_manager.request_place_item)
 	_render_existing_backpack_items()
+	_render_pending_items()
 	_render_ornaments()
 	
 	# 连接状态更新信号
@@ -197,7 +200,8 @@ func _add_reward_choices(popup: Control, reward_options: Array[Dictionary], rm) 
 		reward_button.tooltip_text = str(reward.get("description", ""))
 		reward_button.pressed.connect(func():
 			if rm and rm.has_method("apply_reward"):
-				rm.apply_reward(reward)
+				var item_db = get_node_or_null("/root/ItemDatabase")
+				rm.apply_reward(reward, item_db)
 			_complete_victory_route(rm)
 		)
 		reward_row.add_child(reward_button)
@@ -207,12 +211,20 @@ func _format_reward_button_text(reward: Dictionary) -> String:
 	var reward_type = str(reward.get("type", ""))
 	match reward_type:
 		"item":
-			return "%s\n物品" % title
+			return "%s\n物品/%s" % [title, _format_item_destination(reward)]
 		"ornament":
 			return "%s\n%s饰品" % [title, str(reward.get("rarity", ""))]
 		"shards":
 			return title
 	return title
+
+func _format_item_destination(data: Dictionary) -> String:
+	match str(data.get("item_destination", data.get("destination", "deck"))):
+		"backpack":
+			return "入背包"
+		"staging":
+			return "暂存"
+	return "入卡组"
 
 func _complete_victory_route(rm) -> void:
 	if rm:
@@ -254,6 +266,35 @@ func _render_existing_backpack_items():
 		battle_manager.managed_item_uis.append(card)
 		_connect_item_ui_signals(card)
 		backpack_ui.add_item_visual(card, instance.root_pos)
+
+func _render_pending_items():
+	if pending_item_panel == null or pending_item_area == null:
+		return
+	for child in pending_item_area.get_children():
+		child.queue_free()
+	var rm = get_node_or_null("/root/RunManager")
+	var item_db = get_node_or_null("/root/ItemDatabase")
+	if rm == null or item_db == null or not rm.has_method("get_pending_item_rewards"):
+		pending_item_panel.hide()
+		return
+	var pending_items = rm.get_pending_item_rewards()
+	pending_item_panel.visible = not pending_items.is_empty()
+	if pending_items.is_empty():
+		return
+	var item_ui_scene = load("res://src/ui/item/item_ui.tscn")
+	var index := 0
+	for entry in pending_items:
+		var item_data = item_db.get_item_by_id(str(entry.get("id", ""))) if item_db.has_method("get_item_by_id") else null
+		if item_data == null:
+			continue
+		var card = item_ui_scene.instantiate()
+		pending_item_area.add_child(card)
+		card.setup(item_data, battle_manager.context)
+		card.set_meta("pending_item_uid", int(entry.get("uid", -1)))
+		card.scale = Vector2(0.58, 0.58)
+		card.position = Vector2(12 + index * 92, 24)
+		_connect_item_ui_signals(card)
+		index += 1
 
 func _render_ornaments():
 	if ornaments_area == null:
@@ -309,6 +350,23 @@ func _handle_item_dropped(item_ui: Control, mouse_pos: Vector2, pivot_offset: Ve
 	var root_grid_pos = mouse_grid_pos - pivot_offset if mouse_grid_pos != Vector2i(-1, -1) else Vector2i(-1, -1)
 	
 	battle_manager.request_place_item(item_ui, root_grid_pos)
+	_consume_pending_item_if_placed(item_ui)
+
+func _consume_pending_item_if_placed(item_ui: Control) -> void:
+	if not item_ui.has_meta("pending_item_uid"):
+		return
+	if item_ui.get("item_instance") == null:
+		return
+	var rm = get_node_or_null("/root/RunManager")
+	if rm and rm.has_method("consume_pending_item"):
+		rm.consume_pending_item(int(item_ui.get_meta("pending_item_uid")))
+	item_ui.remove_meta("pending_item_uid")
+	if battle_manager and not battle_manager.managed_item_uis.has(item_ui):
+		battle_manager.managed_item_uis.append(item_ui)
+	if battle_manager and battle_manager.has_method("persist_backpack_to_run"):
+		battle_manager.persist_backpack_to_run()
+	if pending_item_panel:
+		pending_item_panel.visible = rm and rm.has_method("get_pending_item_rewards") and not rm.get_pending_item_rewards().is_empty()
 
 func _on_draw_button_pressed():
 	if not _is_draw_interaction_available():
