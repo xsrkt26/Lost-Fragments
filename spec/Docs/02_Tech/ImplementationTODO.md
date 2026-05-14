@@ -759,7 +759,7 @@
 
 优先级：P3
 
-当前状态：`package/` 已作为本地导出目录并从版本库忽略，仓库保留 `export_presets.cfg`。
+当前状态：已完成本地发布脚本基础版本。`package/` 作为本地导出和归档目录并从版本库忽略，仓库保留 `export_presets.cfg` 与可复现的 Windows 导出脚本。
 
 需求范围：
 
@@ -770,3 +770,20 @@
 自动化测试建议：
 
 - 导出前强制运行全量 GUT 和关键场景 smoke test。
+
+完成记录：
+
+- 新增 `tools/export_windows_release.ps1`，默认使用 `Windows Desktop` export preset 导出 Windows 正式包。
+- 导出脚本在执行 Godot export 前强制运行 `tools/run_tests_silent.ps1` 和 `scripts/run_scene_smoke_tests.py --fail-on-engine-error`，任一失败都会中止发布。
+- 脚本输出到 `package/LostFragments-<构建时间>-<提交号>.exe`，同目录生成 `.manifest.json`，记录版本号、构建时间、分支、提交号、测试命令、测试结果、导出状态和产物路径。
+- 支持 `-PrecheckOnly` 模式，用于在未安装导出模板或 CI 只做发布前置验证时，仍然跑完整测试并生成 manifest。
+- README 已新增发布导出说明，包含 precheck 和正式导出命令。
+
+实现假设：
+
+- 当前先采用本地 `package/` 目录作为“单独归档位置”；GitHub Releases 自动发布需要仓库 token、tag 策略和发布权限，后续确认发布策略后再接入 CI release job。
+- `export_presets.cfg` 仍是导出 preset 的唯一来源；脚本只校验 preset 存在，不在脚本中复制导出配置，避免两套发布配置漂移。
+
+自动化测试：
+
+- 本轮通过 `tools/export_windows_release.ps1 -PrecheckOnly` 验证发布前置流程，脚本内部已跑全量 GUT 与严格场景冒烟。

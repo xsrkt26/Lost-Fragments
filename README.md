@@ -84,3 +84,19 @@ python -B scripts\run_scene_smoke_tests.py --fail-on-engine-error
 ```powershell
 & "D:\COde\Godot\Godot_v4.6.2-stable_win64.exe\Godot_v4.6.2-stable_win64_console.exe" --headless --editor --quit --path .
 ```
+
+## 发布导出
+
+发布前置检查会强制运行全量 GUT 和严格场景冒烟，并在 `package/` 写入构建 manifest：
+
+```powershell
+.\tools\export_windows_release.ps1 -PrecheckOnly
+```
+
+本地 Windows 正式导出：
+
+```powershell
+.\tools\export_windows_release.ps1
+```
+
+导出脚本使用 `export_presets.cfg` 中的 `Windows Desktop` preset，输出形如 `package/LostFragments-<构建时间>-<提交号>.exe`，同目录生成 `.manifest.json`，记录版本号、构建时间、分支、提交号、测试结果和导出状态。若 Godot 路径不同，可通过 `GODOT_BIN` 环境变量或 `-GodotBin` 参数覆盖。
