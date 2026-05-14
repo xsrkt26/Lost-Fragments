@@ -2,6 +2,14 @@ extends GutTest
 
 const RewardGeneratorScript = preload("res://src/core/rewards/reward_generator.gd")
 const RunManagerScript = preload("res://src/autoload/run_manager.gd")
+const DEFERRED_TOOL_ORNAMENT_IDS := [
+	"tool_belt",
+	"specimen_pin_case",
+	"gardening_toolkit",
+	"recycling_hook",
+	"calibration_screwdriver",
+	"universal_toolbox",
+]
 
 var item_db
 var ornament_db
@@ -56,6 +64,14 @@ func test_reward_generation_is_reproducible_with_injected_random_seed():
 	var options_b = RewardGeneratorScript.generate_options(rm_b, item_db, ornament_db, 4, rng_b)
 
 	assert_eq(_reward_keys(options_a), _reward_keys(options_b))
+
+func test_reward_generation_excludes_deferred_tool_ornaments():
+	var rm = _make_run_manager(6, 0)
+
+	var options = RewardGeneratorScript.generate_options(rm, item_db, ornament_db, 80)
+
+	for reward in options:
+		assert_false(reward.get("type", "") == "ornament" and DEFERRED_TOOL_ORNAMENT_IDS.has(str(reward.get("id", ""))))
 
 func test_reward_generator_falls_back_to_shards_when_pools_are_empty():
 	var rm = _make_run_manager(1, 0)

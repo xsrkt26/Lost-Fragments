@@ -3,6 +3,14 @@ extends GutTest
 const RunManagerScript = preload("res://src/autoload/run_manager.gd")
 const ShopGeneratorScript = preload("res://src/core/rewards/shop_generator.gd")
 const ShopScene = preload("res://src/ui/shop/shop_scene.tscn")
+const DEFERRED_TOOL_ORNAMENT_IDS := [
+	"tool_belt",
+	"specimen_pin_case",
+	"gardening_toolkit",
+	"recycling_hook",
+	"calibration_screwdriver",
+	"universal_toolbox",
+]
 
 var item_db
 var ornament_db
@@ -47,6 +55,14 @@ func test_shop_filters_owned_ornaments():
 	var offers = ShopGeneratorScript.generate_offers(rm, item_db, ornament_db, 4)
 	for offer in offers:
 		assert_false(offer.get("type", "") == "ornament" and offer.get("id", "") == "dreamcatcher_filter")
+
+func test_shop_generation_excludes_deferred_tool_ornaments():
+	var rm = _make_run_manager(6)
+
+	var offers = ShopGeneratorScript.generate_offers(rm, item_db, ornament_db, 80)
+
+	for offer in offers:
+		assert_false(offer.get("type", "") == "ornament" and DEFERRED_TOOL_ORNAMENT_IDS.has(str(offer.get("id", ""))))
 
 func test_shop_generation_is_reproducible_with_run_seed_and_cached_per_node():
 	var rm = _make_run_manager(2)

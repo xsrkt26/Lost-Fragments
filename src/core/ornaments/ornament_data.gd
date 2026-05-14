@@ -10,6 +10,7 @@ extends Resource
 @export var tags: Array[String] = []
 @export_multiline var effect_text: String = ""
 @export var effect_id: String = ""
+@export var enabled: bool = true
 @export var effect: Resource
 
 func get_tooltip_text() -> String:

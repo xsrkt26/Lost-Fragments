@@ -48,7 +48,7 @@ func get_all_ornaments() -> Array:
 func get_available_ornaments(act: int, owned_ids: Array[String] = []) -> Array:
 	var result: Array = []
 	for ornament in ornaments.values():
-		if ornament.earliest_act <= act and not owned_ids.has(ornament.id):
+		if ornament.enabled and ornament.earliest_act <= act and not owned_ids.has(ornament.id):
 			result.append(ornament.duplicate(true))
 	return result
 
@@ -63,6 +63,7 @@ func _create_ornament_data(entry: Dictionary):
 	data.tags = _to_string_array(entry.get("tags", []))
 	data.effect_text = str(entry.get("effect_text", ""))
 	data.effect_id = str(entry.get("effect_id", ""))
+	data.enabled = bool(entry.get("enabled", true))
 	if data.effect_id == "":
 		data.effect_id = data.id
 	data.effect = _create_effect(data.effect_id)

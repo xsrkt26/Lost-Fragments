@@ -48,5 +48,11 @@
   {"id":"twilight_hourglass","name":"暮梦沙漏","category":"后期混合","rarity":"稀有","earliest_act":4,"price":155,"tags":["混合","后期"],"effect_text":"每个局内关卡第15次捕梦后：饰品提供的分数收益+30%，持续到本局结束。","effect_id":""},
   {"id":"collection_cabinet","name":"收藏柜","category":"后期混合","rarity":"稀有","earliest_act":4,"price":150,"tags":["混合","饰品"],"effect_text":"每个局内关卡开始时，每拥有3个不同分类的饰品：+4分。若拥有5个不同分类，额外+8分。","effect_id":""},
   {"id":"tri_phase_crown","name":"三相王冠","category":"后期混合","rarity":"稀有","earliest_act":4,"price":180,"tags":["混合","高阶"],"effect_text":"本次撞击结算全部停止后，若本局已经发生过污染结算、播种和大于等于5命中的撞击结算：+45分，每局限1次。","effect_id":""},
-  {"id":"empty_dream_trophy","name":"空梦奖杯","category":"后期混合","rarity":"稀有","earliest_act":4,"price":170,"tags":["混合","奖励"],"effect_text":"局内结束时：若分数超过目标分数50以上，下一次关卡奖励的饰品选项+1。没有目标分数的局内游戏不触发。","effect_id":""}
+  {"id":"empty_dream_trophy","name":"空梦奖杯","category":"后期混合","rarity":"稀有","earliest_act":4,"price":170,"tags":["混合","奖励"],"effect_text":"局内结束时：若分数超过目标分数50以上，下一次关卡奖励的饰品选项+1。没有目标分数的局内游戏不触发。","effect_id":""},
+  {"id":"tool_belt","name":"工具腰包","category":"通用","rarity":"普通","earliest_act":1,"price":55,"tags":["通用","道具"],"effect_text":"道具系统暂缓，当前不会出现在奖励或商店中。正式效果：每关第一次使用道具给分；每使用3个道具给额外分，每关限1次。","effect_id":"deferred_tool_ornament","enabled":false},
+  {"id":"specimen_pin_case","name":"标本针盒","category":"污染","rarity":"进阶","earliest_act":2,"price":85,"tags":["污染","道具"],"effect_text":"道具系统暂缓，当前不会出现在奖励或商店中。正式效果：使用污染或净化类道具给分；目标是废弃物时额外给分。","effect_id":"deferred_tool_ornament","enabled":false},
+  {"id":"gardening_toolkit","name":"园艺工具包","category":"梦境之种与丢弃","rarity":"进阶","earliest_act":2,"price":90,"tags":["梦境之种","道具"],"effect_text":"道具系统暂缓，当前不会出现在奖励或商店中。正式效果：使用道具播种或升级梦境之种给分；因此变大时额外奖励。","effect_id":"deferred_tool_ornament","enabled":false},
+  {"id":"recycling_hook","name":"回收挂钩","category":"梦境之种与丢弃","rarity":"进阶","earliest_act":3,"price":95,"tags":["丢弃","废弃物","道具"],"effect_text":"道具系统暂缓，当前不会出现在奖励或商店中。正式效果：使用丢弃相关道具给分；丢弃废弃物时提供有限梦值出口。","effect_id":"deferred_tool_ornament","enabled":false},
+  {"id":"calibration_screwdriver","name":"校准螺丝刀","category":"机械与撞击","rarity":"进阶","earliest_act":2,"price":95,"tags":["机械","道具"],"effect_text":"道具系统暂缓，当前不会出现在奖励或商店中。正式效果：对机械物品使用道具后，奖励该物品下一次成功传导或曲线传动。","effect_id":"deferred_tool_ornament","enabled":false},
+  {"id":"universal_toolbox","name":"万用工具箱","category":"后期混合","rarity":"稀有","earliest_act":4,"price":150,"tags":["混合","道具"],"effect_text":"道具系统暂缓，当前不会出现在奖励或商店中。正式效果：同一局内分别使用到物品、空格、捕梦区三类目标后给分并获得随机普通道具。","effect_id":"deferred_tool_ornament","enabled":false}
 ]
