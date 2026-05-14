@@ -1,28 +1,30 @@
-# Lost Fragments - 架构设计与代码评审报告
+# 架构评审追踪记录
 
-本文档记录了对当前项目核心逻辑的评审结果，并列出了后续重构的五个关键方向。
+文档状态：历史评审已按当前代码补充处理结果。本文不作为需求来源；当前需求以 `../02_Tech/ImplementationTODO.md` 为准。
 
-## 1. 逻辑与表现的解耦 (Decoupling Logic & View)
-- **现状**: `BackpackUI` 直接承担了逻辑判断、网格计算和动画触发。
-- **问题**: UI 逻辑过重（Fat UI），导致逻辑无法在无 UI 环境下测试，且难以实现 AI 自动操作或录像回放。
-- **重构方向**: 引入 `BattleManager` 或 `GameManager` 作为中介，UI 只负责发送交互指令并监听状态变化。
+## 原评审主题与当前状态
 
-## 2. 撞击算法的空间精确性 (Directional & Spatial Accuracy)
-- **现状**: `ImpactResolver` 基于单点网格搜索，不考虑大尺寸物品的形状细节。
-- **问题**: 多格物品（如 L 形、2x2）被撞击不同部位时，传导逻辑可能存在歧义。
-- **重构方向**: 引入“碰撞入口”与“传播出口”的概念，使撞击逻辑支持复杂形状的物品。
+| 评审主题 | 原问题 | 当前状态 |
+| --- | --- | --- |
+| 逻辑与表现解耦 | `BackpackUI` 过重，逻辑难以无 UI 测试 | 已大幅推进。放置、旋转、丢弃、撞击、背包持久化由 `BattleManager`/`BackpackManager` 处理；UI 仍有布局和交互职责。 |
+| 撞击算法空间精确性 | 多格物品撞击入口/出口存在歧义 | 已有 `ImpactResolver` 和确定性撞击队列；复杂机械传动 action 元数据仍待后续细化。 |
+| 序列化表现系统 | 逻辑瞬间完成，缺少动作节奏 | 已实现 `GameAction` + `SequencePlayer`，并接入撞击结算表现。 |
+| 资源实例隔离 | 同类 `ItemData` 共享可变状态 | 已通过 `ItemInstance`、深拷贝、runtime id 保留和替换事件解决主路径问题。 |
+| 依赖查找解耦 | 大量 `/root` 查找影响单测 | 部分解决。`GameContext` 已用于效果和战斗上下文；autoload 仍作为全局状态入口保留。 |
 
-## 3. 序列化表现系统 (Sequential Action System) - [进行中]
-- **现状**: 逻辑结算瞬间完成，缺乏肉鸽游戏的“节奏感”。
-- **问题**: 无法实现“先撞击、再抖动、最后跳分”的视觉流，表现力弱。
-- **重构方向**: 引入 `GameAction` (命令模式) 和 `SequencePlayer` (序列播放器)，将逻辑运算结果转化为可顺序回放的动作序列。
+## 当前仍需关注
 
-## 4. 资源实例的隔离性 (Resource Mutability)
-- **现状**: 多个相同物品共享同一个 `ItemData` Resource。
-- **问题**: 修改其中一个物品的状态（如被诅咒、升级）会影响所有同类物品。
-- **重构方向**: 在物品进入背包时强制执行 `.duplicate()`，或使用独立的 `ItemInstance` 类维护即时状态。
+- `main_game_ui.tscn` 仍承载局内战斗和整理背包两种使用场景，用户视频反馈显示背包布面板在 Hub/整理背包/局内切换时存在覆盖和层级重叠。下一轮应优先修复或拆出独立整理背包 scene。
+- 复杂机械传动类饰品仍缺少更细的传动 action 元数据。
+- 道具系统 F1 已暂缓，相关饰品和奖励入口暂不实现。
+- GitHub Releases 自动发布尚未接入，需要发布权限和 tag 策略。
 
-## 5. 依赖查找的解耦 (Dependency Injection)
-- **现状**: 脚本通过硬编码路径 `get_node("/root/GameState")` 查找全局单例。
-- **问题**: 耦合度高，难以进行孤立的单元测试。
-- **重构方向**: 采用“依赖注入”模式，在执行效果或初始化时将上下文对象（Context）传入，提高代码的可测试性和灵活性。
+## 当前验证基线
+
+- 全量 GUT：`tools/run_tests_silent.ps1`
+- 严格场景冒烟：`python -B scripts/run_scene_smoke_tests.py --fail-on-engine-error`
+- 发布预检：`tools/export_windows_release.ps1 -PrecheckOnly`
+
+## 使用说明
+
+本文用于理解历史技术债的处理轨迹。若本文与 `ImplementationTODO.md`、`01_System_Architecture.md` 或当前代码冲突，以后者为准。

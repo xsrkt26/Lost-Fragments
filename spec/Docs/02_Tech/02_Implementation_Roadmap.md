@@ -1,59 +1,101 @@
-# 开发计划与路线图 (Implementation Roadmap)
+# 当前实现路线图
 
-## 一、 当前开发目标：实装“污染流”机制
+文档状态：已按当前代码与 `ImplementationTODO.md` 更新。本文是总览路线图，不替代 `ImplementationTODO.md` 的逐项需求记录。
 
-为了验证乘法底层逻辑，当前阶段的核心目标是实装污染机制的基建。
+## 一、当前已完成的基础闭环
 
-**实施步骤**：
-1. **数据基建阶段**：
-    * 在 `ItemInstance` 中新增 `pollution` 状态变量及增减方法。
-    * 完善 `GlobalEventBus`，打通全局监听信号。
-2. **核心结算升级**：
-    * 重构 `ImpactResolver`，将污染的乘法逻辑 (1+N次结算) 嵌入到底层撞击管线中。
-    * 引入全局修饰器系统（供污染增幅、防护类饰品生效）。
-3. **组件量产与测试**：
-    * 优先实现三个核心验证件：“纸团”(自我叠层)、“漏水钢笔”(传染)、“垃圾袋”(净化)。
-    * 建立独立测试场景验证乘法数值和扣血逻辑。
-4. **周边系统补全**：
-    * 实装垃圾桶丢弃 (`on_discard`) 逻辑。
-    * 实装第三排固定的撞击源发射逻辑。
+### P0 主流程骨架
 
-## 二、 长期技术重构目标 (Tech Debt)
-*摘自早期评审记录，需在后续开发中持续推进。*
+- 配置化路线已迁移到 `data/routes/routes.json`。
+- 默认路线为 9 个节点：局内游戏、商店、事件、局内游戏、商店、事件、Boss 局内游戏、商店、事件。
+- 游戏共 6 个场景层，完成第 6 层路线后整局胜利。
+- Hub 由路线按钮驱动，只能进入当前节点，已完成和未解锁节点不可进入。
+- 普通战斗默认无分数目标，Boss 战有目标分数，并在战斗结束时统一判定胜负。
 
-1. **逻辑与表现彻底解耦**: 彻底剥离 `BackpackUI` 中的残余逻辑计算，交由 `BattleManager` 处理。
-2. **多格碰撞精确性**: 改进 `ImpactResolver`，使撞击逻辑支持复杂多格形状的具体“碰撞入口”与“出口”判定。
-3. **资源实例的强制隔离**: 确保进入背包的 `ItemData` 及 `ItemEffect` 正确隔离，防止不同实例间共享可变状态。
-4. **依赖注入 (DI)**: 全面采用 Context 传入模式，减少 `get_node("/root/...")` 的硬编码，方便单元测试。
+### P1 局内核心规则
 
-## 三、 待开发功能 (Pending Features)
+- `BattleManager` 已有轻量战斗状态机和统一结束请求入口。
+- 梦值归零不会中断当前结算，等待本次抽取/撞击结算完成后再结束战斗。
+- 背包布局可跨战斗保存，衍生物品和污染不跨战斗保存。
+- 根源之梦作为默认背包物品接入，每 5 次捕梦入队发起撞击。
+- 播种、梦境之种成长和升级失败回滚已接入 `BackpackManager` 与 `GlobalEventBus`。
+- 多源撞击统一进入确定性撞击队列。
 
-### 1. 全自动测试工作流 (Automated Testing Workflow)
-*   **状态**: 已完成基础版本。
-*   **目标**: 引入标准测试框架，支持逻辑的回归测试，保证重构与新增功能不破坏原有机制。
-*   **加固标准 (Reinforced Standards)**:
-    *   **多场景覆盖**: 每张卡牌必须包含 2-3 个场景测试，包括：
-        *   *边界场景*: 放在网格边缘、角落或触发数值临界点（如梦值为 1）。
-        *   *极端场景*: 极端高污染、梦值归零触发 Game Over、极长路径传导。
-        *   *空载场景*: 在无目标、无污染或无效标签环境下的安全运行。
-    *   **联动稳定性 (Synergy & Stability)**: 建立专门的联动测试集，模拟跨流派连招（如机械+书籍、污染+净化），验证单帧高频 Action 产出下的系统稳定性。
-*   **方案**: 引入 **GUT (Godot Unit Test)** 框架，在 `test/` 目录下建立单元测试与集成测试。
-*   **执行方式**: 支持编辑器内 GUI 面板一键执行，以及命令行 Headless 运行以接入 CI/CD。
-*   **当前实现**:
-    *   本地全量命令使用 Godot 4.6.2 headless 执行 `addons/gut/gut_cmdln.gd`。
-    *   `.github/workflows/gut.yml` 已接入 GitHub Actions，在 `main` 分支 push 和 pull request 时自动下载 Godot 4.6.2 stable Linux 版并运行全量 GUT。
-    *   工作流缓存 Godot 可执行文件，避免每次运行重复下载。
-    *   `test/integration/test_scene_smoke.gd` 维护固定关键场景 headless 冒烟列表，覆盖主菜单、Hub、局内 UI、商店和调试沙盒，验证场景可加载、可实例化、启动帧有效且不会新增 orphan。
+### P2 长期构筑、奖励与经济
 
-### 2. 鼠标悬浮显示卡牌信息 (Card Hover Tooltip)
-*   **状态**: 已完成基础版本。
-*   **目标**: 在游戏主界面实时查看卡牌效果及当前附加的动态状态（如污染层数）。
-*   **数据层**: 在 `ItemData` 中新增 `@export_multiline var description: String` 效果描述字段。
-*   **UI层**: 新建全局复用的 `CardTooltip.tscn` 悬浮窗组件。
-*   **交互逻辑**: 在 `ItemUI` 中监听 `mouse_entered` 触发延迟（如 0.3 秒）显示，`mouse_exited` 隐藏，并能动态读取 `ItemInstance` 的状态进行渲染。
-*   **当前实现**:
-    *   `GlobalTooltip` 作为 Autoload 统一管理卡牌悬浮窗，负责延迟显示、关键词高亮、自动定位和空数据隐藏。
-    *   `ItemUI` 在鼠标悬停时显示卡牌说明，拖拽时隐藏；绑定 `ItemInstance.pollution_changed` 后实时刷新污染角标和悬浮窗动态状态。
-    *   商店物品商品复用同一套全局卡牌悬浮窗，饰品商品仍使用按钮 tooltip 展示饰品效果文本。
-    *   `CardTooltip` 进入 `card_tooltip` 分组，便于测试和调试定位。
-*   **自动化测试**: `test/unit/test_card_tooltip.gd` 覆盖污染 UI 同步、动态污染悬浮显示和空物品数据保护；`test/unit/test_shop_system.gd` 覆盖商店物品商品使用统一卡牌悬浮窗。
+- 50 个非道具饰品已加载，并接入通用效果与一轮非道具差异精修。
+- 奖励系统支持物品、饰品、碎片，以及 Boss 稀有倾向和构筑标签倾向。
+- 商店支持节点缓存、库存刷新、价格曲线、已购买排除和回收券折扣。
+- 事件系统支持权重随机、去重、节点缓存、事务回滚和高风险背包效果。
+- 物品获得语义已拆分为加入卡组、直接入背包、暂存待摆放。
+- 经济曲线已集中到 `EconomyConfig`，并有数值快照测试。
+
+### P3 表现、测试与发布
+
+- 全局 tooltip、污染动态显示、暂存物品面板和奖励选择 UI 已接入。
+- 全局按钮 hover/点击反馈已接入 `GlobalFeedback`。
+- 关键场景 headless smoke runner 已接入本地和 CI。
+- 本地发布脚本 `tools/export_windows_release.ps1` 已支持 precheck、正式导出和 manifest 记录。
+
+## 二、当前有效需求队列
+
+当前有效队列以 `ImplementationTODO.md` 为准：
+
+1. F1 道具系统基础版本：暂缓，用户已确认先不实现。
+2. F7 正式捕梦动画、美术或 CG：等待素材，不做无素材重绘。
+3. GitHub Releases 自动发布：等待 tag 策略、token 和发布权限确认。
+4. 经济数值继续调优：需要实机通关数据和玩家购买率/胜率反馈。
+5. 用户视频反馈的 UI 问题：Hub/整理背包/局内切换时背包布面板覆盖和层级重叠，建议作为下一项可执行 bugfix。
+
+## 三、下一轮建议开发顺序
+
+### 1. 修复整理背包/局内 UI 覆盖问题
+
+来源：用户视频反馈。
+
+建议范围：
+
+- 检查 `src/ui/hub/hub_scene.gd` 的 `_open_backpack_overlay()`。
+- 检查 `src/ui/main_game_ui.tscn` 中 `GridPanel`、`BackpackUI`、`StatsPanel`、`DreamcatcherPanel` 的锚点、层级和可见性。
+- 判断整理背包是否应拆成独立 scene，避免继续复用完整局内 UI。
+- 补场景 smoke 或 UI 逻辑测试，确保 Hub、整理背包、局内场景能稳定打开。
+
+### 2. 若用户恢复 F1，再实现道具系统
+
+建议最小版本：
+
+- `ToolData` 或等价数据结构。
+- 独立道具栏，不放入普通背包格。
+- 堆叠、目标校验、使用成功消耗、非法目标不消耗。
+- 商店、事件、奖励可写入道具长期状态。
+- 覆盖存档恢复和基础 UI。
+
+### 3. 继续精修机械传动和复杂饰品
+
+当前机械曲线传动尚未暴露独立 action 元数据。若后续要完整实现齿轮油、万向轴承等复杂传动，应先定义传动 action 类型，再拆复杂饰品脚本。
+
+### 4. 视觉资产替换
+
+正式捕梦动画、CG、美术和统一 UI 规范需要素材输入。当前代码保留替换点：
+
+- `MainGameUI._play_dreamcatcher_animation()`
+- `GlobalFeedback` 的按钮反馈策略
+- `main_game_ui.tscn` 和 `backpack_ui.tscn` 的布局资源
+
+### 5. 发布自动化
+
+在确认 tag 策略和 GitHub token 权限后，可以把 `tools/export_windows_release.ps1` 接入 GitHub Releases。当前 CI 只跑 GUT 和严格场景冒烟。
+
+## 四、验证矩阵
+
+| 改动类型 | 必跑验证 |
+| --- | --- |
+| 纯文档 | `git diff --check` |
+| 逻辑功能 | `.\tools\run_tests_silent.ps1` |
+| UI、场景、资源、autoload | `.\tools\run_tests_silent.ps1` + `python -B scripts\run_scene_smoke_tests.py --fail-on-engine-error` |
+| 发布流程 | `.\tools\export_windows_release.ps1 -PrecheckOnly` |
+| 导出前 | 发布 precheck 必须通过 |
+
+## 五、历史路线说明
+
+早期文档曾将“污染流机制”作为当前阶段目标。该目标已经被主流程、路线、奖励、商店、事件、饰品、经济和发布流程的基础闭环取代；后续不要再按旧“污染流当前目标”推进。

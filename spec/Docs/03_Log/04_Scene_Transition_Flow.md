@@ -1,81 +1,112 @@
-# 游戏场景切换逻辑架构图 (Scene Transition Architecture)
+# 当前场景切换流程
 
-本文档描述了《GoDotGame》中不同游戏状态与场景之间的逻辑跳转关系，用于指导 UI 导航与玩家流程设计。
+文档状态：已按当前路线节点驱动流程更新。本文描述当前实现，不再采用旧的 Hub 自由入口流程作为主线。
 
----
+## 1. 场景入口
 
-## 1. 核心流程图 (Flowchart)
+`GlobalScene` 管理以下场景：
+
+- `MAIN_MENU`：`res://src/ui/main_menu/main_menu.tscn`
+- `HUB`：`res://src/ui/hub/hub_scene.tscn`
+- `BATTLE`：`res://src/ui/main_game_ui.tscn`
+- `SHOP`：`res://src/ui/shop/shop_scene.tscn`
+- `EVENT`：`res://src/ui/event/event_scene.tscn`
+- `GALLERY`：`res://src/ui/gallery/gallery_scene.tscn`
+- `DEBUG`：`res://src/ui/debug/debug_sandbox.tscn`
+
+## 2. 当前主流程
 
 ```mermaid
 graph TD
-    %% 节点定义
-    START((游戏启动))
-    MENU[主菜单 MainMenu]
-    HUB[整备室 HubScene]
-    BATTLE[战斗场景 MainGameUI]
-    GALLERY[物品图鉴 Gallery]
-    SHOP[梦境商店 Shop]
-    DEBUG[调试沙盒 DebugSandbox]
-    
-    %% 浮层节点
-    BACKPACK_UI[[背包浮层 BackpackOverlay]]
-    GAMEOVER{死亡结算}
-    VICTORY{胜利结算}
+    START((游戏启动)) --> MENU[主菜单]
+    MENU -->|新游戏/继续| HUB[Hub 路线界面]
+    MENU -->|图鉴| GALLERY[物品图鉴]
+    MENU -->|F1| DEBUG[调试沙盒]
 
-    %% 流程关系
-    START --> MENU
-    
-    MENU -- "开始新旅程 / 继续" --> HUB
-    MENU -- "点击 图鉴" --> GALLERY
-    MENU -- "F1 / 快捷进入" --> DEBUG
-    
-    HUB -- "进入梦境" --> BATTLE
-    HUB -- "交互: 梦境商店" --> SHOP
-    HUB -- "交互: 物品图鉴" --> GALLERY
-    HUB -- "点击 整理背包" --> BACKPACK_UI
-    HUB -- "ESC / 保存并退出" --> MENU
-    
-    BATTLE -- "梦值 <= 0" --> GAMEOVER
-    BATTLE -- "Score >= Target" --> VICTORY
-    BATTLE -- "ESC / 离开梦境" --> HUB
-    
-    GAMEOVER -- "清理存档" --> MENU
-    VICTORY -- "发放奖励" --> HUB
-    
-    GALLERY -- "返回 / ESC" --> HUB
-    GALLERY -- "返回 (无活跃Run时)" --> MENU
-    SHOP -- "离开 / ESC" --> HUB
-    DEBUG -- "ESC" --> MENU
-    
-    BACKPACK_UI -- "关闭 / ESC" --> HUB
+    HUB -->|点击当前 battle 节点| BATTLE[局内游戏]
+    HUB -->|点击当前 boss_battle 节点| BATTLE
+    HUB -->|点击当前 shop 节点| SHOP[商店]
+    HUB -->|点击当前 event 节点| EVENT[事件]
+    HUB -->|整理背包按钮| BACKPACK[[整理背包浮层]]
+
+    BATTLE -->|胜利并选择奖励| HUB
+    BATTLE -->|Boss 未达标/失败| MENU
+    BATTLE -->|手动结束后胜利| HUB
+
+    SHOP -->|离开并推进节点| HUB
+    EVENT -->|完成选择并推进节点| HUB
+
+    HUB -->|第6层路线完成| MENU
+    GALLERY -->|返回| MENU
+    DEBUG -->|ESC| MENU
+    BACKPACK -->|关闭并保存背包布局| HUB
 ```
 
----
+## 3. 路线推进规则
 
-## 2. 场景与浮层职责详解
+- 路线由 `data/routes/routes.json` 定义，`RouteConfig` 负责加载和回退。
+- Hub 会显示路线节点，但只有当前节点可进入。
+- 进入节点前，角色会移动到对应节点位置。
+- 战斗胜利、商店离开、事件选择完成后调用 `RunManager.advance_route_node()`。
+- 当前层路线走完后进入下一层；第 6 层走完后 `run_finished(true)`，整局完成。
+- 普通战斗默认无目标，结束即按通过处理。
+- Boss 战必须检查目标分数，未完成则整局失败。
 
-### 2.1 主菜单 (Main Menu)
-*   **功能**：存档检查、开启新梦境、继续旧梦境、进入全局图鉴。
+## 4. 战斗结束流
 
-### 2.2 整备室 (Hub Scene)
-*   **核心功能**：战前整备、随机商店、物品图鉴、卡组管理。
-*   **交互特点**：支持角色移动。通过 Overlay 模式实现无缝背包整理。
+```mermaid
+sequenceDiagram
+    participant UI as MainGameUI
+    participant BM as BattleManager
+    participant RM as RunManager
+    participant Scene as GlobalScene
 
-### 2.3 战斗场景 (Main Game UI)
-*   **核心功能**：卡牌放置、连锁碰撞结算。
-*   **逻辑转换**：胜利返回 Hub；失败退回主菜单。
+    UI->>BM: request_finish_battle(reason)
+    BM-->>UI: battle_finish_requested
+    UI->>UI: 判定当前分数规则
+    alt 胜利
+        UI->>UI: 显示奖励选项
+        UI->>RM: apply_reward()
+        UI->>RM: win_battle(0)
+        RM->>RM: advance_route_node()
+        UI->>Scene: HUB 或 MAIN_MENU
+    else 失败
+        UI->>RM: fail_run()
+        UI->>Scene: MAIN_MENU
+    end
+```
 
-### 2.4 辅助场景
-*   **物品图鉴**：展示全物品数据。
-*   **梦境商店**：消耗碎片购买新卡牌。
-*   **调试沙盒**：开发者快速测试卡牌性能。
+## 5. 商店与事件流
 
----
+商店：
 
-## 3. 状态持久化规则
+- 进入后读取当前节点缓存库存。
+- 刷新会扣碎片并重新生成库存。
+- 购买物品默认进入暂存区，购买饰品进入 `current_ornaments`。
+- 离开商店时推进路线并回 Hub。
 
-1.  **局内进度**：当前深度、卡组。仅在当前 Run 进程中有效。
-2.  **永久资产**：碎片总量、已解锁图鉴。永久保存。
+事件：
 
----
-*文档更新日期：2026年5月11日*
+- 进入后按当前层、已见事件、权重和随机源选择事件。
+- 有选择项时不能用 ESC 跳过。
+- 高风险背包事件需要二次确认。
+- 事件效果事务应用，失败则回滚。
+- 成功后推进路线并回 Hub。
+
+## 6. 整理背包浮层
+
+当前整理背包由 Hub 复用 `main_game_ui.tscn` 打开，并隐藏战斗专属元素。关闭时会持久化背包布局。
+
+已知问题：用户视频反馈显示，整理背包/局内 UI 的背包布面板有覆盖、层级和布局重叠问题。后续应优先修复 `_open_backpack_overlay()` 与 `main_game_ui.tscn` 的布局，必要时拆成独立 `backpack_setup_scene`。
+
+## 7. 输入上下文
+
+`GlobalInput` 用于切换输入模式：
+
+- `MENU`：主菜单。
+- `WORLD`：Hub 路线和角色移动。
+- `BATTLE`：局内交互。
+- `UI`：商店、事件、设置、整理背包等 UI。
+- `LOCKED`：转场、结算、动画或弹窗期间。
+
+当前原则是尽量支持鼠标操作，键盘只作为辅助快捷操作。

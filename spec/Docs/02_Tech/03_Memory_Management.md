@@ -1,5 +1,7 @@
 # 内存与生命周期管理规范
 
+文档状态：仍为当前有效规范。本文定义对象生命周期和资源隔离约定；具体需求优先级见 `ImplementationTODO.md`，Agent 执行流程见 `04_Agent_Development_Workflow.md`。
+
 本文档定义 Godot 项目中的对象生命周期约定，目标是避免测试和运行时出现 orphan node、资源残留和共享可变状态污染。
 
 ## 一、核心原则
@@ -75,3 +77,6 @@
 - `RunManager` 的 `SaveManager` 子节点已改为 `_ready()` 中创建并挂树，避免纯逻辑测试路径产生裸节点。
 - `test_rotation_logic.gd` 在脚本结束后等待短生命周期 Tween / 音频资源释放，避免测试进程退出阶段误报资源残留。
 - `BackpackManager.replace_item_data()` 已统一保留原物品 `runtime_id` 并广播替换事件，避免物品变身/进化后 UI 映射持有失效资源身份。
+- `GlobalFeedback` 的按钮反馈 tween 会在按钮退出场景树时清理，避免动态商店、事件和奖励按钮刷新时残留 tween 引用。
+- `scripts/run_scene_smoke_tests.py --fail-on-engine-error` 已作为 UI、场景、autoload 和资源改动后的固定检查，严格拦截 `ERROR:` 与 `SCRIPT ERROR:` 输出。
+- `tools/export_windows_release.ps1 -PrecheckOnly` 已作为发布前置检查，强制运行全量 GUT 与严格场景冒烟并记录 manifest。
