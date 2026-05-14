@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Docs/02_Tech/ImplementationTODO.md",
+                "file": "Docs/03_Log/04_Scene_Transition_Flow.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "ImplementationTODO"
+              "title": "04_Scene_Transition_Flow"
             }
           }
         ]
@@ -185,16 +185,18 @@
   },
   "active": "3a863a8929fb1a20",
   "lastOpenFiles": [
+    "Docs/03_Log/03_Architectural_Review.md",
+    "Docs/03_Log/02_Architecture_Review_Diagrams.md",
+    "Docs/03_Log/01_Review_Notes.md",
+    "Docs/02_Tech/ImplementationTODO.md",
     "Docs/02_Tech/02_Implementation_Roadmap.md",
     "UI-example/UI_2.0.png.import",
     "UI-example/UI_2.0.png",
     "Docs/02_Tech/01_System_Architecture.md",
     "Docs/01_Design/02_Card_Catalog.md",
     "Docs/01_Design/01_Core_Loop_And_Rules.md",
-    "Docs/03_Log/02_Architecture_Review_Diagrams.md",
     "b288b9141e4a0380a96e6a44e058544c.png.import",
     "GamePlay/System_Architecture.md",
-    "Docs/03_Log/01_Review_Notes.md",
     "Docs/02_Tech",
     "Docs/01_Design",
     "Docs/03_Log",
