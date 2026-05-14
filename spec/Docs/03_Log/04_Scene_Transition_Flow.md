@@ -35,7 +35,7 @@ graph TD
     HUB -- "点击 整理背包" --> BACKPACK_UI
     HUB -- "ESC / 保存并退出" --> MENU
     
-    BATTLE -- "Sanity <= 0" --> GAMEOVER
+    BATTLE -- "梦值 <= 0" --> GAMEOVER
     BATTLE -- "Score >= Target" --> VICTORY
     BATTLE -- "ESC / 离开梦境" --> HUB
     

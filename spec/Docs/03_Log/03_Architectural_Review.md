@@ -21,7 +21,7 @@
 ## 2. 设计亮点 (Architectural Highlights)
 
 ### 2.1 基于动作序列的同步机制 (Action Queue)
-`ImpactResolver` 不直接修改全局 San 值或分数，而是生成 `GameAction` 对象列表。由 `SequencePlayer` 在播放对应动画时再触发数值变动。
+`ImpactResolver` 不直接修改全局梦值或分数，而是生成 `GameAction` 对象列表。由 `SequencePlayer` 在播放对应动画时再触发数值变动。
 - **优点**: 玩家看到的数值跳变与动画反馈是同步的，不会出现“人还没撞到，分数先加了”的尴尬情况。
 
 ### 2.2 深度递归与物理去重
@@ -37,9 +37,9 @@
 ## 3. 潜在隐患与改进建议 (Observations & Recommendations)
 
 ### 3.1 状态变更的一致性风险 (Immediate vs. Deferred Changes)
-- **现状**: “污染度”在 `ImpactResolver` 解析过程中即时修改，而“分数/San值”则延迟到 `SequencePlayer` 播放时修改。
-- **风险**: 如果某个 `ItemEffect` 的逻辑依赖于全局分数或 San 值，在同一个递归链条中，后执行的 Effect 拿到的是旧的分数，而可能已经拿到了新的污染度。
-- **建议**: 考虑将所有状态变更统一收拢。或者，如果 Effect 需要读取当前 San 值进行分支判断，应提供一个“预演状态 (Projected State)”。
+- **现状**: “污染度”在 `ImpactResolver` 解析过程中即时修改，而“分数/梦值”则延迟到 `SequencePlayer` 播放时修改。
+- **风险**: 如果某个 `ItemEffect` 的逻辑依赖于全局分数或梦值，在同一个递归链条中，后执行的 Effect 拿到的是旧的分数，而可能已经拿到了新的污染度。
+- **建议**: 考虑将所有状态变更统一收拢。或者，如果 Effect 需要读取当前梦值进行分支判断，应提供一个“预演状态 (Projected State)”。
 
 ### 3.2 核心状态的视觉可见性 (Visibility of Core Mechanics)
 - **现状**: “污染 (Pollution)”是本作的核心机制之一，但目前仅在 Tooltip 中可见。
