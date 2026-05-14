@@ -1,0 +1,67 @@
+{
+  "default_route_id": "default",
+  "max_act": 6,
+  "routes": {
+    "default": [
+      {
+        "id": "battle_1",
+        "type": "battle",
+        "label": "局内游戏",
+        "scene": "battle"
+      },
+      {
+        "id": "shop_1",
+        "type": "shop",
+        "label": "商店",
+        "scene": "shop"
+      },
+      {
+        "id": "event_1",
+        "type": "event",
+        "label": "事件",
+        "scene": "event"
+      },
+      {
+        "id": "battle_2",
+        "type": "battle",
+        "label": "局内游戏",
+        "scene": "battle"
+      },
+      {
+        "id": "shop_2",
+        "type": "shop",
+        "label": "商店",
+        "scene": "shop"
+      },
+      {
+        "id": "event_2",
+        "type": "event",
+        "label": "事件",
+        "scene": "event"
+      },
+      {
+        "id": "boss_1",
+        "type": "boss_battle",
+        "label": "Boss局内游戏",
+        "scene": "battle",
+        "score_target": {
+          "enabled": true,
+          "base": 30,
+          "act_multiplier": 20
+        }
+      },
+      {
+        "id": "shop_3",
+        "type": "shop",
+        "label": "商店",
+        "scene": "shop"
+      },
+      {
+        "id": "event_3",
+        "type": "event",
+        "label": "事件",
+        "scene": "event"
+      }
+    ]
+  }
+}

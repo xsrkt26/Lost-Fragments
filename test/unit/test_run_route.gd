@@ -16,6 +16,58 @@ func test_default_route_is_configured():
 	assert_eq(nodes[1].get("type"), RouteConfig.NODE_SHOP)
 	assert_eq(nodes[2].get("type"), RouteConfig.NODE_EVENT)
 	assert_eq(nodes[6].get("type"), RouteConfig.NODE_BOSS_BATTLE)
+	assert_eq(nodes[6].get("scene"), RouteConfig.SCENE_BATTLE)
+
+func test_default_route_loads_from_external_config():
+	var table = RouteConfig.load_route_table_from_path(RouteConfig.ROUTE_DATA_PATH)
+	var routes = table.get("routes", {})
+	assert_true(routes is Dictionary)
+	assert_true(routes.has(RouteConfig.DEFAULT_ROUTE_ID))
+	assert_eq(RouteConfig.get_max_act(), 6)
+	assert_eq(RouteConfig.get_route_size(), 9)
+
+func test_route_config_falls_back_when_file_is_missing():
+	var table = RouteConfig.load_route_table_from_path("user://missing_routes_for_test.json")
+	var routes = table.get("routes", {})
+	assert_true(routes is Dictionary)
+	assert_true(routes.has(RouteConfig.DEFAULT_ROUTE_ID))
+	assert_eq(Array(routes[RouteConfig.DEFAULT_ROUTE_ID]).size(), 9)
+
+func test_route_config_falls_back_when_json_is_invalid():
+	var path = "user://invalid_routes_for_test.json"
+	var file = FileAccess.open(path, FileAccess.WRITE)
+	assert_not_null(file)
+	file.store_string("{invalid")
+	file.close()
+
+	var table = RouteConfig.load_route_table_from_path(path)
+	var routes = table.get("routes", {})
+	assert_true(routes is Dictionary)
+	assert_true(routes.has(RouteConfig.DEFAULT_ROUTE_ID))
+	assert_eq(Array(routes[RouteConfig.DEFAULT_ROUTE_ID]).size(), 9)
+	DirAccess.remove_absolute(path)
+
+func test_route_config_supports_custom_route_nodes_and_score_rules():
+	var path = "user://custom_routes_for_test.json"
+	_write_route_table(path, {
+		"default_route_id": "custom",
+		"max_act": 2,
+		"routes": {
+			"custom": [
+				{"id": "intro", "type": RouteConfig.NODE_CUTSCENE, "label": "开场CG", "scene": RouteConfig.SCENE_EVENT, "metadata": {"cg": "intro"}},
+				{"id": "elite_1", "type": RouteConfig.NODE_ELITE_BATTLE, "label": "精英局内游戏", "score_target": {"enabled": true, "value": 25}}
+			]
+		}
+	})
+
+	var nodes = RouteConfig.get_route_nodes("custom", path)
+	assert_eq(nodes.size(), 2)
+	assert_eq(RouteConfig.get_max_act(path), 2)
+	assert_eq(RouteConfig.normalize_route_id("missing", path), "custom")
+	assert_eq(RouteConfig.get_scene_key_for_node(nodes[0]), RouteConfig.SCENE_EVENT)
+	assert_true(RouteConfig.is_battle_node_type(nodes[1].get("type", "")))
+	assert_eq(RouteConfig.get_score_target_rule(nodes[1], 1).target, 25)
+	DirAccess.remove_absolute(path)
 
 func test_new_route_progress_starts_at_first_node():
 	var node = run_manager.get_current_route_node()
@@ -82,6 +134,9 @@ func test_scene_mapping_supports_current_route_node_types():
 	assert_eq(run_manager.get_scene_type_for_node({"type": RouteConfig.NODE_BOSS_BATTLE}), GlobalScene.SceneType.BATTLE)
 	assert_eq(run_manager.get_scene_type_for_node({"type": RouteConfig.NODE_SHOP}), GlobalScene.SceneType.SHOP)
 	assert_eq(run_manager.get_scene_type_for_node({"type": RouteConfig.NODE_EVENT}), GlobalScene.SceneType.EVENT)
+	assert_eq(run_manager.get_scene_type_for_node({"type": RouteConfig.NODE_ELITE_BATTLE}), GlobalScene.SceneType.BATTLE)
+	assert_eq(run_manager.get_scene_type_for_node({"type": RouteConfig.NODE_REWARD}), GlobalScene.SceneType.EVENT)
+	assert_eq(run_manager.get_scene_type_for_node({"type": RouteConfig.NODE_CUTSCENE, "scene": RouteConfig.SCENE_HUB}), GlobalScene.SceneType.HUB)
 
 func test_normal_battle_has_no_score_target():
 	run_manager.current_route_index = 0
@@ -103,3 +158,11 @@ func test_boss_target_scales_by_act():
 	run_manager.current_route_index = 6
 	run_manager.current_act = 3
 	assert_eq(run_manager.get_current_battle_target_score(), 90)
+
+func _write_route_table(path: String, table: Dictionary) -> void:
+	var file = FileAccess.open(path, FileAccess.WRITE)
+	assert_not_null(file)
+	if file == null:
+		return
+	file.store_string(JSON.stringify(table))
+	file.close()

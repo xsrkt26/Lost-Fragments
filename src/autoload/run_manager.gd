@@ -368,14 +368,16 @@ func can_enter_route_node(index: int) -> bool:
 	return is_run_active and index == current_route_index and not get_current_route_node().is_empty()
 
 func get_scene_type_for_node(node: Dictionary) -> int:
-	var node_type = node.get("type", "")
-	match node_type:
-		RouteConfig.NODE_BATTLE, RouteConfig.NODE_BOSS_BATTLE:
+	var scene_key = RouteConfig.get_scene_key_for_node(node)
+	match scene_key:
+		RouteConfig.SCENE_BATTLE:
 			return GlobalScene.SceneType.BATTLE
-		RouteConfig.NODE_SHOP:
+		RouteConfig.SCENE_SHOP:
 			return GlobalScene.SceneType.SHOP
-		RouteConfig.NODE_EVENT:
+		RouteConfig.SCENE_EVENT:
 			return GlobalScene.SceneType.EVENT
+		RouteConfig.SCENE_HUB:
+			return GlobalScene.SceneType.HUB
 	return GlobalScene.SceneType.HUB
 
 func get_current_node_scene_type() -> int:
@@ -383,12 +385,14 @@ func get_current_node_scene_type() -> int:
 
 func get_current_battle_config() -> Dictionary:
 	var node_type = get_current_route_node_type()
-	var has_target = node_type == RouteConfig.NODE_BOSS_BATTLE
+	var node = get_current_route_node()
+	var score_rule = RouteConfig.get_score_target_rule(node, current_act)
+	var has_target = bool(score_rule.get("enabled", false))
 	return {
 		"node_type": node_type,
-		"is_boss": has_target,
+		"is_boss": RouteConfig.is_boss_node_type(node_type),
 		"has_score_target": has_target,
-		"target_score": _get_boss_target_score() if has_target else NO_SCORE_TARGET
+		"target_score": int(score_rule.get("target", NO_SCORE_TARGET)) if has_target else NO_SCORE_TARGET
 	}
 
 func current_battle_has_score_target() -> bool:
@@ -404,7 +408,11 @@ func is_current_battle_score_success(score: int) -> bool:
 	return score >= int(config.get("target_score", NO_SCORE_TARGET))
 
 func _get_boss_target_score() -> int:
-	return 30 + current_act * 20
+	var node = get_current_route_node()
+	var score_rule = RouteConfig.get_score_target_rule(node, current_act)
+	if bool(score_rule.get("enabled", false)):
+		return int(score_rule.get("target", NO_SCORE_TARGET))
+	return NO_SCORE_TARGET
 
 func advance_route_node(expected_node_id: String = "") -> Dictionary:
 	if not is_run_active:
@@ -419,7 +427,7 @@ func advance_route_node(expected_node_id: String = "") -> Dictionary:
 	current_route_index += 1
 
 	if current_route_index >= RouteConfig.get_route_size(current_route_id):
-		if current_act >= RouteConfig.MAX_ACT:
+		if current_act >= RouteConfig.get_max_act():
 			_complete_run()
 			_emit_route_changed()
 			return current_node
@@ -432,10 +440,10 @@ func advance_route_node(expected_node_id: String = "") -> Dictionary:
 	return current_node
 
 func _complete_run() -> void:
-	print("[RunManager] 已完成全部 ", RouteConfig.MAX_ACT, " 个场景，整局胜利。")
+	print("[RunManager] 已完成全部 ", RouteConfig.get_max_act(), " 个场景，整局胜利。")
 	is_run_active = false
 	is_run_complete = true
-	current_act = RouteConfig.MAX_ACT
+	current_act = RouteConfig.get_max_act()
 	current_route_index = max(0, RouteConfig.get_route_size(current_route_id) - 1)
 	completed_route_nodes = []
 	if saver:

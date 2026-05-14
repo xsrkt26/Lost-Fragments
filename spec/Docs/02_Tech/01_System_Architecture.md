@@ -50,7 +50,7 @@ res://
 │   ├── debug/          # 手工调试场景，不进入自动化测试收集
 │   ├── ui/             # 表现层
 │   └── autoload/       # 全局事件总线与持久化
-├── data/               # 静态资源
+├── data/               # 静态资源；路线配置位于 data/routes/routes.json
 ├── test/               # 工业级测试套件 (unit/integration)
 ├── tools/              # 仓库级工具脚本
 └── spec/               # 设计与技术协议
