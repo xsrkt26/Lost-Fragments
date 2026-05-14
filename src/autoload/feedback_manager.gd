@@ -5,10 +5,86 @@ extends Node
 
 enum TextType { SCORE, SANITY, INFO }
 
+const BUTTON_FEEDBACK_META := "_lost_fragments_button_feedback_bound"
+const BUTTON_HOVER_SCALE := Vector2(1.035, 1.035)
+const BUTTON_HOVER_DURATION := 0.08
+
 var _shake_tween: Tween = null
+var _button_tweens: Dictionary = {}
 
 func _ready():
 	print("[GlobalFeedback] 反馈管理器已就绪。")
+	if get_tree() and not get_tree().node_added.is_connected(_on_node_added):
+		get_tree().node_added.connect(_on_node_added)
+	call_deferred("bind_buttons", get_tree().root)
+
+# --- 通用 UI 反馈 ---
+
+func bind_buttons(root: Node) -> void:
+	if root == null:
+		return
+	if root is BaseButton:
+		bind_button(root)
+	for child in root.get_children():
+		bind_buttons(child)
+
+func bind_button(button: BaseButton) -> void:
+	if button == null or button.has_meta(BUTTON_FEEDBACK_META):
+		return
+	button.set_meta(BUTTON_FEEDBACK_META, true)
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.mouse_entered.connect(func(): _on_button_hovered(button))
+	button.mouse_exited.connect(func(): _on_button_unhovered(button))
+	button.focus_entered.connect(func(): _on_button_hovered(button))
+	button.focus_exited.connect(func(): _on_button_unhovered(button))
+	button.pressed.connect(func(): _on_button_pressed(button))
+	button.tree_exiting.connect(func(): _clear_button_tween(button), CONNECT_ONE_SHOT)
+
+func _on_node_added(node: Node) -> void:
+	if node is BaseButton:
+		bind_button(node)
+
+func _on_button_hovered(button: BaseButton) -> void:
+	if button == null or button.disabled or not is_inside_tree():
+		return
+	button.pivot_offset = button.size * 0.5
+	_tween_button_scale(button, BUTTON_HOVER_SCALE)
+
+func _on_button_unhovered(button: BaseButton) -> void:
+	if button == null or not is_inside_tree():
+		return
+	_tween_button_scale(button, Vector2.ONE)
+
+func _on_button_pressed(button: BaseButton) -> void:
+	if button == null or button.disabled:
+		return
+	_play_ui_sfx("click")
+
+func _tween_button_scale(button: BaseButton, target_scale: Vector2) -> void:
+	var key = button.get_instance_id()
+	if _button_tweens.has(key):
+		var old_tween = _button_tweens[key]
+		if old_tween and old_tween.is_running():
+			old_tween.kill()
+	var tween = create_tween()
+	_button_tweens[key] = tween
+	tween.tween_property(button, "scale", target_scale, BUTTON_HOVER_DURATION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+func _clear_button_tween(button: BaseButton) -> void:
+	if button == null:
+		return
+	var key = button.get_instance_id()
+	if not _button_tweens.has(key):
+		return
+	var tween = _button_tweens[key]
+	if tween and tween.is_running():
+		tween.kill()
+	_button_tweens.erase(key)
+
+func _play_ui_sfx(sfx_key: String) -> void:
+	var audio = get_node_or_null("/root/GlobalAudio")
+	if audio and audio.has_method("play_sfx"):
+		audio.play_sfx(sfx_key, 0.04)
 
 # --- 屏幕震动 (Screen Shake) ---
 
