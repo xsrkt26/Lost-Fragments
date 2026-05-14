@@ -78,6 +78,7 @@ python -B scripts\run_scene_smoke_tests.py --fail-on-engine-error
 ## 开发约定
 
 - 最新需求和实现优先级见 `spec/Docs/02_Tech/ImplementationTODO.md`。
+- Agent 接手开发流程见 `spec/Docs/02_Tech/04_Agent_Development_Workflow.md`。
 - 新功能完成后需要补自动化测试、跑全量 GUT、更新文档、commit 并 push。
 - Godot 路径移动后如出现 class_name 缓存问题，先执行：
 
