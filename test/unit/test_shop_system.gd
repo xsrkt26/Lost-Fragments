@@ -48,6 +48,52 @@ func test_shop_filters_owned_ornaments():
 	for offer in offers:
 		assert_false(offer.get("type", "") == "ornament" and offer.get("id", "") == "dreamcatcher_filter")
 
+func test_shop_generation_is_reproducible_with_run_seed_and_cached_per_node():
+	var rm = _make_run_manager(2)
+	rm.current_route_index = 1
+	rm.set_random_seed(123456)
+
+	var first = rm.generate_current_shop_offers(item_db, ornament_db, 4)
+	var second = rm.generate_current_shop_offers(item_db, ornament_db, 4)
+	var restored = autofree(RunManagerScript.new())
+	restored.deserialize_run(rm.serialize_run())
+	var restored_cached = restored.generate_current_shop_offers(item_db, ornament_db, 4)
+
+	assert_eq(_offer_keys(first), _offer_keys(second))
+	assert_eq(_offer_keys(first), _offer_keys(restored_cached))
+
+func test_shop_refresh_spends_shards_and_updates_refresh_cost():
+	var rm = _make_run_manager(2)
+	rm.current_route_index = 1
+	rm.current_shards = 100
+	rm.set_random_seed(222)
+	var initial_cost = rm.get_current_shop_refresh_cost()
+
+	var before = rm.generate_current_shop_offers(item_db, ornament_db, 4)
+	var after = rm.refresh_current_shop_offers(item_db, ornament_db, 4)
+
+	assert_eq(rm.current_shards, 100 - initial_cost)
+	assert_eq(rm.get_current_shop_refresh_cost(), initial_cost + 3)
+	assert_eq(before.size(), 4)
+	assert_eq(after.size(), 4)
+
+func test_shop_prices_scale_with_act():
+	var early = _make_run_manager(1)
+	var late = _make_run_manager(5)
+
+	var early_offers = ShopGeneratorScript.generate_offers(early, item_db, ornament_db, 12)
+	var late_offers = ShopGeneratorScript.generate_offers(late, item_db, ornament_db, 12)
+	var early_by_key = _offers_by_key(early_offers)
+	var late_by_key = _offers_by_key(late_offers)
+	var shared_key = ""
+	for key in early_by_key.keys():
+		if late_by_key.has(key):
+			shared_key = key
+			break
+
+	assert_ne(shared_key, "")
+	assert_true(int(late_by_key[shared_key].get("price", 0)) >= int(early_by_key[shared_key].get("price", 0)))
+
 func test_buy_shop_offer_spends_shards_and_updates_long_term_state():
 	var rm = _make_run_manager(1)
 
@@ -76,3 +122,15 @@ func test_shop_item_offer_uses_card_tooltip():
 	var expected_item = item_db.get_item_by_id("paper_ball")
 	var title_label = tooltip.get_node("PanelContainer/MarginContainer/VBoxContainer/TitleLabel")
 	assert_eq(title_label.text, expected_item.item_name)
+
+func _offer_keys(offers: Array[Dictionary]) -> Array[String]:
+	var keys: Array[String] = []
+	for offer in offers:
+		keys.append(ShopGeneratorScript.make_offer_key(offer))
+	return keys
+
+func _offers_by_key(offers: Array[Dictionary]) -> Dictionary:
+	var result := {}
+	for offer in offers:
+		result[ShopGeneratorScript.make_offer_key(offer)] = offer
+	return result

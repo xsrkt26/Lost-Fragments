@@ -22,7 +22,9 @@ func _populate_event() -> void:
 	for child in choice_container.get_children():
 		child.queue_free()
 
-	if rm and event_db and event_db.has_method("pick_event_for_run"):
+	if rm and event_db and rm.has_method("pick_current_event"):
+		current_event = rm.pick_current_event(event_db)
+	elif rm and event_db and event_db.has_method("pick_event_for_run"):
 		current_event = event_db.pick_event_for_run(rm)
 	if current_event != null:
 		title_label.text = current_event.event_name

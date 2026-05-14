@@ -46,6 +46,45 @@ func test_pick_event_for_run_is_deterministic():
 	assert_not_null(first_pick)
 	assert_eq(first_pick.id, second_pick.id)
 
+func test_event_pool_filters_seen_events_and_falls_back_when_exhausted():
+	var act_one = event_db.get_available_events(1, ["forgotten_cache", "quiet_rest"])
+	var act_one_ids = act_one.map(func(event_data): return event_data.id)
+
+	assert_false(act_one_ids.has("forgotten_cache"))
+	assert_false(act_one_ids.has("quiet_rest"))
+	assert_true(act_one_ids.has("ornament_peddler"))
+
+	var exhausted = event_db.get_available_events(1, ["forgotten_cache", "quiet_rest", "ornament_peddler"])
+	assert_true(exhausted.is_empty())
+
+func test_pick_current_event_is_cached_and_records_seen_event_after_choice():
+	var rm = _make_run_manager(1, 2)
+	rm.set_random_seed(77)
+
+	var picked = rm.pick_current_event(event_db)
+	assert_not_null(picked)
+	var cached = rm.pick_current_event(event_db)
+	var choice = _find_choice_without_sanity(picked.choices)
+
+	assert_eq(picked.id, cached.id)
+	assert_true(choice.has("event_id"))
+	assert_true(rm.apply_event_choice(choice))
+	assert_true(rm.seen_event_ids.has(picked.id))
+
+func test_weighted_event_pick_is_reproducible_with_seed():
+	var rm_a = _make_run_manager(2, 5)
+	var rm_b = _make_run_manager(2, 5)
+	var rng_a = RandomNumberGenerator.new()
+	var rng_b = RandomNumberGenerator.new()
+	rng_a.seed = 404
+	rng_b.seed = 404
+
+	var pick_a = event_db.pick_event_for_run(rm_a, rng_a)
+	var pick_b = event_db.pick_event_for_run(rm_b, rng_b)
+
+	assert_not_null(pick_a)
+	assert_eq(pick_a.id, pick_b.id)
+
 func test_apply_event_choice_updates_long_term_state():
 	var rm = _make_run_manager(2, 2)
 
@@ -101,3 +140,14 @@ func test_backpack_space_persists_and_applies_to_battle_manager():
 	battle_manager._apply_backpack_grid_config(restored)
 	assert_eq(battle_manager.backpack_manager.usable_width, 7)
 	assert_eq(battle_manager.backpack_manager.usable_height, 7)
+
+func _find_choice_without_sanity(choices: Array[Dictionary]) -> Dictionary:
+	for choice in choices:
+		var has_sanity := false
+		for effect in Array(choice.get("effects", [])):
+			if effect is Dictionary and str(effect.get("type", "")) == "sanity":
+				has_sanity = true
+				break
+		if not has_sanity:
+			return choice
+	return choices[0] if not choices.is_empty() else {}

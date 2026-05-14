@@ -54,6 +54,11 @@ text = "碎片: 0"
 custom_minimum_size = Vector2(50, 0)
 layout_mode = 2
 
+[node name="RefreshButton" type="Button" parent="MarginContainer/VBoxContainer/Header"]
+custom_minimum_size = Vector2(120, 50)
+layout_mode = 2
+text = "刷新"
+
 [node name="BackButton" type="Button" parent="MarginContainer/VBoxContainer/Header"]
 custom_minimum_size = Vector2(120, 50)
 layout_mode = 2

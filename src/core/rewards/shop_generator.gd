@@ -3,52 +3,62 @@ extends RefCounted
 
 const TYPE_ITEM := "item"
 const TYPE_ORNAMENT := "ornament"
+const WeightedRandom = preload("res://src/core/random/weighted_random.gd")
 
-static func generate_offers(run_manager: Node, item_db: Node, ornament_db: Node, count: int = 4) -> Array[Dictionary]:
+const TAG_WEIGHT_STEP := 2.0
+const BASE_REFRESH_COST := 5
+
+static func generate_offers(run_manager: Node, item_db: Node, ornament_db: Node, count: int = 4, rng: RandomNumberGenerator = null, excluded_keys: Array = []) -> Array[Dictionary]:
 	var offers: Array[Dictionary] = []
 	var act = max(1, int(run_manager.get("current_act"))) if run_manager != null else 1
+	var build_tags = _collect_build_tags(run_manager, item_db, ornament_db)
 
-	var items = _get_item_offers(item_db, count)
-	var ornaments = _get_ornament_offers(run_manager, ornament_db, act, count)
+	var items = _get_item_offers(item_db, act, count, build_tags, excluded_keys)
+	var ornaments = _get_ornament_offers(run_manager, ornament_db, act, count, build_tags, excluded_keys)
 
-	var item_index = 0
-	var ornament_index = 0
-	while offers.size() < count and (item_index < items.size() or ornament_index < ornaments.size()):
-		if item_index < items.size():
-			offers.append(items[item_index])
-			item_index += 1
-			if offers.size() >= count:
-				break
-		if ornament_index < ornaments.size():
-			offers.append(ornaments[ornament_index])
-			ornament_index += 1
+	_append_weighted_offer(offers, items, rng)
+	_append_weighted_offer(offers, ornaments, rng)
 
-	return offers
+	var pool: Array[Dictionary] = []
+	pool.append_array(items)
+	pool.append_array(ornaments)
+	_remove_existing_offers(pool, offers)
 
-static func _get_item_offers(item_db: Node, count: int) -> Array[Dictionary]:
+	while offers.size() < count and not pool.is_empty():
+		_append_weighted_offer(offers, pool, rng)
+
+	var stripped: Array[Dictionary] = []
+	for offer in offers.slice(0, count):
+		stripped.append(_strip_offer_metadata(offer))
+	return stripped
+
+static func calculate_refresh_cost(act: int, refresh_count: int) -> int:
+	return max(1, BASE_REFRESH_COST + max(1, act) * 2 + max(0, refresh_count) * 3)
+
+static func make_offer_key(offer: Dictionary) -> String:
+	return "%s:%s" % [str(offer.get("type", "")), str(offer.get("id", ""))]
+
+static func _get_item_offers(item_db: Node, act: int, count: int, build_tags: Dictionary, excluded_keys: Array) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if item_db == null or not item_db.has_method("get_all_items"):
 		return result
 	var items = item_db.get_all_items()
 	items = items.filter(func(item): return item != null and item.can_draw)
-	items.sort_custom(func(a, b):
-		if int(a.price) == int(b.price):
-			return a.id < b.id
-		return int(a.price) < int(b.price)
-	)
 	for item in items:
-		result.append({
+		var offer = {
 			"type": TYPE_ITEM,
 			"id": item.id,
 			"title": item.item_name,
 			"description": item.description,
-			"price": max(1, abs(int(item.price))),
-		})
-		if result.size() >= count:
-			break
-	return result
+			"price": _calculate_item_price(item, act),
+			"weight": _get_item_weight(item, build_tags),
+		}
+		if not excluded_keys.has(make_offer_key(offer)):
+			result.append(offer)
+	result.sort_custom(func(a, b): return _compare_offer_priority(a, b))
+	return result.slice(0, max(count * 3, count))
 
-static func _get_ornament_offers(run_manager: Node, ornament_db: Node, act: int, count: int) -> Array[Dictionary]:
+static func _get_ornament_offers(run_manager: Node, ornament_db: Node, act: int, count: int, build_tags: Dictionary, excluded_keys: Array) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if ornament_db == null or not ornament_db.has_method("get_available_ornaments"):
 		return result
@@ -57,20 +67,137 @@ static func _get_ornament_offers(run_manager: Node, ornament_db: Node, act: int,
 		for ornament_id in Array(run_manager.get("current_ornaments")):
 			owned.append(str(ornament_id))
 	var ornaments = ornament_db.get_available_ornaments(act, owned)
-	ornaments.sort_custom(func(a, b):
-		if int(a.price) == int(b.price):
-			return a.id < b.id
-		return int(a.price) < int(b.price)
-	)
 	for ornament in ornaments:
-		result.append({
+		var offer = {
 			"type": TYPE_ORNAMENT,
 			"id": ornament.id,
 			"title": ornament.ornament_name,
 			"description": ornament.effect_text,
 			"rarity": ornament.rarity,
-			"price": max(1, int(ornament.price)),
-		})
-		if result.size() >= count:
-			break
+			"price": _calculate_ornament_price(ornament, act),
+			"weight": _get_ornament_weight(ornament, act, build_tags),
+		}
+		if not excluded_keys.has(make_offer_key(offer)):
+			result.append(offer)
+	result.sort_custom(func(a, b): return _compare_offer_priority(a, b))
+	return result.slice(0, max(count * 3, count))
+
+static func _append_weighted_offer(offers: Array[Dictionary], candidates: Array[Dictionary], rng: RandomNumberGenerator = null) -> void:
+	if candidates.is_empty():
+		return
+	var index := WeightedRandom.pick_index(candidates, rng)
+	if index < 0:
+		return
+	var offer = candidates[index]
+	offers.append(offer)
+	candidates.remove_at(index)
+	_remove_existing_offers(candidates, offers)
+
+static func _remove_existing_offers(candidates: Array[Dictionary], offers: Array[Dictionary]) -> void:
+	var keys: Array[String] = []
+	for offer in offers:
+		keys.append(make_offer_key(offer))
+	for index in range(candidates.size() - 1, -1, -1):
+		if keys.has(make_offer_key(candidates[index])):
+			candidates.remove_at(index)
+
+static func _compare_offer_priority(a: Dictionary, b: Dictionary) -> bool:
+	var weight_a = float(a.get("weight", 0.0))
+	var weight_b = float(b.get("weight", 0.0))
+	if not is_equal_approx(weight_a, weight_b):
+		return weight_a > weight_b
+	var price_a = int(a.get("price", 0))
+	var price_b = int(b.get("price", 0))
+	if price_a != price_b:
+		return price_a < price_b
+	return make_offer_key(a) < make_offer_key(b)
+
+static func _strip_offer_metadata(offer: Dictionary) -> Dictionary:
+	var result = offer.duplicate(true)
+	result.erase("weight")
 	return result
+
+static func _calculate_item_price(item, act: int) -> int:
+	var base_price = max(1, abs(int(item.price)))
+	var multiplier = 1.0 + float(max(0, act - 1)) * 0.08
+	return max(1, roundi(float(base_price) * multiplier))
+
+static func _calculate_ornament_price(ornament, act: int) -> int:
+	var base_price = max(1, int(ornament.price))
+	var rarity_surcharge := 0.0
+	match str(ornament.rarity):
+		"进阶":
+			rarity_surcharge = 0.08
+		"稀有":
+			rarity_surcharge = 0.16
+	var multiplier = 1.0 + float(max(0, act - 1)) * 0.1 + rarity_surcharge
+	return max(1, roundi(float(base_price) * multiplier))
+
+static func _get_item_weight(item, build_tags: Dictionary) -> float:
+	var price = int(item.price)
+	var weight := 7.0
+	if price < 0:
+		weight = 4.0
+	elif price >= 10:
+		weight = 6.0
+	weight += _get_tag_affinity(item.tags, build_tags)
+	if Array(item.tags).has("废弃物") and float(build_tags.get("废弃物", 0.0)) > 0.0:
+		weight += 5.0
+	if Array(item.tags).has("机械") and float(build_tags.get("机械", 0.0)) > 0.0:
+		weight += 5.0
+	return max(0.1, weight)
+
+static func _get_ornament_weight(ornament, act: int, build_tags: Dictionary) -> float:
+	var weight := 1.0
+	match str(ornament.rarity):
+		"普通":
+			weight = 9.0
+		"进阶":
+			weight = 6.0
+		"稀有":
+			weight = 2.0
+		_:
+			weight = 4.0
+	if str(ornament.rarity) == "稀有" and act >= 5:
+		weight += 2.0
+	if str(ornament.rarity) == "稀有" and act >= 6:
+		weight += 2.0
+	weight += _get_tag_affinity(ornament.tags, build_tags)
+	return max(0.1, weight)
+
+static func _collect_build_tags(run_manager: Node, item_db: Node, ornament_db: Node) -> Dictionary:
+	var tags := {}
+	if run_manager == null:
+		return tags
+	if item_db != null and item_db.has_method("get_item_by_id"):
+		for item_id in Array(run_manager.get("current_deck")):
+			_add_item_tags(tags, item_db.get_item_by_id(str(item_id)))
+		for entry in Array(run_manager.get("current_backpack_items")):
+			if entry is Dictionary:
+				_add_item_tags(tags, item_db.get_item_by_id(str(entry.get("id", ""))))
+	if ornament_db != null and ornament_db.has_method("get_ornament_by_id"):
+		for ornament_id in Array(run_manager.get("current_ornaments")):
+			var ornament = ornament_db.get_ornament_by_id(str(ornament_id))
+			if ornament == null:
+				continue
+			for tag in Array(ornament.tags):
+				_add_tag(tags, str(tag), 2.0)
+	return tags
+
+static func _add_item_tags(tags: Dictionary, item) -> void:
+	if item == null:
+		return
+	for tag in Array(item.tags):
+		_add_tag(tags, str(tag), 1.0)
+
+static func _add_tag(tags: Dictionary, tag: String, amount: float) -> void:
+	if tag == "" or tag == "特殊物品" or tag == "衍生物品":
+		return
+	tags[tag] = float(tags.get(tag, 0.0)) + amount
+
+static func _get_tag_affinity(candidate_tags: Array, build_tags: Dictionary) -> float:
+	var score := 0.0
+	for tag_value in candidate_tags:
+		var tag = str(tag_value)
+		score += min(3.0, float(build_tags.get(tag, 0.0))) * TAG_WEIGHT_STEP
+	return score

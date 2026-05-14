@@ -6,6 +6,7 @@ const RouteConfig = preload("res://src/core/route/route_config.gd")
 
 @onready var shard_label = $MarginContainer/VBoxContainer/Header/ShardLabel
 @onready var shelf = $MarginContainer/VBoxContainer/ScrollContainer/GridContainer
+@onready var refresh_button = $MarginContainer/VBoxContainer/Header/RefreshButton
 @onready var back_button = $MarginContainer/VBoxContainer/Header/BackButton
 
 func _ready():
@@ -14,6 +15,7 @@ func _ready():
 	_update_shard_display()
 	_populate_shelf()
 	
+	refresh_button.pressed.connect(_on_refresh_pressed)
 	back_button.pressed.connect(_on_back_pressed)
 
 func _input(event):
@@ -27,6 +29,17 @@ func _update_shard_display():
 	var rm = get_node_or_null("/root/RunManager")
 	if rm:
 		shard_label.text = "碎片: " + str(rm.current_shards)
+	_update_refresh_button()
+
+func _update_refresh_button() -> void:
+	var rm = get_node_or_null("/root/RunManager")
+	if rm == null or not rm.has_method("get_current_shop_refresh_cost"):
+		refresh_button.disabled = true
+		return
+	var cost = rm.get_current_shop_refresh_cost()
+	refresh_button.text = "刷新 %d" % cost
+	refresh_button.tooltip_text = "刷新当前商店库存"
+	refresh_button.disabled = int(rm.current_shards) < cost
 
 func _populate_shelf():
 	var rm = get_node_or_null("/root/RunManager")
@@ -41,6 +54,7 @@ func _populate_shelf():
 	var offers = rm.generate_current_shop_offers(item_db, ornament_db, 4) if rm.has_method("generate_current_shop_offers") else []
 	for offer in offers:
 		_add_shop_offer(offer)
+	_update_refresh_button()
 
 func _add_shop_offer(offer: Dictionary):
 	var btn = Button.new()
@@ -99,6 +113,17 @@ func _show_offer_tooltip(offer: Dictionary) -> void:
 
 func _hide_offer_tooltip() -> void:
 	GlobalTooltip.hide()
+
+func _on_refresh_pressed() -> void:
+	GlobalTooltip.hide()
+	var rm = get_node_or_null("/root/RunManager")
+	var item_db = get_node_or_null("/root/ItemDatabase")
+	var ornament_db = get_node_or_null("/root/OrnamentDatabase")
+	if rm == null or item_db == null or not rm.has_method("refresh_current_shop_offers"):
+		return
+	rm.refresh_current_shop_offers(item_db, ornament_db, 4)
+	_update_shard_display()
+	_populate_shelf()
 
 func _on_back_pressed():
 	GlobalTooltip.hide()

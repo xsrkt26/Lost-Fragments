@@ -4,6 +4,10 @@
 		"title": "遗忘储物箱",
 		"description": "一只褪色的储物箱半埋在路边。里面剩下几件还能带走的东西。",
 		"earliest_act": 1,
+		"weight": 1.1,
+		"risk": 0.1,
+		"reward": 0.6,
+		"tags": ["物品", "碎片"],
 		"choices": [
 			{
 				"id": "take_shards",
@@ -28,6 +32,10 @@
 		"title": "安静休息处",
 		"description": "短暂的空白让梦境平稳下来。你可以恢复一些梦值，或继续搜寻资源。",
 		"earliest_act": 1,
+		"weight": 1.0,
+		"risk": 0.0,
+		"reward": 0.5,
+		"tags": ["梦值", "碎片"],
 		"choices": [
 			{
 				"id": "recover_sanity",
@@ -52,6 +60,10 @@
 		"title": "饰品摊",
 		"description": "摊主把一枚旧饰品推到你面前，只要付出一点碎片就能带走它。",
 		"earliest_act": 1,
+		"weight": 0.8,
+		"risk": 0.5,
+		"reward": 0.9,
+		"tags": ["饰品", "交易"],
 		"choices": [
 			{
 				"id": "trade_for_watch",
@@ -77,6 +89,10 @@
 		"title": "松开的背包带",
 		"description": "背包边缘的锁扣松动了一些。调整它需要花费资源，但可以让后续构筑空间更宽。",
 		"earliest_act": 2,
+		"weight": 0.9,
+		"risk": 0.4,
+		"reward": 0.8,
+		"tags": ["背包", "空间"],
 		"choices": [
 			{
 				"id": "expand_backpack",

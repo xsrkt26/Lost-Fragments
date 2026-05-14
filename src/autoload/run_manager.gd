@@ -47,6 +47,10 @@ var current_ornaments: Array[String] = []
 var backpack_usable_width: int = INITIAL_BACKPACK_USABLE_WIDTH
 var backpack_usable_height: int = INITIAL_BACKPACK_USABLE_HEIGHT
 var shop_purchase_state: Dictionary = {}
+var event_node_state: Dictionary = {}
+var seen_event_ids: Array[String] = []
+var rng_seed: int = 0
+var rng_state: int = 0
 var current_depth: int = 1
 var current_route_id: String = RouteConfig.DEFAULT_ROUTE_ID
 var current_act: int = 1
@@ -56,6 +60,7 @@ var is_run_active: bool = false
 var is_run_complete: bool = false
 
 var saver: SaveManager = null
+var _run_rng := RandomNumberGenerator.new()
 
 func _ready():
 	if saver == null:
@@ -81,6 +86,9 @@ func start_new_run():
 	backpack_usable_width = INITIAL_BACKPACK_USABLE_WIDTH
 	backpack_usable_height = INITIAL_BACKPACK_USABLE_HEIGHT
 	shop_purchase_state.clear()
+	event_node_state.clear()
+	seen_event_ids = []
+	_initialize_random_source()
 	current_depth = 1
 	reset_route_progress()
 	is_run_active = true
@@ -142,7 +150,10 @@ func remove_ornament(ornament_id: String) -> bool:
 	return true
 
 func generate_current_reward_options(item_db: Node, ornament_db: Node, count: int = 3) -> Array[Dictionary]:
-	return RewardGenerator.generate_options(self, item_db, ornament_db, count)
+	var options = RewardGenerator.generate_options(self, item_db, ornament_db, count, _get_random_source())
+	_sync_random_state()
+	save_current_state()
+	return options
 
 func apply_reward(reward: Dictionary) -> bool:
 	var reward_type = str(reward.get("type", ""))
@@ -168,7 +179,26 @@ func apply_reward(reward: Dictionary) -> bool:
 	return true
 
 func generate_current_shop_offers(item_db: Node, ornament_db: Node, count: int = 4) -> Array[Dictionary]:
-	return ShopGenerator.generate_offers(self, item_db, ornament_db, count)
+	var state = _get_current_shop_state()
+	var cached = _to_dictionary_array(state.get("offers", []))
+	if not cached.is_empty():
+		return cached
+	return _generate_and_cache_current_shop_offers(item_db, ornament_db, count, state)
+
+func refresh_current_shop_offers(item_db: Node, ornament_db: Node, count: int = 4) -> Array[Dictionary]:
+	var state = _get_current_shop_state()
+	var cost = get_current_shop_refresh_cost()
+	if current_shards < cost:
+		return _to_dictionary_array(state.get("offers", []))
+	current_shards -= cost
+	shards_changed.emit(current_shards)
+	state["refresh_count"] = int(state.get("refresh_count", 0)) + 1
+	state.erase("offers")
+	return _generate_and_cache_current_shop_offers(item_db, ornament_db, count, state)
+
+func get_current_shop_refresh_cost() -> int:
+	var state = _get_current_shop_state()
+	return ShopGenerator.calculate_refresh_cost(current_act, int(state.get("refresh_count", 0)))
 
 func buy_shop_offer(offer: Dictionary) -> bool:
 	var price = get_current_shop_offer_price(offer)
@@ -211,21 +241,55 @@ func get_current_shop_offer_price(offer: Dictionary) -> int:
 	return price
 
 func _record_shop_purchase(offer: Dictionary) -> void:
-	if not current_ornaments.has("recycling_coupon") or str(offer.get("type", "")) != ShopGenerator.TYPE_ITEM:
-		return
 	var key = _get_current_shop_state_key()
 	var state = _get_current_shop_state()
-	if bool(state.get("discount_next_item", false)):
-		state["discount_next_item"] = false
-	elif not bool(state.get("first_item_purchase_done", false)):
-		state["first_item_purchase_done"] = true
-		state["discount_next_item"] = true
+	var purchased_keys = _to_string_array(state.get("purchased_offer_keys", []))
+	var offer_key = ShopGenerator.make_offer_key(offer)
+	if offer_key != ":" and not purchased_keys.has(offer_key):
+		purchased_keys.append(offer_key)
+	state["purchased_offer_keys"] = purchased_keys
+	if current_ornaments.has("recycling_coupon") and str(offer.get("type", "")) == ShopGenerator.TYPE_ITEM:
+		if bool(state.get("discount_next_item", false)):
+			state["discount_next_item"] = false
+		elif not bool(state.get("first_item_purchase_done", false)):
+			state["first_item_purchase_done"] = true
+			state["discount_next_item"] = true
 	shop_purchase_state[key] = state
 
 func _get_current_shop_state() -> Dictionary:
 	return Dictionary(shop_purchase_state.get(_get_current_shop_state_key(), {}))
 
 func _get_current_shop_state_key() -> String:
+	return "%d:%d" % [current_act, current_route_index]
+
+func _generate_and_cache_current_shop_offers(item_db: Node, ornament_db: Node, count: int, state: Dictionary) -> Array[Dictionary]:
+	var excluded_keys = _to_string_array(state.get("purchased_offer_keys", []))
+	var offers = ShopGenerator.generate_offers(self, item_db, ornament_db, count, _get_random_source(), excluded_keys)
+	_sync_random_state()
+	state["offers"] = offers
+	shop_purchase_state[_get_current_shop_state_key()] = state
+	save_current_state()
+	return offers
+
+func pick_current_event(event_db: Node):
+	if event_db == null or not event_db.has_method("pick_event_for_run"):
+		return null
+	var key = _get_current_node_state_key()
+	var state = Dictionary(event_node_state.get(key, {}))
+	var event_id = str(state.get("event_id", ""))
+	if event_id != "" and event_db.has_method("get_event_by_id"):
+		var cached_event = event_db.get_event_by_id(event_id)
+		if cached_event != null:
+			return cached_event
+	var event_data = event_db.pick_event_for_run(self, _get_random_source())
+	_sync_random_state()
+	if event_data != null:
+		state["event_id"] = event_data.id
+		event_node_state[key] = state
+	save_current_state()
+	return event_data
+
+func _get_current_node_state_key() -> String:
 	return "%d:%d" % [current_act, current_route_index]
 
 func apply_event_choice(choice: Dictionary) -> bool:
@@ -254,6 +318,9 @@ func apply_event_choice(choice: Dictionary) -> bool:
 			_restore_event_snapshot(snapshot)
 			return false
 
+	var event_id = str(choice.get("event_id", choice.get("_event_id", "")))
+	if event_id != "" and not seen_event_ids.has(event_id):
+		seen_event_ids.append(event_id)
 	save_current_state()
 	return true
 
@@ -517,6 +584,10 @@ func serialize_run() -> Dictionary:
 		"backpack_usable_width": backpack_usable_width,
 		"backpack_usable_height": backpack_usable_height,
 		"shop_purchase_state": shop_purchase_state,
+		"event_node_state": event_node_state,
+		"seen_event_ids": seen_event_ids,
+		"rng_seed": rng_seed,
+		"rng_state": rng_state,
 		"depth": current_depth,
 		"route_id": current_route_id,
 		"act": current_act,
@@ -535,6 +606,9 @@ func deserialize_run(data: Dictionary):
 	backpack_usable_width = clampi(int(data.get("backpack_usable_width", INITIAL_BACKPACK_USABLE_WIDTH)), 1, BACKPACK_GRID_WIDTH)
 	backpack_usable_height = clampi(int(data.get("backpack_usable_height", INITIAL_BACKPACK_USABLE_HEIGHT)), 1, BACKPACK_GRID_HEIGHT)
 	shop_purchase_state = Dictionary(data.get("shop_purchase_state", {}))
+	event_node_state = Dictionary(data.get("event_node_state", {}))
+	seen_event_ids = _to_string_array(data.get("seen_event_ids", []))
+	_restore_random_source(int(data.get("rng_seed", 0)), int(data.get("rng_state", 0)))
 	current_depth = data.get("depth", 1)
 	current_route_id = RouteConfig.normalize_route_id(data.get("route_id", RouteConfig.DEFAULT_ROUTE_ID))
 	current_act = max(1, int(data.get("act", 1)))
@@ -558,6 +632,34 @@ func _to_dictionary_array(value: Variant) -> Array[Dictionary]:
 		if entry is Dictionary:
 			result.append(entry)
 	return result
+
+func set_random_seed(seed_value: int) -> void:
+	_initialize_random_source(seed_value)
+
+func _initialize_random_source(seed_value: int = 0) -> void:
+	rng_seed = seed_value if seed_value != 0 else int(Time.get_ticks_usec())
+	_run_rng.seed = rng_seed
+	rng_state = _run_rng.state
+
+func _restore_random_source(seed_value: int, state_value: int) -> void:
+	if seed_value == 0:
+		_initialize_random_source()
+		return
+	rng_seed = seed_value
+	_run_rng.seed = rng_seed
+	if state_value != 0:
+		_run_rng.state = state_value
+	rng_state = _run_rng.state
+
+func _get_random_source() -> RandomNumberGenerator:
+	if rng_seed == 0:
+		_initialize_random_source()
+	elif rng_state != 0:
+		_run_rng.state = rng_state
+	return _run_rng
+
+func _sync_random_state() -> void:
+	rng_state = _run_rng.state
 ## 获取当前战斗的目标分数。无分数目标时返回 NO_SCORE_TARGET。
 func get_target_score() -> int:
 	return get_current_battle_target_score()

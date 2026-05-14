@@ -42,6 +42,30 @@ func test_boss_rewards_prioritize_rare_ornaments_when_available():
 	assert_eq(options[0].get("type"), "ornament")
 	assert_eq(options[0].get("rarity"), "稀有")
 
+func test_reward_generation_is_reproducible_with_injected_random_seed():
+	var rm_a = _make_run_manager(3, 0)
+	var rm_b = _make_run_manager(3, 0)
+	rm_a.current_deck = ["rusty_gear", "trash_recycler"] as Array[String]
+	rm_b.current_deck = ["rusty_gear", "trash_recycler"] as Array[String]
+	var rng_a = RandomNumberGenerator.new()
+	var rng_b = RandomNumberGenerator.new()
+	rng_a.seed = 90210
+	rng_b.seed = 90210
+
+	var options_a = RewardGeneratorScript.generate_options(rm_a, item_db, ornament_db, 4, rng_a)
+	var options_b = RewardGeneratorScript.generate_options(rm_b, item_db, ornament_db, 4, rng_b)
+
+	assert_eq(_reward_keys(options_a), _reward_keys(options_b))
+
+func test_reward_generator_falls_back_to_shards_when_pools_are_empty():
+	var rm = _make_run_manager(1, 0)
+
+	var options = RewardGeneratorScript.generate_options(rm, null, null, 3)
+	var types = options.map(func(reward): return reward.get("type", ""))
+
+	assert_eq(options.size(), 3)
+	assert_eq(types, ["shards", "shards", "shards"])
+
 func test_apply_reward_updates_long_term_state_and_blocks_duplicate_ornaments():
 	var rm = _make_run_manager(1, 0)
 	rm.current_shards = 0
@@ -55,3 +79,9 @@ func test_apply_reward_updates_long_term_state_and_blocks_duplicate_ornaments():
 	assert_true(rm.apply_reward({"type": "ornament", "id": "old_pocket_watch"}))
 	assert_false(rm.apply_reward({"type": "ornament", "id": "old_pocket_watch"}))
 	assert_eq(rm.current_ornaments, ["old_pocket_watch"])
+
+func _reward_keys(options: Array[Dictionary]) -> Array[String]:
+	var keys: Array[String] = []
+	for reward in options:
+		keys.append("%s:%s" % [str(reward.get("type", "")), str(reward.get("id", ""))])
+	return keys
