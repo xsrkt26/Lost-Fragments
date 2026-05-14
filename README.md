@@ -57,13 +57,23 @@ res://
 .\tools\run_tests_silent.ps1
 ```
 
-关键场景冒烟测试由 `test/integration/test_scene_smoke.gd` 维护，固定 headless 加载：
+严格场景冒烟测试：
+
+```powershell
+python -B scripts\run_scene_smoke_tests.py --fail-on-engine-error
+```
+
+该脚本会先执行一次 Godot headless editor 导入，用于生成 `.godot/global_script_class_cache.cfg` 和 `.godot/imported` 资源缓存；隔离副本或 CI 不需要提交 `.godot/`。
+
+关键场景冒烟测试由 `test/integration/test_scene_smoke.gd` 和 `scripts/scene_smoke_scenes.json` 维护，固定 headless 加载：
 
 - `src/ui/main_menu/main_menu.tscn`
 - `src/ui/hub/hub_scene.tscn`
 - `src/ui/main_game_ui.tscn`
 - `src/ui/shop/shop_scene.tscn`
 - `src/ui/debug/debug_sandbox.tscn`
+- `src/ui/backpack/backpack_ui.tscn`
+- `src/ui/event/event_scene.tscn`
 
 ## 开发约定
 
@@ -72,5 +82,5 @@ res://
 - Godot 路径移动后如出现 class_name 缓存问题，先执行：
 
 ```powershell
-& "D:\COde\Godot\Godot_v4.6.2-stable_win64.exe\Godot_v4.6.2-stable_win64_console.exe" --path . --headless --import
+& "D:\COde\Godot\Godot_v4.6.2-stable_win64.exe\Godot_v4.6.2-stable_win64_console.exe" --headless --editor --quit --path .
 ```

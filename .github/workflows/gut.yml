@@ -37,3 +37,7 @@ jobs:
         run: |
           chmod +x "$GODOT_BIN"
           "$GODOT_BIN" --headless --path . -s addons/gut/gut_cmdln.gd -gexit -glog=0
+
+      - name: Run strict scene smoke
+        run: |
+          python3 -B scripts/run_scene_smoke_tests.py --fail-on-engine-error
