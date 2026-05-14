@@ -1,25 +1,76 @@
-# Lost-Fragments
-Game For MiniGame 2026/5
+# Lost Fragments
 
-## 核心系统说明
+Godot 4.6.2 项目，面向 MiniGame 2026 的背包式卡牌连锁游戏原型。
 
-### 1. 主游戏界面 (MainGameUI)
-`res://src/ui/main_game_ui.tscn`
+## 当前入口
 
-主游戏界面的核心控制器，负责连接游戏逻辑（BattleManager）与玩家交互。
-- **抽卡系统**：点击左侧抽卡按钮，消耗 San 值随机获取卡牌。
-- **背包交互**：拖拽卡牌放入右侧背包网格。支持多格形状判定和自动对齐。
-- **垃圾桶/回收**：将卡牌拖拽至左下角的垃圾桶图标可丢弃卡牌，并触发对应的“丢弃”效果。
-- **状态显示**：实时显示当前 San 值与累计分数。
+- 主场景：`res://src/ui/main_menu/main_menu.tscn`
+- 局外路线：`res://src/ui/hub/hub_scene.tscn`
+- 局内游戏：`res://src/ui/main_game_ui.tscn`
+- 商店：`res://src/ui/shop/shop_scene.tscn`
+- 调试沙盒：`res://src/ui/debug/debug_sandbox.tscn`
 
-### 2. 调试沙盒 (DebugSandbox)
-`res://src/ui/debug/debug_sandbox.tscn`
+本机 Godot 可执行文件路径：
 
-专为开发设计的集成调试环境，可快速测试物品效果和背包逻辑。
-- **快捷键**：按下 `Tab` 键可快速切换调试面板的显示/隐藏。
-- **调试功能**：
-	- **物品列表**：直接点击列表中的物品名称，无需消耗 San 值即可获得该物品。
-	- **全量清理 (Clear All)**：点击红色按钮 `!!! 清空全部 !!!`，将立即清除背包内外的所有物品，重置 San 值、分数以及抽卡计数器，恢复至初始状态。
+```powershell
+D:\COde\Godot\Godot_v4.6.2-stable_win64.exe\Godot_v4.6.2-stable_win64_console.exe
+```
 
-## 运行方式
-直接运行 `res://src/ui/debug/debug_sandbox.tscn` 场景即可进入包含调试功能的完整测试环境。
+## 目录结构
+
+```text
+res://
+├── addons/        # 第三方插件，目前包含 GUT
+├── assets/        # 美术、音频和应用图标
+├── data/          # 物品、饰品、事件等数据资源
+├── spec/          # 策划文档、技术文档和开发日志
+├── src/           # 游戏源码和场景
+├── test/          # GUT 自动化测试
+├── tools/         # 仓库级工具脚本
+├── project.godot  # Godot 项目配置
+└── export_presets.cfg
+```
+
+`package/` 是本地导出目录，已加入 `.gitignore`，导出的 exe/pck 不进入源码仓库。
+
+## 运行
+
+用 Godot 打开仓库根目录即可。命令行运行主项目：
+
+```powershell
+& "D:\COde\Godot\Godot_v4.6.2-stable_win64.exe\Godot_v4.6.2-stable_win64_console.exe" --path .
+```
+
+调试时可直接运行 `res://src/ui/debug/debug_sandbox.tscn`，用于快速生成物品、验证背包放置、旋转、丢弃和连锁效果。
+
+## 测试
+
+全量 GUT：
+
+```powershell
+& "D:\COde\Godot\Godot_v4.6.2-stable_win64.exe\Godot_v4.6.2-stable_win64_console.exe" --path . -s addons/gut/gut_cmdln.gd --headless -gexit -glog=0
+```
+
+静默测试脚本：
+
+```powershell
+.\tools\run_tests_silent.ps1
+```
+
+关键场景冒烟测试由 `test/integration/test_scene_smoke.gd` 维护，固定 headless 加载：
+
+- `src/ui/main_menu/main_menu.tscn`
+- `src/ui/hub/hub_scene.tscn`
+- `src/ui/main_game_ui.tscn`
+- `src/ui/shop/shop_scene.tscn`
+- `src/ui/debug/debug_sandbox.tscn`
+
+## 开发约定
+
+- 最新需求和实现优先级见 `spec/Docs/02_Tech/ImplementationTODO.md`。
+- 新功能完成后需要补自动化测试、跑全量 GUT、更新文档、commit 并 push。
+- Godot 路径移动后如出现 class_name 缓存问题，先执行：
+
+```powershell
+& "D:\COde\Godot\Godot_v4.6.2-stable_win64.exe\Godot_v4.6.2-stable_win64_console.exe" --path . --headless --import
+```
