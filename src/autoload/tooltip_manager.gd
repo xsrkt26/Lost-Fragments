@@ -7,7 +7,6 @@ extends Node
 const KEYWORD_COLORS = {
 	"污染": "#ff55ff",
 	"防腐": "#55ffff",
-	"San值": "#ff5555",
 	"分": "#ffff55",
 	"梦值": "#ff5555",
 	"捕梦": "#ffaa55",

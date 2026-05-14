@@ -52,7 +52,7 @@ func _execute_action(action: GameAction):
 			elif data.type == "sanity":
 				if target_ui:
 					var prefix = "+" if amount > 0 else ""
-					GlobalFeedback.show_text("%s%d San" % [prefix, amount], target_ui.global_position + target_ui.size/2, GlobalFeedback.TextType.SANITY)
+					GlobalFeedback.show_text("%s%d 梦值" % [prefix, amount], target_ui.global_position + target_ui.size/2, GlobalFeedback.TextType.SANITY)
 
 			# 播放物体本身的闪烁动画
 			if target_ui:

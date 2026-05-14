@@ -1,7 +1,7 @@
 class_name TrashBagEffect
 extends ItemEffect
 
-## 垃圾袋：被撞：净化相邻所有物品的污染，每净化1层+1 San。
+## 垃圾袋：被撞：净化相邻所有物品的污染，每净化1层+1梦值。
 
 @export var san_per_pollution: int = 1
 
@@ -32,7 +32,7 @@ func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackMa
 			
 	var total_san = total_purified * san_per_pollution * multiplier
 	
-	var action = GameAction.new(GameAction.Type.NUMERIC, "垃圾袋净化增加 San")
+	var action = GameAction.new(GameAction.Type.NUMERIC, "垃圾袋净化增加梦值")
 	if total_san > 0:
 		action.value = {"type": "sanity", "amount": total_san}
 	else:

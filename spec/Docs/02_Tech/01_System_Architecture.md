@@ -80,7 +80,7 @@
 - `FINISHING`
 - `FINISHED`
 
-玩家手动结束或梦值归零都会走 `request_finish_battle(reason)`。如果当前仍在抽取或结算中，结束请求会延迟到本次结算完成后再发出，避免中途打断撞击链。
+玩家手动结束或梦值归零都会走 `request_finish_battle(reason)`。如果当前仍在抽取或结算中，结束请求会延迟到本次结算完成后再发出，避免中途打断本次撞击结算。
 
 普通战斗默认无分数目标；Boss 战从路线节点的 `score_target` 规则读取目标分数。达到目标不会自动结束，战斗结束时统一判定胜负。
 
@@ -102,9 +102,9 @@
 
 ### 4. 撞击调度
 
-所有撞击统一进入 `BattleManager.queue_impact_at(pos, direction, source, reason)`。队列按左上优先级和入队序号排序；每次只处理一条撞击链，等待 `ImpactResolver` 与 `SequencePlayer` 完整结算后再处理下一条。
+所有撞击统一进入 `BattleManager.queue_impact_at(pos, direction, source, reason)`。队列按左上优先级和入队序号排序；每次只处理一次撞击结算，等待 `ImpactResolver` 与 `SequencePlayer` 完整结算后再处理下一次。
 
-同一结算窗口中新产生的撞击会继续进入队列并重新排序，但不会打断当前正在播放的撞击链。
+同一结算窗口中新产生的撞击会继续进入队列并重新排序，但不会打断当前正在播放的撞击结算。
 
 ### 5. 播种与梦境之种
 
@@ -125,7 +125,7 @@
 - 捕梦。
 - 放置。
 - 丢弃。
-- 撞击链结束。
+- 本次撞击结算结束。
 - 播种成功/失败。
 - 种子升级。
 - 污染增加。

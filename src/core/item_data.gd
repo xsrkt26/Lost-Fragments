@@ -12,7 +12,7 @@ enum TransmissionMode { NORMAL, OMNI, NONE }
 @export_multiline var description: String = ""
 @export var tags: Array[String] = [] # 类别词条，如 ["运动", "神秘", "书籍"]
 @export var price: int = 5 # 物品价值
-@export var base_cost: int = -1 # 基础消耗 San 值 (如果为负，则使用公式计算)
+@export var base_cost: int = -1 # 基础梦值消耗 (如果为负，则使用公式计算)
 @export var can_draw: bool = true # 是否可以被抽到
 @export var can_rotate: bool = true # 是否允许旋转
 @export var runtime_id: int = -1 # 运行时唯一 ID，用于逻辑与 UI 绑定
@@ -59,7 +59,7 @@ func get_tooltip_text(_instance = null) -> String:
 	if base_cost == -1:
 		text += "[color=#ffaa55]捕梦消耗: 阶梯递增[/color]\n\n"
 	elif base_cost != 0:
-		text += "[color=#ff5555]捕梦消耗: " + str(abs(base_cost)) + " San[/color]\n\n"
+		text += "[color=#ff5555]捕梦消耗: " + str(abs(base_cost)) + " 梦值[/color]\n\n"
 		
 	# 2. 静态/动态混合描述文本
 	# 后续可以在这里解析 description 中的占位符，例如将 "{damage}" 替换为实际数值

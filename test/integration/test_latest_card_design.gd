@@ -30,7 +30,7 @@ func test_loaded_items_match_latest_design_list():
 	var expected_ids = [
 		"alarm_clock", "apple", "apple_core", "baseball", "cracked_lens",
 		"dream_seed_1x1", "dream_seed_2x2", "dream_seed_3x3", "dream_seed_4x4", "dream_seed_5x5",
-		"expired_medicine", "gift_box", "insurance_contract", "isolation_box", "joker",
+		"expired_medicine", "gift_box", "insurance_contract", "joker",
 		"leaky_pen", "leftover_box", "mineral_water_bottle", "old_soccer_ball", "paper_ball",
 		"pill_bottle", "roast_chicken", "root_dream", "rusty_gear", "sad_teddy_bear",
 		"sticky_note", "syringe", "tin_can", "trash_bag", "trash_recycler", "wet_cardboard_box"
@@ -41,6 +41,7 @@ func test_loaded_items_match_latest_design_list():
 	actual_ids.sort()
 
 	assert_eq(actual_ids, expected_ids)
+	assert_null(item_db.get_item_by_id("isolation_box"))
 
 func test_pollution_additions_are_not_multiplied_by_existing_pollution():
 	var source = item_db.get_item_by_id("baseball")
@@ -71,13 +72,11 @@ func test_sticky_note_scores_when_pollution_crosses_three_layers():
 	assert_eq(sticky_instance.current_pollution, 3)
 	assert_eq(gs.current_score, 10)
 
-func test_isolation_box_reduces_pollution_sanity_loss():
+func test_pollution_layers_do_not_reduce_dream_value():
 	var source = item_db.get_item_by_id("baseball")
 	var paper = item_db.get_item_by_id("paper_ball")
-	var isolation = item_db.get_item_by_id("isolation_box")
 	backpack.place_item(source, Vector2i(0, 0))
 	backpack.place_item(paper, Vector2i(1, 0))
-	backpack.place_item(isolation, Vector2i(3, 3))
 
 	var source_instance = backpack.grid[Vector2i(0, 0)]
 	var paper_instance = backpack.grid[Vector2i(1, 0)]
@@ -87,7 +86,10 @@ func test_isolation_box_reduces_pollution_sanity_loss():
 	var actions = resolver.resolve_impact(Vector2i(0, 0), ItemData.Direction.RIGHT, source_instance)
 	_apply_actions(actions)
 
-	assert_eq(gs.current_sanity, 98)
+	for action in actions:
+		if action.type == GameAction.Type.NUMERIC:
+			assert_false(action.value.type == "sanity" and action.value.amount < 0)
+	assert_eq(gs.current_sanity, 100)
 
 func test_leaky_pen_only_pollutes_if_next_item_is_waste():
 	var source = item_db.get_item_by_id("baseball")

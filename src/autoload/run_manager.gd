@@ -83,7 +83,7 @@ func _ready():
 func start_new_run():
 	print("[RunManager] 开启新的一局...")
 	
-	# 核心修复：重置全局战斗状态 (San值、分数等)
+	# 重置全局战斗状态（梦值、分数等）
 	var gs = get_node_or_null("/root/GameState") if is_inside_tree() else null
 	if gs:
 		gs.reset_game()

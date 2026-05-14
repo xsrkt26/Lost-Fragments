@@ -47,16 +47,6 @@ func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions:
 
 	var current_pollution = instance.current_pollution
 	var total_multiplier = 1 + current_pollution
-	if current_pollution > 0:
-		var san_reduction = current_pollution
-		if context.state and context.state.has_method("get_modifier"):
-			san_reduction = max(0, san_reduction - context.state.get_modifier("pollution_san_reduction", 0))
-		san_reduction = max(0, san_reduction - _get_backpack_pollution_san_reduction())
-		if san_reduction > 0:
-			var san_action = GameAction.new(GameAction.Type.NUMERIC, "Pollution backlash")
-			san_action.item_instance = instance
-			san_action.value = {"type": "sanity", "amount": -san_reduction}
-			actions.append(san_action)
 
 	for effect in instance.data.effects:
 		var effect_action = effect.on_hit(instance, source_instance, self, context, total_multiplier)
@@ -113,14 +103,6 @@ func add_pollution(instance: BackpackManager.ItemInstance, amount: int) -> void:
 				if action.item_instance == null:
 					action.item_instance = instance
 				actions_history.append(action)
-
-func _get_backpack_pollution_san_reduction() -> int:
-	var reduction = 0
-	for instance in backpack.get_all_instances():
-		for effect in instance.data.effects:
-			if effect.has_method("get_pollution_san_reduction"):
-				reduction += effect.get_pollution_san_reduction(instance, context)
-	return reduction
 
 func _find_next_item(pos: Vector2i, _dir: ItemData.Direction, filters: Array[String], exclude: BackpackManager.ItemInstance) -> Vector2i:
 	if pos.x < 0 or pos.x >= backpack.grid_width or pos.y < 0 or pos.y >= backpack.grid_height:

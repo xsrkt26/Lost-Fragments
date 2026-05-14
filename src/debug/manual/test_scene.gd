@@ -14,7 +14,7 @@ func _ready():
 		return
 		
 	GameState.reset_game()
-	print("初始状态 - 分数: ", GameState.current_score, " San值: ", GameState.current_sanity)
+	print("初始状态 - 分数: ", GameState.current_score, " 梦值: ", GameState.current_sanity)
 	
 	# 2. 初始化背包
 	var backpack = BackpackManager.new()
@@ -60,7 +60,7 @@ func _ready():
 	print("\n" + "=".repeat(20))
 	print("测试完成！最终数据：")
 	print("当前总分: ", GameState.current_score, " (预期: 60)")
-	print("当前San值: ", GameState.current_sanity, " (预期: 80)")
+	print("当前梦值: ", GameState.current_sanity, " (预期: 80)")
 	print("=".repeat(20) + "\n")
 	
 	print("此窗口将在 5 秒后自动关闭...")

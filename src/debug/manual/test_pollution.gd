@@ -12,7 +12,7 @@ func _ready():
 		print("[错误] 找不到 GameState")
 		return
 	gs.reset_game()
-	print("初始状态 - 分数: ", gs.current_score, " San值: ", gs.current_sanity)
+	print("初始状态 - 分数: ", gs.current_score, " 梦值: ", gs.current_sanity)
 	
 	var backpack = BackpackManager.new()
 	backpack.setup_grid(5, 5)

@@ -8,7 +8,7 @@ enum Type {
 	NONE,
 	IMPACT,      # A 撞到了 B
 	EFFECT,      # 触发了某个物品的效果
-	NUMERIC,     # 分数或 San 值发生变动
+	NUMERIC,     # 分数或梦值发生变动
 	ANIMATION    # 纯表现动画
 }
 

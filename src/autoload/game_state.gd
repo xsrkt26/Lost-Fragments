@@ -40,8 +40,8 @@ func add_score(amount: int):
 
 func consume_sanity(amount: int):
 	current_sanity -= amount
-	print("[GS] San值 -", amount, " | 当前San值: ", current_sanity)
+	print("[GS] 梦值 -", amount, " | 当前梦值: ", current_sanity)
 
 func heal_sanity(amount: int):
 	current_sanity += amount
-	print("[GS] San值 +", amount, " | 当前San值: ", current_sanity)
+	print("[GS] 梦值 +", amount, " | 当前梦值: ", current_sanity)

@@ -487,7 +487,7 @@ func _process_new_item_acquisition(item: ItemData):
 	
 	draw_count += 1
 	
-	# 核心修复：扣除梦值 (Sanity)
+	# 扣除捕梦梦值
 	var gs = get_node_or_null("/root/GameState")
 	if gs:
 		var cost = 0
