@@ -445,7 +445,7 @@ func _handle_place_failure(item_ui: Control, old_pos: Vector2i, _old_shape: Arra
 func trigger_impact_at(pos: Vector2i):
 	queue_impact_at(pos, -1, null, "direct")
 
-func queue_impact_at(pos: Vector2i, direction: int = -1, source: BackpackManager.ItemInstance = null, reason: String = "queued") -> bool:
+func queue_impact_at(pos: Vector2i, direction: int = -1, source: BackpackManager.ItemInstance = null, reason: String = "queued", filters: Array[String] = []) -> bool:
 	var instance = _resolve_impact_source(pos, source)
 	if instance == null or instance.data == null:
 		return false
@@ -455,7 +455,7 @@ func queue_impact_at(pos: Vector2i, direction: int = -1, source: BackpackManager
 		impact_direction = instance.data.direction
 
 	_impact_queue_sequence += 1
-	_impact_queue.append(_make_impact_queue_item(instance.root_pos, impact_direction, instance, reason))
+	_impact_queue.append(_make_impact_queue_item(instance.root_pos, impact_direction, instance, reason, filters))
 	_sort_impact_queue()
 
 	if battle_state == BattleState.INTERACTIVE and not _is_processing_impact_queue:
@@ -554,18 +554,18 @@ func _process_impact_queue() -> void:
 			continue
 
 		var source = queue_item["source"] as BackpackManager.ItemInstance
-		await _run_impact_sequence(source.root_pos, queue_item["direction"], source, false)
+		await _run_impact_sequence(source.root_pos, queue_item["direction"], source, false, Array(queue_item.get("filters", [])))
 
 	_is_processing_impact_queue = false
 	_settle_interactive_state()
 
-func _run_impact_sequence(start_pos: Vector2i, dir: ItemData.Direction, source: BackpackManager.ItemInstance = null, settle_after: bool = true):
+func _run_impact_sequence(start_pos: Vector2i, dir: ItemData.Direction, source: BackpackManager.ItemInstance = null, settle_after: bool = true, filters: Array[String] = []):
 	if battle_state == BattleState.FINISHING or battle_state == BattleState.FINISHED:
 		return
 	battle_state = BattleState.RESOLVING
 	turn_started.emit()
 	var resolver = ImpactResolver.new(backpack_manager, context)
-	var actions = resolver.resolve_impact(start_pos, dir, source)
+	var actions = resolver.resolve_impact(start_pos, dir, source, filters)
 	var player = SequencePlayer.new()
 	add_child(player)
 	var ui_map = {}
@@ -668,12 +668,13 @@ func _is_instance_in_grid(instance: BackpackManager.ItemInstance) -> bool:
 			return true
 	return false
 
-func _make_impact_queue_item(pos: Vector2i, direction: int, source: BackpackManager.ItemInstance, reason: String) -> Dictionary:
+func _make_impact_queue_item(pos: Vector2i, direction: int, source: BackpackManager.ItemInstance, reason: String, filters: Array[String] = []) -> Dictionary:
 	return {
 		"pos": pos,
 		"direction": direction,
 		"source": source,
 		"reason": reason,
+		"filters": filters.duplicate(),
 		"priority": _get_impact_priority(pos),
 		"sequence": _impact_queue_sequence,
 	}

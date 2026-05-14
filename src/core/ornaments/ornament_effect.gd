@@ -19,6 +19,9 @@ func after_item_discarded(_item_data: ItemData, _old_instance: BackpackManager.I
 func after_impact_chain_resolved(_source: BackpackManager.ItemInstance, _actions: Array[GameAction], _context: GameContext, _state: Dictionary) -> void:
 	pass
 
+func get_extra_transmission_modes(_instance: BackpackManager.ItemInstance, _resolver: ImpactResolver, _context: GameContext, _state: Dictionary) -> Array[int]:
+	return [] as Array[int]
+
 func after_seed_sown(_instance: BackpackManager.ItemInstance, _context: GameContext, _state: Dictionary) -> void:
 	pass
 

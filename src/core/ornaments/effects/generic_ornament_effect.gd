@@ -97,6 +97,7 @@ func after_item_discarded(item_data: ItemData, old_instance: BackpackManager.Ite
 func after_impact_chain_resolved(source: BackpackManager.ItemInstance, actions: Array[GameAction], context: GameContext, state: Dictionary) -> void:
 	var hit_count = _count_impacts(actions)
 	var targets = _impact_targets(actions)
+	var summary = _resolution_summary(actions)
 	match effect_id:
 		"protective_gloves":
 			for target in targets:
@@ -148,13 +149,7 @@ func after_impact_chain_resolved(source: BackpackManager.ItemInstance, actions: 
 					_add_score(context, 6)
 					break
 		"gear_oil":
-			var scored = 0
-			for target in targets:
-				if _has_tag(target.data, MECHANICAL_TAG):
-					_add_score(context, 2)
-					scored += 1
-					if scored >= 5:
-						break
+			_add_score(context, min(int(summary.get("successful_mechanical_transmission_count", 0)), 5) * 2)
 		"recoil_plate":
 			var last_target = targets[targets.size() - 1] if not targets.is_empty() else null
 			if not state.get("used", false) and last_target != null and _has_tag(last_target.data, MECHANICAL_TAG):
@@ -175,7 +170,7 @@ func after_impact_chain_resolved(source: BackpackManager.ItemInstance, actions: 
 					state["scored_draw"] = draw_count
 				state["last_impact_draw"] = draw_count
 		"terminal_pressure_gauge":
-			var mechanical_hit_count = _mechanical_hit_count(targets)
+			var mechanical_hit_count = int(summary.get("mechanical_hit_count", _mechanical_hit_count(targets)))
 			if mechanical_hit_count >= 12:
 				_add_score(context, 45)
 			elif mechanical_hit_count >= 8:
@@ -224,6 +219,15 @@ func after_seed_sow_failed(_source: BackpackManager.ItemInstance, _direction: in
 		return
 	_add_score(context, 8)
 	state["used_draw"] = draw_count
+
+func get_extra_transmission_modes(instance: BackpackManager.ItemInstance, resolver: ImpactResolver, _context: GameContext, state: Dictionary) -> Array[int]:
+	if effect_id != "universal_bearing" or instance == null or not _has_tag(instance.data, MECHANICAL_TAG):
+		return [] as Array[int]
+	var resolver_id = resolver.get_instance_id()
+	if int(state.get("used_resolution_id", -1)) == resolver_id:
+		return [] as Array[int]
+	state["used_resolution_id"] = resolver_id
+	return [ItemData.TransmissionMode.MECHANICAL_BIDIRECTIONAL] as Array[int]
 
 func after_pollution_changed(instance: BackpackManager.ItemInstance, old_value: int, new_value: int, context: GameContext, state: Dictionary) -> void:
 	if new_value > old_value:
@@ -387,7 +391,7 @@ func _sow_from_instance(context: GameContext, source) -> void:
 func _queue_recoil_impact(context: GameContext, instance) -> void:
 	var battle = _battle(context)
 	if battle != null and battle.has_method("queue_impact_at"):
-		battle.queue_impact_at(instance.root_pos, _opposite_direction(instance.data.direction), instance, effect_id)
+		battle.queue_impact_at(instance.root_pos, _opposite_direction(instance.data.direction), instance, effect_id, [MECHANICAL_TAG] as Array[String])
 
 func _queue_extra_impact(context: GameContext, instance) -> void:
 	var battle = _battle(context)
@@ -419,6 +423,14 @@ func _mechanical_hit_count(targets: Array) -> int:
 		if target != null and _has_tag(target.data, MECHANICAL_TAG):
 			count += 1
 	return count
+
+func _resolution_summary(actions: Array[GameAction]) -> Dictionary:
+	for index in range(actions.size() - 1, -1, -1):
+		var action = actions[index]
+		if action.type == GameAction.Type.EFFECT and action.value is Dictionary and action.value.get("type", "") == "impact_context_summary":
+			var raw_summary = action.value.get("summary", {})
+			return raw_summary if raw_summary is Dictionary else {}
+	return {}
 
 func _seed_level_bonus(old_level: int, new_level: int) -> int:
 	for threshold in [10, 20, 30]:

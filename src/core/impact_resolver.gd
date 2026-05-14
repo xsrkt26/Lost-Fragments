@@ -49,12 +49,13 @@ func _init(p_backpack: BackpackManager, p_context: GameContext):
 	backpack = p_backpack
 	context = p_context
 
-func resolve_impact(start_pos: Vector2i, dir: ItemData.Direction, source: BackpackManager.ItemInstance = null) -> Array[GameAction]:
+func resolve_impact(start_pos: Vector2i, dir: ItemData.Direction, source: BackpackManager.ItemInstance = null, initial_filters: Array[String] = []) -> Array[GameAction]:
 	actions_history = []
 	visited = []
 	resolution_context = ImpactResolutionContext.new()
-	_resolve_recursive(start_pos, dir, actions_history, source)
+	_resolve_recursive(start_pos, dir, actions_history, source, initial_filters)
 	_apply_after_resolution_effects(actions_history)
+	_append_resolution_summary(actions_history)
 	return actions_history
 
 func get_current_resolution_summary() -> Dictionary:
@@ -118,6 +119,8 @@ func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions:
 				for offset in instance.data.shape:
 					if _resolve_recursive(instance.root_pos + offset, instance.data.direction, actions, instance, filters, false, branch_flags):
 						did_hit_others = true
+						if instance.data.tags.has("机械"):
+							resolution_context.successful_mechanical_transmission_count += 1
 		ItemData.TransmissionMode.OMNI:
 			for next_dir in [ItemData.Direction.UP, ItemData.Direction.DOWN, ItemData.Direction.LEFT, ItemData.Direction.RIGHT]:
 				for offset in instance.data.shape:
@@ -141,6 +144,9 @@ func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions:
 				if _resolve_mechanical_transmission(instance, [ItemData.Direction.UP, ItemData.Direction.RIGHT, ItemData.Direction.DOWN, ItemData.Direction.LEFT], actions, false, next_flags):
 					did_hit_others = true
 
+	if _resolve_extra_ornament_transmissions(instance, actions, branch_flags):
+		did_hit_others = true
+
 	for effect in instance.data.effects:
 		if effect.has_method("after_impact"):
 			var post_action = effect.after_impact(instance, did_hit_others, self, context, total_multiplier)
@@ -150,6 +156,21 @@ func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions:
 				actions.append(post_action)
 
 	return true
+
+func _resolve_extra_ornament_transmissions(instance: BackpackManager.ItemInstance, actions: Array[GameAction], branch_flags: Dictionary) -> bool:
+	if context == null or context.battle == null or not (context.battle.get("active_ornaments") is Array):
+		return false
+	var hit_any = false
+	for runtime in context.battle.active_ornaments:
+		var ornament = runtime.get("data")
+		var state = runtime.get("state", {}) as Dictionary
+		if ornament != null and ornament.effect != null and ornament.effect.has_method("get_extra_transmission_modes"):
+			for mode in ornament.effect.get_extra_transmission_modes(instance, self, context, state):
+				match mode:
+					ItemData.TransmissionMode.MECHANICAL_BIDIRECTIONAL:
+						if _resolve_mechanical_transmission(instance, [_relative_left(instance.data.direction), _relative_right(instance.data.direction)], actions, true, branch_flags):
+							hit_any = true
+	return hit_any
 
 func _resolve_mechanical_transmission(instance: BackpackManager.ItemInstance, directions: Array[int], actions: Array[GameAction], is_bidirectional: bool, branch_flags: Dictionary) -> bool:
 	var hit_any = false
@@ -178,6 +199,14 @@ func _apply_after_resolution_effects(actions: Array[GameAction]) -> void:
 					if post_action.item_instance == null:
 						post_action.item_instance = instance
 					actions.append(post_action)
+
+func _append_resolution_summary(actions: Array[GameAction]) -> void:
+	var action = GameAction.new(GameAction.Type.EFFECT, "撞击结算上下文")
+	action.value = {
+		"type": "impact_context_summary",
+		"summary": resolution_context.to_summary(),
+	}
+	actions.append(action)
 
 func _has_seen_instance(instance: BackpackManager.ItemInstance) -> bool:
 	if resolution_context.has_seen(instance):

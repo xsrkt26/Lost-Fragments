@@ -193,6 +193,80 @@ func test_terminal_pressure_gauge_counts_mechanical_hits_only():
 
 	assert_eq(gs.current_score, 25)
 
+func test_gear_oil_scores_successful_mechanical_transmissions_only():
+	var manager = await _make_manager(["gear_oil"] as Array[String])
+	var source_data = _make_draw_item(0)
+	source_data.direction = ItemData.Direction.RIGHT
+	var source = BackpackManager.ItemInstance.new(source_data, Vector2i(0, 1))
+
+	var gear = item_db.get_item_by_id("small_gear")
+	manager.backpack_manager.place_item(gear, Vector2i(1, 1))
+	var first = manager.backpack_manager.grid[Vector2i(1, 1)]
+	first.data.direction = ItemData.Direction.RIGHT
+
+	var brake = item_db.get_item_by_id("brake_pad")
+	manager.backpack_manager.place_item(brake, Vector2i(2, 1))
+
+	var resolver = ImpactResolver.new(manager.backpack_manager, manager.context)
+	var actions = resolver.resolve_impact(source.root_pos, ItemData.Direction.RIGHT, source)
+	manager._apply_ornament_impact_chain_resolved(source, actions)
+
+	assert_eq(gs.current_score, 2)
+
+func test_gear_oil_ignores_mechanical_hits_without_transmission():
+	var manager = await _make_manager(["gear_oil"] as Array[String])
+	var source_data = _make_draw_item(0)
+	source_data.direction = ItemData.Direction.RIGHT
+	var source = BackpackManager.ItemInstance.new(source_data, Vector2i(0, 1))
+
+	var gear = item_db.get_item_by_id("small_gear")
+	manager.backpack_manager.place_item(gear, Vector2i(1, 1))
+	var first = manager.backpack_manager.grid[Vector2i(1, 1)]
+	first.data.direction = ItemData.Direction.DOWN
+
+	var resolver = ImpactResolver.new(manager.backpack_manager, manager.context)
+	var actions = resolver.resolve_impact(source.root_pos, ItemData.Direction.RIGHT, source)
+	manager._apply_ornament_impact_chain_resolved(source, actions)
+
+	assert_eq(gs.current_score, 0)
+
+func test_universal_bearing_adds_bidirectional_transmission_inside_same_resolution():
+	var manager = await _make_manager(["universal_bearing"] as Array[String])
+	var source_data = _make_draw_item(0)
+	source_data.direction = ItemData.Direction.RIGHT
+	var source = BackpackManager.ItemInstance.new(source_data, Vector2i(0, 2))
+
+	var gear = item_db.get_item_by_id("small_gear")
+	manager.backpack_manager.place_item(gear, Vector2i(1, 2))
+	var first = manager.backpack_manager.grid[Vector2i(1, 2)]
+	first.data.direction = ItemData.Direction.RIGHT
+
+	var upper = item_db.get_item_by_id("brake_pad")
+	manager.backpack_manager.place_item(upper, Vector2i(1, 1))
+	var lower = item_db.get_item_by_id("brake_pad")
+	manager.backpack_manager.place_item(lower, Vector2i(1, 3))
+
+	var resolver = ImpactResolver.new(manager.backpack_manager, manager.context)
+	var actions = resolver.resolve_impact(source.root_pos, ItemData.Direction.RIGHT, source)
+	var summary = resolver.get_current_resolution_summary()
+
+	assert_eq(summary.mechanical_hit_count, 3)
+	assert_eq(summary.bidirectional_transmission_count, 1)
+	assert_eq(_impact_count(actions), 3)
+
+func test_recoil_plate_queues_mechanical_filtered_recoil():
+	var manager = await _make_manager(["recoil_plate"] as Array[String])
+	var target_data = item_db.get_item_by_id("small_gear")
+	manager.backpack_manager.place_item(target_data, Vector2i(2, 2))
+	var target = manager.backpack_manager.grid[Vector2i(2, 2)]
+
+	var action = GameAction.new(GameAction.Type.IMPACT, "hit")
+	action.item_instance = target
+	manager._apply_ornament_impact_chain_resolved(null, [action] as Array[GameAction])
+
+	assert_eq(manager._impact_queue.size(), 1)
+	assert_true(Array(manager._impact_queue[0].get("filters", [])).has("机械"))
+
 func test_honey_spoon_only_counts_official_food_items():
 	var manager = await _make_manager(["honey_spoon"] as Array[String])
 	var leftover = item_db.get_item_by_id("leftover_box")
@@ -216,6 +290,13 @@ func test_seed_insurance_scores_when_seed_growth_cannot_fit():
 
 	assert_eq(gs.current_score, 8)
 	assert_false(manager.backpack_manager.grid.has(Vector2i(5, 5)))
+
+func _impact_count(actions: Array[GameAction]) -> int:
+	var count = 0
+	for action in actions:
+		if action.type == GameAction.Type.IMPACT:
+			count += 1
+	return count
 
 func test_recycling_coupon_discounts_next_item_after_first_item_purchase():
 	var manager = autofree(RunManagerScript.new())
