@@ -63,7 +63,10 @@ func update_slot_visuals(ignore_item_data: ItemData = null):
 		var slot = grid_container.get_child(i) as ColorRect
 		var pos = Vector2i(i % manager.grid_width, floori(float(i) / manager.grid_width))
 		
-		if not manager.is_pos_usable(pos):
+		if manager.has_method("is_pos_blocked") and manager.is_pos_blocked(pos):
+			slot.color = COLOR_LOCKED
+			slot.tooltip_text = "锁定格"
+		elif not manager.is_pos_usable(pos):
 			slot.color = COLOR_LOCKED
 			slot.tooltip_text = "锁定格"
 		elif manager.grid.has(pos):

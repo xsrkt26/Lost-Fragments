@@ -100,6 +100,17 @@ func _apply_backpack_grid_config(rm) -> void:
 		int(config.get("usable_width", 5)),
 		int(config.get("usable_height", 5))
 	)
+	if backpack_manager.has_method("set_blocked_cells"):
+		backpack_manager.set_blocked_cells(_to_vector2i_array(config.get("blocked_cells", [])))
+
+func _to_vector2i_array(value: Variant) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	for entry in Array(value):
+		if entry is Vector2i:
+			result.append(entry)
+		elif entry is Dictionary:
+			result.append(Vector2i(int(entry.get("x", 0)), int(entry.get("y", 0))))
+	return result
 
 func _load_ornaments_from_run(rm) -> void:
 	active_ornaments.clear()

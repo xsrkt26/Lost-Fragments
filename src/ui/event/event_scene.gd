@@ -9,6 +9,7 @@ const RouteConfig = preload("res://src/core/route/route_config.gd")
 
 var current_event = null
 var choices_pending := false
+var pending_confirm_choice_id := ""
 
 func _ready():
 	GlobalInput.set_context(GlobalInput.Context.UI)
@@ -42,11 +43,18 @@ func _populate_event() -> void:
 
 func _add_choice_button(choice: Dictionary) -> void:
 	var btn = Button.new()
-	btn.text = "%s\n%s" % [str(choice.get("title", "选择")), str(choice.get("description", ""))]
+	btn.text = _format_choice_text(choice)
 	btn.tooltip_text = str(choice.get("description", ""))
 	btn.custom_minimum_size = Vector2(420, 72)
 	btn.pressed.connect(func(): _on_choice_pressed(choice, btn))
 	choice_container.add_child(btn)
+
+func _format_choice_text(choice: Dictionary) -> String:
+	var lines: Array[String] = [str(choice.get("title", "选择")), str(choice.get("description", ""))]
+	var preview = str(choice.get("preview", ""))
+	if preview != "":
+		lines.append(preview)
+	return "\n".join(lines)
 
 func _input(event):
 	if not GlobalInput.can_cancel():
@@ -62,12 +70,28 @@ func _on_choice_pressed(choice: Dictionary, button: Button) -> void:
 	var rm = get_node_or_null("/root/RunManager")
 	if rm == null or not rm.has_method("apply_event_choice"):
 		return
+	var choice_id = str(choice.get("id", choice.get("title", "")))
+	if _choice_requires_confirmation(choice) and pending_confirm_choice_id != choice_id:
+		pending_confirm_choice_id = choice_id
+		button.text = _format_choice_text(choice) + "\n再次点击确认"
+		return
 	if not rm.apply_event_choice(choice):
 		button.disabled = true
 		button.text = str(choice.get("title", "选择")) + "\n条件不足"
 		return
 	choices_pending = false
 	_on_continue_pressed()
+
+func _choice_requires_confirmation(choice: Dictionary) -> bool:
+	if bool(choice.get("requires_confirm", false)):
+		return true
+	for effect in Array(choice.get("effects", [])):
+		if not (effect is Dictionary):
+			continue
+		var effect_type = str(effect.get("type", ""))
+		if effect_type.begins_with("backpack_") and effect_type != "backpack_space":
+			return true
+	return false
 
 func _on_continue_pressed():
 	var rm = get_node_or_null("/root/RunManager")

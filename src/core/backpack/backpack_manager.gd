@@ -41,6 +41,7 @@ var grid_width: int = 7
 var grid_height: int = 7
 var usable_width: int = 5
 var usable_height: int = 5
+var blocked_cells: Dictionary = {}
 const DREAM_SEED_TAG := "梦境之种"
 const DERIVED_TAG := "衍生物品"
 const MAX_DREAM_SEED_LEVEL := 5
@@ -57,11 +58,24 @@ func setup_grid(w: int, h: int, uw: int = -1, uh: int = -1) -> void:
 	usable_width = uw if uw > 0 else w
 	usable_height = uh if uh > 0 else h
 	grid.clear()
+	blocked_cells.clear()
 	print("[BackpackManager] 网格已初始化. 总大小: ", w, "x", h, " 可用大小: ", usable_width, "x", usable_height)
 	grid_changed.emit()
 
+func set_blocked_cells(cells: Array[Vector2i]) -> void:
+	blocked_cells.clear()
+	for cell in cells:
+		if cell.x >= 0 and cell.x < grid_width and cell.y >= 0 and cell.y < grid_height:
+			blocked_cells[cell] = true
+	grid_changed.emit()
+
+func is_pos_blocked(pos: Vector2i) -> bool:
+	return blocked_cells.has(pos)
+
 ## 检查是否处于可用区域内 (居中算法)
 func is_pos_usable(pos: Vector2i) -> bool:
+	if is_pos_blocked(pos):
+		return false
 	var start_x = floori((grid_width - usable_width) / 2.0)
 	var start_y = floori((grid_height - usable_height) / 2.0)
 	
@@ -185,7 +199,7 @@ func get_empty_slots() -> Array[Vector2i]:
 	for y in range(grid_height):
 		for x in range(grid_width):
 			var pos = Vector2i(x, y)
-			if not grid.has(pos):
+			if not grid.has(pos) and is_pos_usable(pos):
 				empty_slots.append(pos)
 	return empty_slots
 

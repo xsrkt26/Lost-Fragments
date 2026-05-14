@@ -5,6 +5,7 @@ const RunManagerScript = preload("res://src/autoload/run_manager.gd")
 const BattleManagerScript = preload("res://src/battle/battle_manager.gd")
 
 var event_db
+var item_db
 
 func before_each():
 	event_db = get_node_or_null("/root/EventDatabase")
@@ -12,6 +13,9 @@ func before_each():
 		event_db = autofree(EventDatabaseScript.new())
 	if event_db.events.is_empty():
 		event_db.load_all_events()
+	item_db = get_node_or_null("/root/ItemDatabase")
+	if item_db and item_db.items.is_empty():
+		item_db.load_all_items()
 
 func _make_run_manager(act: int = 1, route_index: int = 2):
 	var rm = autofree(RunManagerScript.new())
@@ -124,6 +128,54 @@ func test_apply_event_choice_rejects_invalid_choices_without_partial_state():
 	assert_eq(rm.current_shards, 20)
 	assert_eq(rm.current_ornaments, ["old_pocket_watch"])
 
+func test_backpack_lock_cells_moves_occupying_items_and_persists():
+	var rm = _make_run_manager(2, 2)
+	rm.current_backpack_items = [
+		_make_backpack_entry("tin_can", 1, 1, [{"x": 0, "y": 0}, {"x": 1, "y": 0}], 10),
+	] as Array[Dictionary]
+
+	assert_true(rm.apply_event_choice({
+		"effects": [
+			{"type": "backpack_lock_cells", "cells": [{"x": 1, "y": 1}], "force_move": true}
+		]
+	}))
+
+	assert_true(_cells_have(rm.backpack_locked_cells, Vector2i(1, 1)))
+	assert_false(_entry_occupies(rm.current_backpack_items[0], Vector2i(1, 1)))
+
+	var serialized = rm.serialize_run()
+	var restored = autofree(RunManagerScript.new())
+	restored.deserialize_run(serialized)
+	assert_true(_cells_have(restored.backpack_locked_cells, Vector2i(1, 1)))
+
+func test_backpack_lock_rolls_back_when_items_cannot_move():
+	var rm = _make_run_manager(2, 2)
+	rm.current_backpack_items = _filled_usable_backpack_entries()
+	var before_items = rm.current_backpack_items.duplicate(true)
+
+	assert_false(rm.apply_event_choice({
+		"effects": [
+			{"type": "backpack_lock_cells", "cells": [{"x": 1, "y": 1}], "force_move": true}
+		]
+	}))
+
+	assert_true(rm.backpack_locked_cells.is_empty())
+	assert_eq(rm.current_backpack_items, before_items)
+
+func test_temporary_backpack_locks_apply_to_battle_config_and_expire_after_battle():
+	var rm = _make_run_manager(2, 0)
+
+	assert_true(rm.apply_event_choice({
+		"effects": [
+			{"type": "backpack_temp_lock_cells", "cells": [{"x": 2, "y": 2}], "duration_battles": 1}
+		]
+	}))
+	var config = rm.get_backpack_grid_config()
+	assert_true(_cells_have(config.blocked_cells, Vector2i(2, 2)))
+
+	rm.win_battle(0)
+	assert_true(rm.temporary_backpack_locked_cells.is_empty())
+
 func test_backpack_space_persists_and_applies_to_battle_manager():
 	var rm = _make_run_manager(2, 2)
 	assert_true(rm.apply_event_choice({
@@ -141,6 +193,20 @@ func test_backpack_space_persists_and_applies_to_battle_manager():
 	assert_eq(battle_manager.backpack_manager.usable_width, 7)
 	assert_eq(battle_manager.backpack_manager.usable_height, 7)
 
+func test_locked_backpack_cells_apply_to_battle_manager():
+	var rm = _make_run_manager(2, 2)
+	assert_true(rm.apply_event_choice({
+		"effects": [
+			{"type": "backpack_lock_cells", "cells": [{"x": 2, "y": 2}]}
+		]
+	}))
+
+	var battle_manager = add_child_autofree(BattleManagerScript.new())
+	battle_manager._apply_backpack_grid_config(rm)
+
+	assert_true(battle_manager.backpack_manager.is_pos_blocked(Vector2i(2, 2)))
+	assert_false(battle_manager.backpack_manager.can_place_item(item_db.get_item_by_id("paper_ball"), Vector2i(2, 2)))
+
 func _find_choice_without_sanity(choices: Array[Dictionary]) -> Dictionary:
 	for choice in choices:
 		var has_sanity := false
@@ -151,3 +217,35 @@ func _find_choice_without_sanity(choices: Array[Dictionary]) -> Dictionary:
 		if not has_sanity:
 			return choice
 	return choices[0] if not choices.is_empty() else {}
+
+func _make_backpack_entry(item_id: String, x: int, y: int, shape: Array, runtime_id: int) -> Dictionary:
+	return {
+		"id": item_id,
+		"x": x,
+		"y": y,
+		"direction": ItemData.Direction.RIGHT,
+		"shape": shape,
+		"runtime_id": runtime_id,
+	}
+
+func _filled_usable_backpack_entries() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var runtime_id := 1000
+	for y in range(1, 6):
+		for x in range(1, 6):
+			result.append(_make_backpack_entry("paper_ball", x, y, [{"x": 0, "y": 0}], runtime_id))
+			runtime_id += 1
+	return result
+
+func _cells_have(cells: Array, pos: Vector2i) -> bool:
+	for cell in cells:
+		if cell is Dictionary and int(cell.get("x", -1)) == pos.x and int(cell.get("y", -1)) == pos.y:
+			return true
+	return false
+
+func _entry_occupies(entry: Dictionary, pos: Vector2i) -> bool:
+	var root = Vector2i(int(entry.get("x", 0)), int(entry.get("y", 0)))
+	for cell in Array(entry.get("shape", [])):
+		if cell is Dictionary and root + Vector2i(int(cell.get("x", 0)), int(cell.get("y", 0))) == pos:
+			return true
+	return false

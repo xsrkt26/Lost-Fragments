@@ -49,6 +49,9 @@ var current_deck: Array[String] = INITIAL_DECK.duplicate()
 var current_backpack_items: Array[Dictionary] = []
 var pending_item_rewards: Array[Dictionary] = []
 var next_pending_item_uid: int = 1
+var backpack_locked_cells: Array[Dictionary] = []
+var backpack_deleted_cells: Array[Dictionary] = []
+var temporary_backpack_locked_cells: Array[Dictionary] = []
 var current_ornaments: Array[String] = []
 var backpack_usable_width: int = INITIAL_BACKPACK_USABLE_WIDTH
 var backpack_usable_height: int = INITIAL_BACKPACK_USABLE_HEIGHT
@@ -90,6 +93,9 @@ func start_new_run():
 	current_backpack_items = _get_initial_backpack_items()
 	pending_item_rewards = []
 	next_pending_item_uid = 1
+	backpack_locked_cells = []
+	backpack_deleted_cells = []
+	temporary_backpack_locked_cells = []
 	current_ornaments = []
 	backpack_usable_width = INITIAL_BACKPACK_USABLE_WIDTH
 	backpack_usable_height = INITIAL_BACKPACK_USABLE_HEIGHT
@@ -110,6 +116,8 @@ func start_new_run():
 func win_battle(reward_shards: int):
 	current_shards += reward_shards
 	current_depth += 1
+	if RouteConfig.is_battle_node_type(get_current_route_node_type()):
+		_tick_temporary_backpack_locks()
 	print("[RunManager] 战斗胜利! 获得碎片: ", reward_shards, " | 当前深度: ", current_depth)
 	if RouteConfig.is_battle_node_type(get_current_route_node_type()):
 		advance_route_node()
@@ -317,6 +325,7 @@ func _try_add_item_to_backpack_state(item_id: String, item_db: Node) -> bool:
 
 	var backpack = BackpackManager.new()
 	backpack.setup_grid(BACKPACK_GRID_WIDTH, BACKPACK_GRID_HEIGHT, backpack_usable_width, backpack_usable_height)
+	backpack.set_blocked_cells(_to_vector2i_cells(_get_all_blocked_backpack_cells()))
 	restore_backpack_state(backpack, item_db)
 	var target_pos = backpack.find_available_pos(item_data)
 	if target_pos == Vector2i(-1, -1):
@@ -416,6 +425,9 @@ func apply_event_choice(choice: Dictionary) -> bool:
 		"backpack_items": current_backpack_items.duplicate(true),
 		"pending_item_rewards": pending_item_rewards.duplicate(true),
 		"next_pending_item_uid": next_pending_item_uid,
+		"backpack_locked_cells": backpack_locked_cells.duplicate(true),
+		"backpack_deleted_cells": backpack_deleted_cells.duplicate(true),
+		"temporary_backpack_locked_cells": temporary_backpack_locked_cells.duplicate(true),
 		"ornaments": current_ornaments.duplicate(),
 		"backpack_width": backpack_usable_width,
 		"backpack_height": backpack_usable_height,
@@ -442,6 +454,7 @@ func get_backpack_grid_config() -> Dictionary:
 		"grid_height": BACKPACK_GRID_HEIGHT,
 		"usable_width": clampi(backpack_usable_width, 1, BACKPACK_GRID_WIDTH),
 		"usable_height": clampi(backpack_usable_height, 1, BACKPACK_GRID_HEIGHT),
+		"blocked_cells": _get_all_blocked_backpack_cells(),
 	}
 
 func _apply_event_effect(effect: Dictionary) -> bool:
@@ -469,7 +482,188 @@ func _apply_event_effect(effect: Dictionary) -> bool:
 			backpack_usable_width = next_width
 			backpack_usable_height = next_height
 			return true
+		"backpack_lock_cells", "backpack_delete_cells", "backpack_temp_lock_cells", "backpack_force_move":
+			return _apply_backpack_cell_effect(effect)
 	return false
+
+func _apply_backpack_cell_effect(effect: Dictionary) -> bool:
+	var effect_type = str(effect.get("type", ""))
+	var cells = _normalize_cell_array(effect.get("cells", []))
+	if cells.is_empty() or not _are_cells_in_physical_grid(cells):
+		return false
+
+	if effect_type == "backpack_force_move":
+		var moved_items = _move_items_out_of_cells(cells, _get_all_blocked_backpack_cells(), true)
+		if not (moved_items is Array):
+			return false
+		current_backpack_items = moved_items
+		return true
+
+	var next_locked = backpack_locked_cells.duplicate(true)
+	var next_deleted = backpack_deleted_cells.duplicate(true)
+	var next_temporary = temporary_backpack_locked_cells.duplicate(true)
+	match effect_type:
+		"backpack_lock_cells":
+			next_locked = _merge_cell_arrays(next_locked, cells)
+		"backpack_delete_cells":
+			next_deleted = _merge_cell_arrays(next_deleted, cells)
+		"backpack_temp_lock_cells":
+			var duration = max(1, int(effect.get("duration_battles", 1)))
+			var temp_cells: Array[Dictionary] = []
+			for cell in cells:
+				var entry = cell.duplicate(true)
+				entry["remaining_battles"] = duration
+				temp_cells.append(entry)
+			next_temporary = _merge_cell_arrays(next_temporary, temp_cells)
+		_:
+			return false
+
+	var next_blocked = _merge_cell_arrays(_merge_cell_arrays(next_locked, next_deleted), next_temporary)
+	var moved = _move_items_out_of_cells(next_blocked, next_blocked, bool(effect.get("force_move", true)))
+	if not (moved is Array):
+		return false
+	backpack_locked_cells = next_locked
+	backpack_deleted_cells = next_deleted
+	temporary_backpack_locked_cells = next_temporary
+	current_backpack_items = moved
+	return true
+
+func _move_items_out_of_cells(trigger_cells: Array[Dictionary], blocked_cells: Array[Dictionary], force_move: bool):
+	var trigger_lookup = _cell_lookup(trigger_cells)
+	var blocked_lookup = _cell_lookup(blocked_cells)
+	var unaffected: Array[Dictionary] = []
+	var affected: Array[Dictionary] = []
+	var occupied := {}
+	for entry in current_backpack_items:
+		if _entry_overlaps_lookup(entry, trigger_lookup):
+			affected.append(entry.duplicate(true))
+		else:
+			var kept = entry.duplicate(true)
+			unaffected.append(kept)
+			_add_entry_cells_to_lookup(occupied, kept)
+	if affected.is_empty():
+		return current_backpack_items.duplicate(true)
+	if not force_move:
+		return null
+	var result = unaffected.duplicate(true)
+	for entry in affected:
+		var next_pos = _find_available_root_for_entry(entry, blocked_lookup, occupied)
+		if next_pos == Vector2i(-1, -1):
+			return null
+		entry["x"] = next_pos.x
+		entry["y"] = next_pos.y
+		result.append(entry)
+		_add_entry_cells_to_lookup(occupied, entry)
+	return result
+
+func _find_available_root_for_entry(entry: Dictionary, blocked_lookup: Dictionary, occupied_lookup: Dictionary) -> Vector2i:
+	for y in range(BACKPACK_GRID_HEIGHT):
+		for x in range(BACKPACK_GRID_WIDTH):
+			var root = Vector2i(x, y)
+			if _can_entry_fit_at(entry, root, blocked_lookup, occupied_lookup):
+				return root
+	return Vector2i(-1, -1)
+
+func _can_entry_fit_at(entry: Dictionary, root: Vector2i, blocked_lookup: Dictionary, occupied_lookup: Dictionary) -> bool:
+	for offset in _entry_shape(entry):
+		var cell = root + offset
+		if cell.x < 0 or cell.x >= BACKPACK_GRID_WIDTH or cell.y < 0 or cell.y >= BACKPACK_GRID_HEIGHT:
+			return false
+		if not _is_cell_in_usable_rect(cell):
+			return false
+		var key = _cell_key(cell)
+		if blocked_lookup.has(key) or occupied_lookup.has(key):
+			return false
+	return true
+
+func _entry_overlaps_lookup(entry: Dictionary, lookup: Dictionary) -> bool:
+	var root = Vector2i(int(entry.get("x", 0)), int(entry.get("y", 0)))
+	for offset in _entry_shape(entry):
+		if lookup.has(_cell_key(root + offset)):
+			return true
+	return false
+
+func _add_entry_cells_to_lookup(lookup: Dictionary, entry: Dictionary) -> void:
+	var root = Vector2i(int(entry.get("x", 0)), int(entry.get("y", 0)))
+	for offset in _entry_shape(entry):
+		lookup[_cell_key(root + offset)] = true
+
+func _entry_shape(entry: Dictionary) -> Array[Vector2i]:
+	var fallback: Array[Vector2i] = [Vector2i.ZERO]
+	return _deserialize_shape(Array(entry.get("shape", [])), fallback)
+
+func _is_cell_in_usable_rect(cell: Vector2i) -> bool:
+	var width = clampi(backpack_usable_width, 1, BACKPACK_GRID_WIDTH)
+	var height = clampi(backpack_usable_height, 1, BACKPACK_GRID_HEIGHT)
+	var start_x = floori((BACKPACK_GRID_WIDTH - width) / 2.0)
+	var start_y = floori((BACKPACK_GRID_HEIGHT - height) / 2.0)
+	return cell.x >= start_x and cell.x < start_x + width and cell.y >= start_y and cell.y < start_y + height
+
+func _normalize_cell_array(value: Variant) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for entry in Array(value):
+		if entry is Vector2i:
+			result.append({"x": entry.x, "y": entry.y})
+		elif entry is Dictionary:
+			result.append({"x": int(entry.get("x", 0)), "y": int(entry.get("y", 0))})
+	return _unique_cells(result)
+
+func _are_cells_in_physical_grid(cells: Array[Dictionary]) -> bool:
+	for cell in cells:
+		var pos = Vector2i(int(cell.get("x", -1)), int(cell.get("y", -1)))
+		if pos.x < 0 or pos.x >= BACKPACK_GRID_WIDTH or pos.y < 0 or pos.y >= BACKPACK_GRID_HEIGHT:
+			return false
+	return true
+
+func _merge_cell_arrays(a: Array[Dictionary], b: Array[Dictionary]) -> Array[Dictionary]:
+	var merged: Array[Dictionary] = []
+	merged.append_array(a)
+	merged.append_array(b)
+	return _unique_cells(merged)
+
+func _unique_cells(cells: Array[Dictionary]) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var seen := {}
+	for cell in cells:
+		var normalized = {"x": int(cell.get("x", 0)), "y": int(cell.get("y", 0))}
+		if cell.has("remaining_battles"):
+			normalized["remaining_battles"] = int(cell.get("remaining_battles", 1))
+		var key = "%d:%d" % [int(normalized.get("x", 0)), int(normalized.get("y", 0))]
+		if seen.has(key):
+			continue
+		seen[key] = true
+		result.append(normalized)
+	return result
+
+func _cell_lookup(cells: Array[Dictionary]) -> Dictionary:
+	var lookup := {}
+	for cell in cells:
+		lookup[_cell_key(Vector2i(int(cell.get("x", 0)), int(cell.get("y", 0))))] = true
+	return lookup
+
+func _cell_key(cell: Vector2i) -> String:
+	return "%d:%d" % [cell.x, cell.y]
+
+func _get_all_blocked_backpack_cells() -> Array[Dictionary]:
+	return _merge_cell_arrays(_merge_cell_arrays(backpack_locked_cells, backpack_deleted_cells), temporary_backpack_locked_cells)
+
+func _to_vector2i_cells(cells: Array[Dictionary]) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	for cell in cells:
+		result.append(Vector2i(int(cell.get("x", 0)), int(cell.get("y", 0))))
+	return result
+
+func _tick_temporary_backpack_locks() -> void:
+	var next_cells: Array[Dictionary] = []
+	for cell in temporary_backpack_locked_cells:
+		var remaining = int(cell.get("remaining_battles", 1)) - 1
+		if remaining > 0:
+			next_cells.append({
+				"x": int(cell.get("x", 0)),
+				"y": int(cell.get("y", 0)),
+				"remaining_battles": remaining,
+			})
+	temporary_backpack_locked_cells = next_cells
 
 func _restore_event_snapshot(snapshot: Dictionary) -> void:
 	current_shards = int(snapshot.get("shards", current_shards))
@@ -477,6 +671,9 @@ func _restore_event_snapshot(snapshot: Dictionary) -> void:
 	current_backpack_items = _to_dictionary_array(snapshot.get("backpack_items", current_backpack_items))
 	pending_item_rewards = _to_dictionary_array(snapshot.get("pending_item_rewards", pending_item_rewards))
 	next_pending_item_uid = int(snapshot.get("next_pending_item_uid", next_pending_item_uid))
+	backpack_locked_cells = _to_dictionary_array(snapshot.get("backpack_locked_cells", backpack_locked_cells))
+	backpack_deleted_cells = _to_dictionary_array(snapshot.get("backpack_deleted_cells", backpack_deleted_cells))
+	temporary_backpack_locked_cells = _to_dictionary_array(snapshot.get("temporary_backpack_locked_cells", temporary_backpack_locked_cells))
 	current_ornaments = _to_string_array(snapshot.get("ornaments", current_ornaments))
 	backpack_usable_width = int(snapshot.get("backpack_width", backpack_usable_width))
 	backpack_usable_height = int(snapshot.get("backpack_height", backpack_usable_height))
@@ -699,6 +896,9 @@ func serialize_run() -> Dictionary:
 		"backpack_items": current_backpack_items,
 		"pending_item_rewards": pending_item_rewards,
 		"next_pending_item_uid": next_pending_item_uid,
+		"backpack_locked_cells": backpack_locked_cells,
+		"backpack_deleted_cells": backpack_deleted_cells,
+		"temporary_backpack_locked_cells": temporary_backpack_locked_cells,
 		"ornaments": current_ornaments,
 		"backpack_usable_width": backpack_usable_width,
 		"backpack_usable_height": backpack_usable_height,
@@ -723,6 +923,9 @@ func deserialize_run(data: Dictionary):
 	current_backpack_items = _to_dictionary_array(data.get("backpack_items", []))
 	pending_item_rewards = _to_dictionary_array(data.get("pending_item_rewards", []))
 	next_pending_item_uid = max(int(data.get("next_pending_item_uid", 1)), _get_next_pending_uid_from_entries())
+	backpack_locked_cells = _to_dictionary_array(data.get("backpack_locked_cells", []))
+	backpack_deleted_cells = _to_dictionary_array(data.get("backpack_deleted_cells", []))
+	temporary_backpack_locked_cells = _to_dictionary_array(data.get("temporary_backpack_locked_cells", []))
 	current_ornaments = _to_string_array(data.get("ornaments", []))
 	backpack_usable_width = clampi(int(data.get("backpack_usable_width", INITIAL_BACKPACK_USABLE_WIDTH)), 1, BACKPACK_GRID_WIDTH)
 	backpack_usable_height = clampi(int(data.get("backpack_usable_height", INITIAL_BACKPACK_USABLE_HEIGHT)), 1, BACKPACK_GRID_HEIGHT)

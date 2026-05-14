@@ -112,5 +112,39 @@
 				]
 			}
 		]
+	},
+	{
+		"id": "warped_grid",
+		"title": "扭曲格纹",
+		"description": "梦境边缘出现一块不稳定的格纹。接纳它能获得碎片，但背包空间会留下阻滞。",
+		"earliest_act": 2,
+		"weight": 0.55,
+		"risk": 0.8,
+		"reward": 0.7,
+		"tags": ["背包", "风险", "碎片"],
+		"choices": [
+			{
+				"id": "lock_corner_for_shards",
+				"title": "接纳扭曲",
+				"description": "锁定 1 个背包格，获得 14 碎片。",
+				"preview": "若该格已有物品，会先尝试搬迁；搬不动则不会生效。",
+				"requires_confirm": true,
+				"effects": [
+					{"type": "backpack_lock_cells", "cells": [{"x": 1, "y": 1}], "force_move": true},
+					{"type": "shards", "amount": 14}
+				]
+			},
+			{
+				"id": "temporary_lock_for_rest",
+				"title": "短暂绕行",
+				"description": "下 1 场局内游戏锁定 1 个背包格，回复 10 梦值。",
+				"preview": "临时锁格会在下一场局内游戏结束后解除。",
+				"requires_confirm": true,
+				"effects": [
+					{"type": "backpack_temp_lock_cells", "cells": [{"x": 5, "y": 5}], "duration_battles": 1, "force_move": true},
+					{"type": "sanity", "amount": 10}
+				]
+			}
+		]
 	}
 ]
