@@ -70,3 +70,20 @@ func test_trigger_impact_at_keeps_legacy_entry_but_queues_work():
 	assert_eq(manager._impact_queue.size(), 1)
 	assert_eq(manager._impact_queue[0]["pos"], source.root_pos)
 	assert_eq(manager._impact_queue[0]["reason"], "direct")
+
+func test_root_dream_queues_impact_every_five_draws():
+	var root = item_db.get_item_by_id("root_dream")
+	assert_true(manager.backpack_manager.place_item(root, Vector2i(1, 3)))
+	var draw_item = item_db.get_item_by_id("paper_ball")
+	draw_item.base_cost = 0
+
+	for _i in range(4):
+		manager._process_new_item_acquisition(draw_item.duplicate(true))
+
+	assert_true(manager._impact_queue.is_empty())
+
+	manager._process_new_item_acquisition(draw_item.duplicate(true))
+
+	assert_eq(manager._impact_queue.size(), 1)
+	assert_eq(manager._impact_queue[0]["pos"], Vector2i(1, 3))
+	assert_eq(manager._impact_queue[0]["reason"], "interval_trigger")

@@ -168,10 +168,12 @@
 - `MainGameUI` 会为已恢复的背包物品生成对应 `ItemUI`，保持可拖拽、可旋转、可丢弃。
 - 存档序列化新增 `backpack_items` 字段，旧存档默认空背包，保持兼容。
 - 物品变身、进化或替换数据时会保留原 `runtime_id`，并通知战斗 UI 同步物品显示与映射，避免苹果核变回苹果等效果后丢失拖拽、悬浮或动画定位。
+- 新 run 默认在背包第三排左侧加入 `root_dream`，作为新版设计中替代固定撞击源的根源之梦；旧存档恢复时若缺失该物品，会自动补入一个根源之梦。
 
 自动化测试：
 
 - `test/unit/test_backpack_persistence.gd` 覆盖背包状态保存、衍生物品过滤、污染不跨战斗保存，以及恢复时保留位置、方向、形状和 runtime id。
+- `test/unit/test_backpack_persistence.gd` 额外覆盖新 run 默认根源之梦、旧存档恢复补根源之梦。
 - `test/unit/test_backpack_manager.gd` 覆盖替换同形状和不同形状物品时保留 `runtime_id`，并发出替换事件。
 
 实现假设：
@@ -240,6 +242,7 @@
 - `request_draw()` 在抽取物品和全局抽取监听结束后，会等待本结算窗口内的撞击队列处理完成，再回到可操作状态或发出 pending 结束请求。
 - 每次只弹出一条撞击链，等待 `ImpactResolver` 与 `SequencePlayer` 完整结算后再处理下一条；结算过程中新增的撞击继续进入同一队列并重新排序。
 - `interval_trigger`、`reactive_impact`、`same_item_draw`、`stain_magnifier`、`tag_reactive` 等延迟撞击效果已统一改为入队，不再直接 `call_deferred("trigger_impact_at")`。
+- `root_dream` 挂载 `interval_trigger`，配置为每捕梦 5 次入队发起一次撞击，不需要污染层数。
 
 实现假设：
 
@@ -249,6 +252,7 @@
 自动化测试：
 
 - `test/unit/test_impact_queue.gd` 覆盖左上优先级排序、同窗口新增撞击重新排序、空格/失效来源拒绝，以及旧 `trigger_impact_at()` 入口兼容入队。
+- `test/unit/test_impact_queue.gd` 覆盖根源之梦在第 5 次捕梦后进入撞击队列。
 
 策划目标：
 

@@ -44,9 +44,36 @@ func test_restore_backpack_rebuilds_saved_items_without_pollution():
 	run_manager.restore_backpack_state(backpack, item_db)
 
 	var instances = backpack.get_all_instances()
-	assert_eq(instances.size(), 1)
-	assert_eq(instances[0].data.id, "tin_can")
-	assert_eq(instances[0].root_pos, Vector2i(1, 1))
-	assert_eq(instances[0].data.direction, ItemData.Direction.DOWN)
-	assert_eq(instances[0].data.runtime_id, 1234)
-	assert_eq(instances[0].current_pollution, 0)
+	assert_eq(instances.size(), 2)
+	var tin_can = _find_instance(backpack, "tin_can")
+	assert_not_null(tin_can)
+	assert_eq(tin_can.root_pos, Vector2i(1, 1))
+	assert_eq(tin_can.data.direction, ItemData.Direction.DOWN)
+	assert_eq(tin_can.data.runtime_id, 1234)
+	assert_eq(tin_can.current_pollution, 0)
+
+func test_new_run_starts_with_root_dream():
+	run_manager.start_new_run()
+
+	assert_eq(run_manager.current_backpack_items.size(), 1)
+	assert_eq(run_manager.current_backpack_items[0].id, "root_dream")
+	assert_eq(run_manager.current_backpack_items[0].x, 1)
+	assert_eq(run_manager.current_backpack_items[0].y, 3)
+
+func test_restore_backpack_adds_root_dream_for_old_saves():
+	run_manager.current_backpack_items.clear()
+	var backpack = autofree(BackpackManager.new())
+	backpack.setup_grid(7, 7, 5, 5)
+
+	run_manager.restore_backpack_state(backpack, item_db)
+
+	var root = _find_instance(backpack, "root_dream")
+	assert_not_null(root)
+	assert_eq(root.root_pos, Vector2i(1, 3))
+	assert_eq(root.data.direction, ItemData.Direction.RIGHT)
+
+func _find_instance(backpack: BackpackManager, item_id: String):
+	for instance in backpack.get_all_instances():
+		if instance.data.id == item_id:
+			return instance
+	return null

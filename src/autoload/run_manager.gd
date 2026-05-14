@@ -27,6 +27,17 @@ const BACKPACK_GRID_WIDTH := 7
 const BACKPACK_GRID_HEIGHT := 7
 const INITIAL_BACKPACK_USABLE_WIDTH := 5
 const INITIAL_BACKPACK_USABLE_HEIGHT := 5
+const ROOT_DREAM_ID := "root_dream"
+const INITIAL_BACKPACK_ITEMS: Array[Dictionary] = [
+	{
+		"id": ROOT_DREAM_ID,
+		"x": 1,
+		"y": 3,
+		"direction": ItemData.Direction.RIGHT,
+		"shape": [{"x": 0, "y": 0}],
+		"runtime_id": -1,
+	},
+]
 
 # --- 状态数据 ---
 var current_shards: int = INITIAL_SHARDS
@@ -65,7 +76,7 @@ func start_new_run():
 	
 	current_shards = INITIAL_SHARDS
 	current_deck = INITIAL_DECK.duplicate()
-	current_backpack_items.clear()
+	current_backpack_items = _get_initial_backpack_items()
 	current_ornaments = []
 	backpack_usable_width = INITIAL_BACKPACK_USABLE_WIDTH
 	backpack_usable_height = INITIAL_BACKPACK_USABLE_HEIGHT
@@ -318,6 +329,7 @@ func restore_backpack_state(backpack: BackpackManager, item_db: Node) -> void:
 		runtime_data.shape = _deserialize_shape(Array(entry.get("shape", [])), runtime_data.shape)
 		var root_pos = Vector2i(int(entry.get("x", 0)), int(entry.get("y", 0)))
 		backpack.place_item(runtime_data, root_pos)
+	_ensure_required_backpack_items(backpack, item_db)
 
 func _serialize_backpack_instance(instance: BackpackManager.ItemInstance) -> Dictionary:
 	return {
@@ -343,6 +355,43 @@ func _deserialize_shape(value: Array, fallback: Array[Vector2i]) -> Array[Vector
 	if result.is_empty():
 		return fallback
 	return result
+
+func _get_initial_backpack_items() -> Array[Dictionary]:
+	return _to_dictionary_array(INITIAL_BACKPACK_ITEMS).duplicate(true)
+
+func _ensure_required_backpack_items(backpack: BackpackManager, item_db: Node) -> void:
+	if _backpack_has_item(backpack, ROOT_DREAM_ID):
+		return
+	for entry in INITIAL_BACKPACK_ITEMS:
+		if str(entry.get("id", "")) == ROOT_DREAM_ID:
+			_place_required_backpack_item(backpack, item_db, entry)
+			return
+
+func _backpack_has_item(backpack: BackpackManager, item_id: String) -> bool:
+	if backpack == null:
+		return false
+	for instance in backpack.get_all_instances():
+		if instance != null and instance.data != null and instance.data.id == item_id:
+			return true
+	return false
+
+func _place_required_backpack_item(backpack: BackpackManager, item_db: Node, entry: Dictionary) -> bool:
+	var item_id = str(entry.get("id", ""))
+	var item_data = item_db.get_item_by_id(item_id) if item_db != null and item_db.has_method("get_item_by_id") else null
+	if item_data == null:
+		return false
+
+	item_data.direction = int(entry.get("direction", item_data.direction))
+	item_data.shape = _deserialize_shape(Array(entry.get("shape", [])), item_data.shape)
+
+	var root_pos = Vector2i(int(entry.get("x", 0)), int(entry.get("y", 0)))
+	if backpack.can_place_item(item_data, root_pos):
+		return backpack.place_item(item_data, root_pos)
+
+	var fallback_pos = backpack.find_available_pos(item_data)
+	if fallback_pos != Vector2i(-1, -1):
+		return backpack.place_item(item_data, fallback_pos)
+	return false
 
 func _is_derived_item(instance: BackpackManager.ItemInstance) -> bool:
 	return instance != null and instance.data != null and instance.data.tags.has("衍生物品")
