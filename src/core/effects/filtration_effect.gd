@@ -33,10 +33,9 @@ func on_hit(instance: BackpackManager.ItemInstance, _source_instance: BackpackMa
 		return null
 		
 	# --- 物理屏蔽关键步骤 ---
-	# 我们将目标物品和方向加入 resolver 的 visited 列表，防止本轮解析器再次撞击它
-	if resolver.get("visited") != null:
-		var visited_entry = {"target": target_item, "dir": instance.data.direction}
-		resolver.visited.append(visited_entry)
+	# 我们将目标物品加入本次撞击结算的屏蔽列表，防止本轮解析器再次撞击它
+	if resolver.has_method("block_instance_for_current_resolution"):
+		resolver.block_instance_for_current_resolution(target_item, instance.data.direction)
 		print("[Effect] 深井滤芯已物理屏蔽目标 ", target_item.data.item_name, " 防止二次撞击")
 	
 	# 执行过滤

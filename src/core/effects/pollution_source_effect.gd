@@ -2,7 +2,7 @@ class_name PollutionSourceEffect
 extends ItemEffect
 
 ## 污染源瓶效果：被撞：所有带污染物品 +1 污染。
-## 若本次链已经发生过至少 5 次污染结算，+20 分。
+## 若本次撞击结算已经命中足够多物品，+20 分。
 
 @export var bonus_score: int = 20
 @export var settlement_threshold: int = 5
@@ -19,16 +19,12 @@ func on_hit(_instance: BackpackManager.ItemInstance, _source_instance: BackpackM
 			affected_count += 1
 	print("[Effect] 污染源瓶活性化，为全场 ", affected_count, " 个物品增加了污染。")
 	
-	# 2. 检查长链奖励
-	# 扫描 Resolver 的 actions 列表，寻找“污染反噬”动作的次数
-	var settlement_count = 0
-	for action in resolver.actions_history:
-		if action.type == GameAction.Type.NUMERIC and action.description == "污染反噬":
-			settlement_count += 1
+	# 2. 检查本次撞击结算命中数奖励
+	var settlement_count = int(resolver.get_current_resolution_summary().get("hit_count", 0))
 			
 	if settlement_count >= settlement_threshold:
 		var final_bonus = bonus_score * multiplier
-		print("[Effect] 污染源瓶感应到长链（结算次数:", settlement_count, "），提供额外得分: ", final_bonus)
+		print("[Effect] 污染源瓶感应到高命中撞击结算（命中数:", settlement_count, "），提供额外得分: ", final_bonus)
 		var action = GameAction.new(GameAction.Type.NUMERIC, "污染源共鸣奖励")
 		action.value = {"type": "score", "amount": final_bonus}
 		return action

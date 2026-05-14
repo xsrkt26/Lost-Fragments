@@ -25,6 +25,17 @@ func before_each():
 	
 	item_db = get_node_or_null("/root/ItemDatabase")
 
+func _make_test_item(item_id: String) -> ItemData:
+	var item = ItemData.new()
+	item.id = item_id
+	item.item_name = item_id
+	item.can_draw = false
+	item.base_cost = 0
+	item.shape = [Vector2i(0, 0)] as Array[Vector2i]
+	item.direction = ItemData.Direction.RIGHT
+	item.transmission_mode = ItemData.TransmissionMode.NORMAL
+	return item
+
 ## 测试：紧贴传导 (Adjacency)
 func test_strictly_adjacent_propagation():
 	var clock = item_db.get_item_by_id("alarm_clock")
@@ -152,3 +163,52 @@ func test_different_direction_stops_chain():
 	assert_eq(hit_count, 1, "Only the first neighbor should be hit")
 	assert_true(hit_paper2, "Neighbor should be hit")
 	assert_false(hit_paper3, "Third item should NOT be hit because neighbor direction mismatched")
+
+func test_same_item_is_hit_once_per_resolution_even_from_multiple_directions():
+	var source_data = _make_test_item("virtual_source")
+	source_data.direction = ItemData.Direction.UP
+	var source_instance = BackpackManager.ItemInstance.new(source_data, Vector2i(1, 2))
+
+	var omni = _make_test_item("omni")
+	omni.transmission_mode = ItemData.TransmissionMode.OMNI
+	assert_true(backpack.place_item(omni, Vector2i(1, 1)))
+
+	var target = _make_test_item("l_target")
+	target.transmission_mode = ItemData.TransmissionMode.NONE
+	target.shape = [Vector2i(1, 0), Vector2i(0, 1)] as Array[Vector2i]
+	assert_true(backpack.place_item(target, Vector2i(0, 0)))
+	var target_instance = backpack.grid[Vector2i(1, 0)]
+
+	var resolver = ImpactResolver.new(backpack, context)
+	var actions = resolver.resolve_impact(source_instance.root_pos, ItemData.Direction.UP, source_instance)
+
+	var target_hit_count = 0
+	for action in actions:
+		if action.type == GameAction.Type.IMPACT and action.item_instance == target_instance:
+			target_hit_count += 1
+
+	assert_eq(target_hit_count, 1)
+	assert_eq(resolver.get_current_resolution_summary().hit_count, 2)
+
+func test_resolution_summary_tracks_distinct_and_mechanical_hits():
+	var source_data = _make_test_item("virtual_source")
+	source_data.direction = ItemData.Direction.RIGHT
+	var source_instance = BackpackManager.ItemInstance.new(source_data, Vector2i(0, 0))
+
+	var first = _make_test_item("mechanical_one")
+	first.tags = ["机械"] as Array[String]
+	first.direction = ItemData.Direction.RIGHT
+	assert_true(backpack.place_item(first, Vector2i(1, 0)))
+
+	var second = _make_test_item("mechanical_two")
+	second.tags = ["机械"] as Array[String]
+	second.direction = ItemData.Direction.RIGHT
+	assert_true(backpack.place_item(second, Vector2i(2, 0)))
+
+	var resolver = ImpactResolver.new(backpack, context)
+	resolver.resolve_impact(source_instance.root_pos, ItemData.Direction.RIGHT, source_instance)
+	var summary = resolver.get_current_resolution_summary()
+
+	assert_eq(summary.hit_count, 2)
+	assert_eq(summary.mechanical_hit_count, 2)
+	assert_eq(summary.turn_transmission_count, 0)
