@@ -1,5 +1,10 @@
 extends Control
 
+signal close_requested
+
+const MODE_BATTLE := "battle"
+const MODE_BACKPACK_OVERLAY := "backpack_overlay"
+
 ## 主游戏 UI 控制器：负责将布局中的各个部分与逻辑层连接
 
 @onready var backpack_ui = $ContentLayer/GridPanel/BackpackUI
@@ -19,11 +24,21 @@ var battle_manager: BattleManager
 var _is_battle_ended: bool = false
 var _draw_locked: bool = false
 var _dreamcatcher_base_scale := Vector2.ONE
+var _ui_mode: String = MODE_BATTLE
+var _overlay_close_callback: Callable = Callable()
+
+func configure_for_backpack_overlay(close_callback: Callable = Callable()) -> void:
+	_ui_mode = MODE_BACKPACK_OVERLAY
+	_overlay_close_callback = close_callback
+	if is_node_ready():
+		_apply_backpack_overlay_mode()
 
 func _ready():
 	print("[MainGameUI Debug] UI初始化开始...")
 	if dreamcatcher_panel:
 		_dreamcatcher_base_scale = dreamcatcher_panel.scale
+	if _is_backpack_overlay_mode():
+		_apply_backpack_overlay_mode()
 	
 	# 设置手动结束按钮文本 (对齐设计需求)
 	var menu_btn = $ContentLayer/MenuButton
@@ -47,24 +62,28 @@ func _ready():
 
 func setup(p_battle_manager: BattleManager):
 	print("[MainGameUI] 正在执行 setup...")
-	GlobalInput.set_context(GlobalInput.Context.BATTLE)
-	GlobalAudio.play_bgm("battle")
+	if _is_backpack_overlay_mode():
+		GlobalInput.set_context(GlobalInput.Context.UI)
+	else:
+		GlobalInput.set_context(GlobalInput.Context.BATTLE)
+		GlobalAudio.play_bgm("battle")
 	battle_manager = p_battle_manager
 	
 	# 核心修复：确保进入战斗时状态是干净的
 	var gs = get_node_or_null("/root/GameState")
-	if gs:
+	if gs and not _is_backpack_overlay_mode():
 		gs.reset_game()
 	
 	if backpack_ui == null:
 		print("[MainGameUI] 错误: backpack_ui 引用为空！")
 	
 	battle_manager.backpack_ui = backpack_ui
-	if not battle_manager.battle_finish_requested.is_connected(_on_battle_finish_requested):
+	if not _is_backpack_overlay_mode() and not battle_manager.battle_finish_requested.is_connected(_on_battle_finish_requested):
 		battle_manager.battle_finish_requested.connect(_on_battle_finish_requested)
 	
 	# 连接逻辑信号
-	battle_manager.item_drawn.connect(_on_item_drawn)
+	if not _is_backpack_overlay_mode() and not battle_manager.item_drawn.is_connected(_on_item_drawn):
+		battle_manager.item_drawn.connect(_on_item_drawn)
 	backpack_ui.item_dropped_on_grid.connect(battle_manager.request_place_item)
 	_render_existing_backpack_items()
 	_render_pending_items()
@@ -72,7 +91,7 @@ func setup(p_battle_manager: BattleManager):
 	
 	# 连接状态更新信号
 	gs = get_node_or_null("/root/GameState")
-	if gs:
+	if gs and not _is_backpack_overlay_mode():
 		# 断开旧连接避免重复 (容错)
 		if gs.sanity_changed.is_connected(_on_sanity_changed): gs.sanity_changed.disconnect(_on_sanity_changed)
 		if gs.score_changed.is_connected(_on_score_changed): gs.score_changed.disconnect(_on_score_changed)
@@ -83,6 +102,65 @@ func setup(p_battle_manager: BattleManager):
 		gs.game_over.connect(_on_game_over)
 		_update_stats_display(gs.current_sanity, gs.current_score)
 	_sync_draw_button_state()
+
+func _is_backpack_overlay_mode() -> bool:
+	return _ui_mode == MODE_BACKPACK_OVERLAY
+
+func _apply_backpack_overlay_mode() -> void:
+	GlobalInput.set_context(GlobalInput.Context.UI)
+	var background = get_node_or_null("Background")
+	if background:
+		background.color = Color(0, 0, 0, 0.62)
+	for path in [
+		"ContentLayer/DreamcatcherPanel",
+		"ContentLayer/MenuButton",
+		"ContentLayer/PortraitPanel",
+		"ContentLayer/StatsPanel",
+		"ContentLayer/OrnamentsPanel",
+	]:
+		var node = get_node_or_null(path)
+		if node:
+			node.hide()
+	_position_backpack_overlay_panel()
+	_ensure_backpack_overlay_close_button()
+
+func _position_backpack_overlay_panel() -> void:
+	var grid_panel = get_node_or_null("ContentLayer/GridPanel")
+	if grid_panel == null:
+		return
+	grid_panel.set_anchors_preset(Control.PRESET_TOP_LEFT, true)
+	grid_panel.scale = Vector2(0.68, 0.68)
+	var viewport_size = get_viewport_rect().size
+	var panel_size = grid_panel.size * grid_panel.scale
+	grid_panel.position = Vector2(
+		max(24.0, (viewport_size.x - panel_size.x) * 0.5),
+		max(8.0, (viewport_size.y - panel_size.y) * 0.5)
+	)
+
+func _ensure_backpack_overlay_close_button() -> void:
+	var content_layer = get_node_or_null("ContentLayer")
+	if content_layer == null or content_layer.has_node("CloseBackpackButton"):
+		return
+	var close_button = Button.new()
+	close_button.name = "CloseBackpackButton"
+	close_button.text = "关闭"
+	close_button.tooltip_text = "关闭整理背包"
+	close_button.focus_mode = Control.FOCUS_NONE
+	close_button.custom_minimum_size = Vector2(96, 42)
+	close_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	close_button.offset_left = -124.0
+	close_button.offset_top = 24.0
+	close_button.offset_right = -24.0
+	close_button.offset_bottom = 66.0
+	close_button.pressed.connect(_request_overlay_close)
+	content_layer.add_child(close_button)
+
+func _request_overlay_close() -> void:
+	if battle_manager and battle_manager.has_method("persist_backpack_to_run"):
+		battle_manager.persist_backpack_to_run()
+	close_requested.emit()
+	if _overlay_close_callback.is_valid():
+		_overlay_close_callback.call()
 
 func _on_game_over():
 	if _is_battle_ended: return
@@ -384,9 +462,16 @@ func _input(event):
 
 	# ESC 键撤退回整备室
 	if event.is_action_pressed("ui_cancel") or Input.is_key_pressed(KEY_ESCAPE):
-		_return_to_hub()
+		if _is_backpack_overlay_mode():
+			_request_overlay_close()
+		else:
+			_return_to_hub()
+		get_viewport().set_input_as_handled()
 
 func _on_menu_button_pressed():
+	if _is_backpack_overlay_mode():
+		_request_overlay_close()
+		return
 	if battle_manager and battle_manager.has_method("request_finish_battle"):
 		battle_manager.request_finish_battle("manual")
 	else:

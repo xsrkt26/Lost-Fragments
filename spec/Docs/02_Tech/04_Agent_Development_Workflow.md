@@ -114,7 +114,7 @@ python -B scripts\run_scene_smoke_tests.py --fail-on-engine-error
 4. 用图片查看工具定位具体 UI/交互现象。
 5. 将现象转成可执行的代码问题，再按标准开发循环实现、测试、文档、commit、push。
 
-最近一次视频反馈显示：Hub/整理背包/局内界面切换时，蓝色背包布面板出现大面积覆盖和层级重叠。后续若用户要求修复，优先检查 `src/ui/hub/hub_scene.gd` 的 `_open_backpack_overlay()`、`src/ui/main_game_ui.tscn` 的 `GridPanel/BackpackUI` 布局，以及是否需要拆出独立整理背包 scene。
+最近一次视频反馈中的基础问题已处理：Hub 整理背包通过 `main_game_ui.tscn` 的整理背包浮层模式打开，提供鼠标关闭按钮、`UI` 输入上下文保护和居中背包布局。后续若继续扩展整理背包专属功能，再评估是否拆出独立整理背包 scene。
 
 ## 当前未完全由代码闭环的事项
 

@@ -95,9 +95,9 @@ sequenceDiagram
 
 ## 6. 整理背包浮层
 
-当前整理背包由 Hub 复用 `main_game_ui.tscn` 打开，并隐藏战斗专属元素。关闭时会持久化背包布局。
+当前整理背包由 Hub 复用 `main_game_ui.tscn` 打开，但会先调用 `configure_for_backpack_overlay()` 进入整理背包浮层模式。该模式会隐藏战斗专属元素，保持 `UI` 输入上下文，显示鼠标可点击关闭按钮，并在关闭时持久化背包布局后恢复 `WORLD`。
 
-已知问题：用户视频反馈显示，整理背包/局内 UI 的背包布面板有覆盖、层级和布局重叠问题。后续应优先修复 `_open_backpack_overlay()` 与 `main_game_ui.tscn` 的布局，必要时拆成独立 `backpack_setup_scene`。
+如果后续整理背包扩展出独立道具栏、排序、筛选或多页布局，再考虑拆成独立 `backpack_setup_scene`。
 
 ## 7. 输入上下文
 

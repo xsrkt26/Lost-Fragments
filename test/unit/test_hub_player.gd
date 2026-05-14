@@ -1,5 +1,8 @@
 extends GutTest
 
+const HubScene = preload("res://src/ui/hub/hub_scene.tscn")
+const MainGameUI = preload("res://src/ui/main_game_ui.tscn")
+
 var player
 
 func before_each():
@@ -12,3 +15,53 @@ func test_mouse_move_target_is_set_and_cleared():
 
 	player.clear_move_target()
 	assert_false(player.has_move_target)
+
+func test_backpack_overlay_mode_adds_close_button_and_keeps_ui_context():
+	var ui = MainGameUI.instantiate()
+	ui.configure_for_backpack_overlay()
+	add_child_autofree(ui)
+
+	await get_tree().create_timer(0.2).timeout
+
+	assert_true(GlobalInput.is_context(GlobalInput.Context.UI))
+	assert_not_null(ui.get_node_or_null("ContentLayer/CloseBackpackButton"))
+	assert_false(ui.get_node("ContentLayer/DreamcatcherPanel").visible)
+	assert_false(ui.get_node("ContentLayer/MenuButton").visible)
+
+func test_hub_backpack_overlay_close_button_restores_world_context():
+	var hub = HubScene.instantiate()
+	add_child_autofree(hub)
+	await get_tree().create_timer(0.2).timeout
+
+	hub._open_backpack_overlay()
+	await get_tree().create_timer(0.2).timeout
+
+	var overlay_root = hub.get_node("CanvasLayer/OverlayRoot")
+	assert_eq(overlay_root.get_child_count(), 1)
+	assert_true(GlobalInput.is_context(GlobalInput.Context.UI))
+	var overlay = overlay_root.get_child(0)
+	var close_button = overlay.get_node_or_null("ContentLayer/CloseBackpackButton")
+	assert_not_null(close_button)
+
+	close_button.pressed.emit()
+	await get_tree().process_frame
+
+	assert_eq(overlay_root.get_child_count(), 0)
+	assert_true(GlobalInput.is_context(GlobalInput.Context.WORLD))
+
+func test_hub_left_click_moves_player_with_mouse():
+	var hub = HubScene.instantiate()
+	add_child_autofree(hub)
+	await get_tree().create_timer(0.2).timeout
+	GlobalInput.set_context(GlobalInput.Context.WORLD)
+	var hub_player = hub.get_node("Player")
+	hub_player.clear_move_target()
+
+	var event = InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = true
+	event.position = Vector2(320, 500)
+	hub._unhandled_input(event)
+
+	assert_true(hub_player.has_move_target)
+	assert_eq(hub_player.move_target_x, 320.0)

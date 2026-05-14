@@ -178,7 +178,7 @@
 
 `GlobalFeedback` 会为场景内和运行时动态生成的 `BaseButton` 自动绑定 hover 缩放、手型光标和点击音效。
 
-当前已知 UI 问题：用户视频反馈显示 Hub、整理背包和局内界面切换时背包布面板存在大面积覆盖和层级重叠。后续修复优先检查 `HubScene._open_backpack_overlay()` 与 `main_game_ui.tscn` 的背包布局，必要时拆出独立整理背包 scene。
+Hub 整理背包当前仍复用 `main_game_ui.tscn`，但通过 `configure_for_backpack_overlay()` 进入独立浮层模式：保持 `UI` 输入上下文，隐藏战斗专属面板，提供鼠标关闭按钮，关闭时保存背包布局并恢复 `WORLD`。若后续继续扩展整理背包专属流程，再考虑拆出独立 scene。
 
 ### 10. 测试与发布
 

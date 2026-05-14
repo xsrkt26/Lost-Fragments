@@ -33,6 +33,7 @@ func _input(event):
 	if event.is_action_pressed("ui_cancel") or Input.is_key_pressed(KEY_ESCAPE):
 		if overlay_root.get_child_count() > 0:
 			_close_backpack_overlay()
+			get_viewport().set_input_as_handled()
 		else:
 			GlobalScene.go_back()
 		return
@@ -184,28 +185,9 @@ func _open_backpack_overlay():
 	GlobalInput.set_context(GlobalInput.Context.UI)
 	var ui_scene = load("res://src/ui/main_game_ui.tscn")
 	var overlay = ui_scene.instantiate()
+	if overlay.has_method("configure_for_backpack_overlay"):
+		overlay.configure_for_backpack_overlay(_close_backpack_overlay)
 	overlay_root.add_child(overlay)
-	_add_backpack_close_button()
-	
-	# 关键定制：隐藏战斗专属元素
-	if overlay.has_node("ContentLayer/DreamcatcherPanel"):
-		overlay.get_node("ContentLayer/DreamcatcherPanel").hide()
-	if overlay.has_node("ContentLayer/MenuButton"):
-		overlay.get_node("ContentLayer/MenuButton").hide()
-	
-	# 视觉提示
-	var bg = overlay.get_node("Background")
-	if bg:
-		bg.color = Color(0, 0, 0, 0.6) # 变为半透明背景
-
-func _add_backpack_close_button():
-	var close_button = Button.new()
-	close_button.name = "CloseBackpackButton"
-	close_button.text = "关闭"
-	close_button.custom_minimum_size = Vector2(88, 42)
-	close_button.position = Vector2(1160, 24)
-	close_button.pressed.connect(_close_backpack_overlay)
-	overlay_root.add_child(close_button)
 
 func _close_backpack_overlay():
 	print("[Hub] 正在关闭背包浮层")
