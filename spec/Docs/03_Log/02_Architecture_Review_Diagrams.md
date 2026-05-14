@@ -131,6 +131,6 @@ sequenceDiagram
 1.  **Model 层的缺失 (ItemInstance 太单薄)**：
     *   目前 `ItemInstance` 仅包含 `(data, pos)`。污染流要求同一张卡在场上状态可变。必须引入 `current_pollution` 等状态变量。
 2.  **Resolver 的线性局限**：
-    *   目前 `ImpactResolver` 的管线是线性的触发 `on_hit`。需要将其升级为支持读取目标的污染层数 N，并以 N 为倍数触发 `on_hit`，同时反噬扣除玩家 N 点梦值。
+    *   目前 `ImpactResolver` 的管线是线性的触发 `on_hit`。需要将其升级为支持读取目标的污染层数 N，并以 N 为倍数触发 `on_hit`，同时生成对应的污染叠层或净化回调。
 3.  **缺少空间扫描钩子**：
     *   目前的扫描逻辑仅支持直线查找。为了支持如“腐蚀海绵”、“剩饭盒”等卡牌，需要在 `BackpackManager` 中增加十字、九宫格、全场扫描等高级空间查询接口。
