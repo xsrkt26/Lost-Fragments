@@ -1,48 +1,99 @@
 extends Control
 
-## 主菜单：游戏的门户
-## 负责开启新游戏、继续进度以及访问图鉴。
+## 主菜单：使用正式美术图作为背景，按钮以透明热区覆盖在卷轴文字上。
 
-@onready var continue_button = $MarginContainer/VBoxContainer/ContinueButton
-@onready var new_game_button = $MarginContainer/VBoxContainer/NewGameButton
-@onready var settings_container = $CanvasLayer/SettingsContainer # 需要在编辑器中添加此节点
+const BASE_MENU_SIZE := Vector2(1280.0, 720.0)
+const HOTSPOT_RECTS := {
+	"NewGameButton": Rect2(84.0, 166.0, 166.0, 482.0),
+	"ContinueButton": Rect2(268.0, 242.0, 170.0, 406.0),
+	"GalleryButton": Rect2(452.0, 314.0, 144.0, 334.0),
+	"SettingsButton": Rect2(616.0, 374.0, 140.0, 274.0),
+	"QuitButton": Rect2(778.0, 436.0, 136.0, 196.0),
+	"ContinueDisabledOverlay": Rect2(268.0, 242.0, 170.0, 406.0),
+}
 
-func _ready():
+@onready var continue_button: Button = $MenuHotspots/ContinueButton
+@onready var new_game_button: Button = $MenuHotspots/NewGameButton
+@onready var gallery_button: Button = $MenuHotspots/GalleryButton
+@onready var settings_button: Button = $MenuHotspots/SettingsButton
+@onready var quit_button: Button = $MenuHotspots/QuitButton
+@onready var continue_disabled_overlay: ColorRect = $MenuHotspots/ContinueDisabledOverlay
+@onready var settings_container: Control = $CanvasLayer/SettingsContainer
+
+func _ready() -> void:
 	print("[MainMenu] 进入主菜单")
 	GlobalInput.set_context(GlobalInput.Context.MENU)
 	GlobalAudio.play_bgm("menu")
-	
-	# 检查是否有存档
+
+	resized.connect(_update_menu_hotspots)
+	call_deferred("_update_menu_hotspots")
+	_configure_hotspot_labels()
+	_refresh_continue_state()
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and event.keycode == KEY_F1:
+		GlobalScene.transition_to(GlobalScene.SceneType.DEBUG)
+
+func _configure_hotspot_labels() -> void:
+	new_game_button.text = ""
+	continue_button.text = ""
+	gallery_button.text = ""
+	settings_button.text = ""
+	quit_button.text = ""
+	new_game_button.tooltip_text = "开始游戏"
+	gallery_button.tooltip_text = "图鉴"
+	settings_button.tooltip_text = "设置"
+	quit_button.tooltip_text = "退出"
+
+func _refresh_continue_state() -> void:
 	var rm = get_node_or_null("/root/RunManager")
-	if rm and rm.saver.has_save() and not rm.is_run_complete:
-		continue_button.disabled = false
-		continue_button.text = "继续梦境 (第 %d 场景)" % rm.current_act
+	var has_continue_save: bool = rm != null and rm.saver != null and rm.saver.has_save() and not rm.is_run_complete
+	continue_button.disabled = not has_continue_save
+	continue_disabled_overlay.visible = not has_continue_save
+	if has_continue_save:
+		continue_button.tooltip_text = "继续游戏（第 %d 场景）" % rm.current_act
 	else:
-		continue_button.disabled = true
-		continue_button.text = "继续梦境 (无存档)"
+		continue_button.tooltip_text = "继续游戏（无存档）"
 
-func _input(event):
-	# 调试快捷键：F1 直接进入沙盒
-	if event is InputEventKey and event.pressed:
-		if event.keycode == KEY_F1:
-			GlobalScene.transition_to(GlobalScene.SceneType.DEBUG)
+func _update_menu_hotspots() -> void:
+	var viewport_size := get_viewport_rect().size
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+		viewport_size = BASE_MENU_SIZE
 
-func _on_new_game_button_pressed():
+	var scale_factor: float = maxf(viewport_size.x / BASE_MENU_SIZE.x, viewport_size.y / BASE_MENU_SIZE.y)
+	var displayed_art_size: Vector2 = BASE_MENU_SIZE * scale_factor
+	var displayed_art_origin: Vector2 = (viewport_size - displayed_art_size) * 0.5
+
+	for node_name in HOTSPOT_RECTS.keys():
+		var node := get_node_or_null("MenuHotspots/%s" % node_name)
+		if node == null or not node is Control:
+			continue
+		var source_rect: Rect2 = HOTSPOT_RECTS[node_name]
+		var target_rect: Rect2 = Rect2(
+			displayed_art_origin + source_rect.position * scale_factor,
+			source_rect.size * scale_factor
+		)
+		var control := node as Control
+		control.position = target_rect.position
+		control.size = target_rect.size
+		control.pivot_offset = target_rect.size * 0.5
+
+func _on_new_game_button_pressed() -> void:
 	print("[MainMenu] 点击新游戏")
 	var rm = get_node_or_null("/root/RunManager")
 	if rm:
 		rm.start_new_run()
 		GlobalScene.transition_to(GlobalScene.SceneType.HUB)
 
-func _on_continue_button_pressed():
+func _on_continue_button_pressed() -> void:
 	print("[MainMenu] 点击继续游戏")
 	GlobalScene.transition_to(GlobalScene.SceneType.HUB)
 
-func _on_gallery_button_pressed():
+func _on_gallery_button_pressed() -> void:
 	print("[MainMenu] 进入图鉴")
 	GlobalScene.transition_to(GlobalScene.SceneType.GALLERY)
 
-func _on_settings_button_pressed():
+func _on_settings_button_pressed() -> void:
 	if settings_container.get_child_count() > 0:
 		for child in settings_container.get_children():
 			child.queue_free()
@@ -51,5 +102,5 @@ func _on_settings_button_pressed():
 		var ui = scene.instantiate()
 		settings_container.add_child(ui)
 
-func _on_quit_button_pressed():
+func _on_quit_button_pressed() -> void:
 	get_tree().quit()
