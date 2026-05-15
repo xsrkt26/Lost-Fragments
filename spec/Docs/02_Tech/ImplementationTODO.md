@@ -854,6 +854,7 @@
 - 导出脚本支持 `-PythonBin` 参数，CI 可显式使用 `python3`，本地默认仍使用 `python` 或 `PYTHON_BIN` 环境变量。
 - `tools/run_tests_silent.ps1` 的临时日志目录改为跨平台解析，Windows 使用 `TEMP`，Linux CI 可使用 `TMPDIR` 或系统临时目录，避免 Release workflow 在发布前 GUT 阶段提前失败。
 - 新增 `.github/workflows/release.yml`，在推送 `v*` tag 时下载 Godot 4.6.2 与 export templates，复用本地导出脚本跑全量 GUT、严格场景冒烟和 Windows export。
+- Release workflow 中 GUT 和严格场景冒烟拆成独立步骤，导出脚本通过 `-SkipPrecheck` 只负责 Windows export 与 manifest，避免 CI 失败时日志被包装脚本吞掉。
 - Release workflow 使用 GitHub Actions 内置 `GITHUB_TOKEN` 和 `contents: write` 权限创建 GitHub Release，不需要提交或保存 Personal Access Token。
 - CI 会把 exe 与 manifest 打包为 `LostFragments-<tag>-windows-x86_64.zip`，同时上传 manifest；包含 `alpha`、`beta` 或 `rc` 的 tag 会自动标记为 prerelease。
 - README 已新增发布导出说明，包含 precheck 和正式导出命令。

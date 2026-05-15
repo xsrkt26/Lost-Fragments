@@ -5,6 +5,7 @@ param(
     [string]$ProductName = "LostFragments",
     [string]$Version = "",
     [string]$PythonBin = "",
+    [switch]$SkipPrecheck,
     [switch]$PrecheckOnly
 )
 
@@ -85,15 +86,25 @@ $outputPath = Join-Path $packageDir "$artifactBase.exe"
 $manifestPath = Join-Path $packageDir "$artifactBase.manifest.json"
 
 $results = @()
-$results += Invoke-RepoCommand `
-    -Name "gut" `
-    -CommandText ".\tools\run_tests_silent.ps1" `
-    -Command { & (Join-Path $repoRoot "tools\run_tests_silent.ps1") }
+if (-not $SkipPrecheck) {
+    $results += Invoke-RepoCommand `
+        -Name "gut" `
+        -CommandText ".\tools\run_tests_silent.ps1" `
+        -Command { & (Join-Path $repoRoot "tools\run_tests_silent.ps1") }
 
-$results += Invoke-RepoCommand `
-    -Name "strict_scene_smoke" `
-    -CommandText "$PythonBin -B scripts\run_scene_smoke_tests.py --fail-on-engine-error" `
-    -Command { & $PythonBin -B (Join-Path $repoRoot "scripts\run_scene_smoke_tests.py") --fail-on-engine-error }
+    $results += Invoke-RepoCommand `
+        -Name "strict_scene_smoke" `
+        -CommandText "$PythonBin -B scripts\run_scene_smoke_tests.py --fail-on-engine-error" `
+        -Command { & $PythonBin -B (Join-Path $repoRoot "scripts\run_scene_smoke_tests.py") --fail-on-engine-error }
+} else {
+    $results += [ordered]@{
+        name = "external_precheck"
+        command = "GitHub Actions release workflow"
+        status = "skipped_in_script"
+        started_at_utc = $buildTimeUtc.ToString("o")
+        finished_at_utc = $buildTimeUtc.ToString("o")
+    }
+}
 
 $exportStatus = "skipped"
 if (-not $PrecheckOnly) {
