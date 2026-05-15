@@ -88,6 +88,12 @@ Get-Content spec/Docs/02_Tech/04_Agent_Development_Workflow.md -Encoding utf8
 python -B scripts\run_scene_smoke_tests.py --fail-on-engine-error
 ```
 
+策划配置校验：
+
+```powershell
+python -B scripts\design_config\validate_design_config.py
+```
+
 发布前置检查：
 
 ```powershell

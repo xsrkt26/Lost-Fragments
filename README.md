@@ -65,6 +65,20 @@ python -B scripts\run_scene_smoke_tests.py --fail-on-engine-error
 
 该脚本会先执行一次 Godot headless editor 导入，用于生成 `.godot/global_script_class_cache.cfg` 和 `.godot/imported` 资源缓存；隔离副本或 CI 不需要提交 `.godot/`。
 
+策划配置校验：
+
+```powershell
+python -B scripts\design_config\validate_design_config.py
+```
+
+策划配置导出：
+
+```powershell
+python -B scripts\design_config\export_design_config.py --clean
+```
+
+导出结果写入 `package/design_config_export/`，包含 schema、道具、饰品、事件、路线、经济配置和从 `.tres` 资源提取的物品目录。
+
 关键场景冒烟测试由 `test/integration/test_scene_smoke.gd` 和 `scripts/scene_smoke_scenes.json` 维护，固定 headless 加载：
 
 - `src/ui/main_menu/main_menu.tscn`
@@ -79,6 +93,7 @@ python -B scripts\run_scene_smoke_tests.py --fail-on-engine-error
 
 - 最新需求和实现优先级见 `spec/Docs/02_Tech/ImplementationTODO.md`。
 - Agent 接手开发流程见 `spec/Docs/02_Tech/04_Agent_Development_Workflow.md`。
+- 策划配置工具说明见 `spec/Docs/02_Tech/05_Design_Config_Tool.md`。
 - 新功能完成后需要补自动化测试、跑全量 GUT、更新文档、commit 并 push。
 - Godot 路径移动后如出现 class_name 缓存问题，先执行：
 

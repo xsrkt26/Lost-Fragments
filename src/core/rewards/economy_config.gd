@@ -3,6 +3,7 @@ extends RefCounted
 
 const MIN_ACT := 1
 const MAX_ACT := 6
+const ECONOMY_CONFIG_PATH := "res://data/economy/economy.json"
 
 const NORMAL_BATTLE_SHARDS_BASE := 8
 const NORMAL_BATTLE_SHARDS_PER_ACT := 2
@@ -22,16 +23,47 @@ const RARITY_COMMON := "普通"
 const RARITY_ADVANCED := "进阶"
 const RARITY_RARE := "稀有"
 
+const DEFAULT_CONFIG := {
+	"version": 1,
+	"acts": {
+		"min": MIN_ACT,
+		"max": MAX_ACT,
+	},
+	"battle_rewards": {
+		"normal_base": NORMAL_BATTLE_SHARDS_BASE,
+		"normal_per_act": NORMAL_BATTLE_SHARDS_PER_ACT,
+		"boss_base": BOSS_BATTLE_SHARDS_BASE,
+		"boss_per_act": BOSS_BATTLE_SHARDS_PER_ACT,
+	},
+	"shop": {
+		"refresh_base_cost": SHOP_REFRESH_BASE_COST,
+		"refresh_act_step": SHOP_REFRESH_ACT_STEP,
+		"refresh_repeat_step": SHOP_REFRESH_REPEAT_STEP,
+		"item_price_act_step_percent": ITEM_PRICE_ACT_STEP_PERCENT,
+		"ornament_price_act_step_percent": ORNAMENT_PRICE_ACT_STEP_PERCENT,
+		"ornament_advanced_surcharge_percent": ORNAMENT_ADVANCED_SURCHARGE_PERCENT,
+		"ornament_rare_surcharge_percent": ORNAMENT_RARE_SURCHARGE_PERCENT,
+	},
+}
+
 
 static func battle_reward_shards(act: int, is_boss: bool) -> int:
-	var clamped_act = _clamp_act(act)
+	var config = load_config_from_path()
+	var rewards = _section(config, "battle_rewards")
+	var clamped_act = _clamp_act_for_config(act, config)
 	if is_boss:
-		return BOSS_BATTLE_SHARDS_BASE + (clamped_act - 1) * BOSS_BATTLE_SHARDS_PER_ACT
-	return NORMAL_BATTLE_SHARDS_BASE + (clamped_act - 1) * NORMAL_BATTLE_SHARDS_PER_ACT
+		return int(rewards.get("boss_base", BOSS_BATTLE_SHARDS_BASE)) + (clamped_act - 1) * int(rewards.get("boss_per_act", BOSS_BATTLE_SHARDS_PER_ACT))
+	return int(rewards.get("normal_base", NORMAL_BATTLE_SHARDS_BASE)) + (clamped_act - 1) * int(rewards.get("normal_per_act", NORMAL_BATTLE_SHARDS_PER_ACT))
 
 
 static func shop_refresh_cost(act: int, refresh_count: int) -> int:
-	return max(1, SHOP_REFRESH_BASE_COST + _clamp_act(act) * SHOP_REFRESH_ACT_STEP + max(0, refresh_count) * SHOP_REFRESH_REPEAT_STEP)
+	var config = load_config_from_path()
+	var shop = _section(config, "shop")
+	return max(1,
+		int(shop.get("refresh_base_cost", SHOP_REFRESH_BASE_COST))
+		+ _clamp_act_for_config(act, config) * int(shop.get("refresh_act_step", SHOP_REFRESH_ACT_STEP))
+		+ max(0, refresh_count) * int(shop.get("refresh_repeat_step", SHOP_REFRESH_REPEAT_STEP))
+	)
 
 
 static func shop_item_price(base_price: int, act: int) -> int:
@@ -45,15 +77,20 @@ static func shop_ornament_price(base_price: int, rarity: String, act: int) -> in
 
 
 static func shop_item_price_multiplier_percent(act: int) -> int:
-	return 100 + (_clamp_act(act) - 1) * ITEM_PRICE_ACT_STEP_PERCENT
+	var config = load_config_from_path()
+	var shop = _section(config, "shop")
+	return 100 + (_clamp_act_for_config(act, config) - 1) * int(shop.get("item_price_act_step_percent", ITEM_PRICE_ACT_STEP_PERCENT))
 
 
 static func shop_ornament_price_multiplier_percent(rarity: String, act: int) -> int:
-	return 100 + (_clamp_act(act) - 1) * ORNAMENT_PRICE_ACT_STEP_PERCENT + _ornament_rarity_surcharge_percent(rarity)
+	var config = load_config_from_path()
+	var shop = _section(config, "shop")
+	return 100 + (_clamp_act_for_config(act, config) - 1) * int(shop.get("ornament_price_act_step_percent", ORNAMENT_PRICE_ACT_STEP_PERCENT)) + _ornament_rarity_surcharge_percent(rarity, config)
 
 
 static func act_economy_snapshot(act: int) -> Dictionary:
-	var clamped_act = _clamp_act(act)
+	var config = load_config_from_path()
+	var clamped_act = _clamp_act_for_config(act, config)
 	var normal_shards = battle_reward_shards(clamped_act, false)
 	var boss_shards = battle_reward_shards(clamped_act, true)
 	return {
@@ -69,18 +106,54 @@ static func act_economy_snapshot(act: int) -> Dictionary:
 	}
 
 
-static func _clamp_act(act: int) -> int:
-	return clamp(act, MIN_ACT, MAX_ACT)
+static func load_config_from_path(path: String = ECONOMY_CONFIG_PATH) -> Dictionary:
+	var config = DEFAULT_CONFIG.duplicate(true)
+	if path == "" or not FileAccess.file_exists(path):
+		return config
+	var file = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return config
+	var parsed = JSON.parse_string(file.get_as_text())
+	if not (parsed is Dictionary):
+		return config
+	return _normalize_config(parsed)
+
+
+static func _normalize_config(raw: Dictionary) -> Dictionary:
+	var config = DEFAULT_CONFIG.duplicate(true)
+	for section_name in ["acts", "battle_rewards", "shop"]:
+		var defaults = _section(DEFAULT_CONFIG, section_name)
+		var raw_section = _section(raw, section_name)
+		var merged = defaults.duplicate(true)
+		for key in raw_section.keys():
+			merged[key] = raw_section[key]
+		config[section_name] = merged
+	return config
+
+
+static func _section(config: Dictionary, section_name: String) -> Dictionary:
+	var value = config.get(section_name, {})
+	if value is Dictionary:
+		return Dictionary(value)
+	return {}
+
+
+static func _clamp_act_for_config(act: int, config: Dictionary) -> int:
+	var acts = _section(config, "acts")
+	var min_act = int(acts.get("min", MIN_ACT))
+	var max_act = max(min_act, int(acts.get("max", MAX_ACT)))
+	return clamp(act, min_act, max_act)
 
 
 static func _apply_percent(base_price: int, multiplier_percent: int) -> int:
 	return max(1, roundi(float(base_price) * float(multiplier_percent) / 100.0))
 
 
-static func _ornament_rarity_surcharge_percent(rarity: String) -> int:
+static func _ornament_rarity_surcharge_percent(rarity: String, config: Dictionary) -> int:
+	var shop = _section(config, "shop")
 	match rarity:
 		RARITY_ADVANCED:
-			return ORNAMENT_ADVANCED_SURCHARGE_PERCENT
+			return int(shop.get("ornament_advanced_surcharge_percent", ORNAMENT_ADVANCED_SURCHARGE_PERCENT))
 		RARITY_RARE:
-			return ORNAMENT_RARE_SURCHARGE_PERCENT
+			return int(shop.get("ornament_rare_surcharge_percent", ORNAMENT_RARE_SURCHARGE_PERCENT))
 	return 0

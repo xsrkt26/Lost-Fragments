@@ -879,3 +879,36 @@
 自动化测试：
 
 - 本轮通过 `tools/export_windows_release.ps1 -PrecheckOnly` 验证发布前置流程，脚本内部已跑全量 GUT 与严格场景冒烟；Release workflow 的完整 exe 导出会在后续推送真实 `v*` tag 时由 GitHub Actions 执行。
+
+### F10. 策划配置工具
+
+优先级：P2
+
+当前状态：已完成第一阶段。当前有配置 schema、校验脚本、导出脚本和经济曲线 JSON 配置，后续可在此基础上开发 Excel/CSV 导入或 Web 可视化工具。
+
+需求范围：
+
+- 明确哪些字段允许策划调整，哪些逻辑仍由代码实现。
+- 对物品、道具、饰品、事件、路线和经济配置做基础 schema 约束。
+- 提供本地校验命令，避免错误配置进入游戏。
+- 提供导出命令，为后续可视化工具或策划交付包生成统一配置包。
+
+完成记录：
+
+- 新增 `data/config/design_config_schema.json`，记录当前可配置数据源、可编辑字段和枚举值。
+- 新增 `data/economy/economy.json`，将碎片产出、商店刷新费和价格倍率迁出硬编码；`EconomyConfig` 优先读取 JSON，读取失败时回退默认值。
+- 新增 `scripts/design_config/validate_design_config.py`，校验 JSON 格式、ID 唯一性、引用完整性、枚举值、路线结构、事件效果和基础数值范围。
+- 新增 `scripts/design_config/export_design_config.py`，默认导出到 `package/design_config_export/`，包含 schema、道具、饰品、事件、路线、经济配置、物品目录和 manifest。
+- 新增 `test/tools/test_design_config_scripts.py`，覆盖当前配置校验、物品目录提取和导出 manifest。
+- 文档见 `spec/Docs/02_Tech/05_Design_Config_Tool.md`。
+
+实现假设：
+
+- 第一版不提供 UI 编辑器，先保证 schema、校验和导出稳定。
+- 物品仍以 `.tres` 作为运行时源；导出工具先生成只读 `item_catalog.json`，后续如果需要策划直接编辑物品，再增加 Excel/CSV 到 `.tres` 或 JSON 的导入链路。
+- 策划配置不能直接新增任意脚本逻辑；新效果应先由程序实现 `effect_id` 或 `type`，再开放给配置。
+
+自动化测试：
+
+- `python -m unittest test.tools.test_design_config_scripts`
+- `python -B scripts/design_config/validate_design_config.py`

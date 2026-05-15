@@ -51,6 +51,16 @@ func test_economy_snapshot_matches_current_balance_targets():
 		assert_eq(snapshot.rare_ornament_price_multiplier_percent, row.rare_pct)
 
 
+func test_economy_config_uses_json_and_fallback_defaults():
+	var config = EconomyConfigScript.load_config_from_path()
+	assert_eq(int(config.battle_rewards.normal_base), 8)
+	assert_eq(int(config.shop.item_price_act_step_percent), 7)
+
+	var fallback = EconomyConfigScript.load_config_from_path("res://missing/economy.json")
+	assert_eq(int(fallback.battle_rewards.normal_base), EconomyConfigScript.NORMAL_BATTLE_SHARDS_BASE)
+	assert_eq(int(fallback.shop.refresh_base_cost), EconomyConfigScript.SHOP_REFRESH_BASE_COST)
+
+
 func test_reward_shards_use_economy_config_for_normal_and_boss_nodes():
 	var normal_run = _make_run_manager(3, 0)
 	var boss_run = _make_run_manager(3, 6)

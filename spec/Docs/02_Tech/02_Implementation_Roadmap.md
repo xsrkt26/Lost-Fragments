@@ -31,7 +31,8 @@
 - 商店支持物品、饰品、道具、节点缓存、库存刷新、价格曲线、已购买排除和回收券折扣。
 - 事件系统支持权重随机、去重、节点缓存、事务回滚和高风险背包效果。
 - 物品获得语义已拆分为加入卡组、直接入背包、暂存待摆放。
-- 经济曲线已集中到 `EconomyConfig`，并有数值快照测试。
+- 经济曲线已迁移到 `data/economy/economy.json`，`EconomyConfig` 保留默认回退，并有数值快照测试。
+- 策划配置工具第一阶段已完成：schema、校验脚本、导出脚本和物品目录导出均已接入。
 
 ### P3 表现、测试与发布
 
@@ -83,6 +84,7 @@ GitHub Releases 已接入基础自动发布：推送 `v*` tag 后，CI 会下载
 | 纯文档 | `git diff --check` |
 | 逻辑功能 | `.\tools\run_tests_silent.ps1` |
 | UI、场景、资源、autoload | `.\tools\run_tests_silent.ps1` + `python -B scripts\run_scene_smoke_tests.py --fail-on-engine-error` |
+| 策划配置、数据表、经济数值 | `python -B scripts\design_config\validate_design_config.py` + `.\tools\run_tests_silent.ps1` |
 | 发布流程 | `.\tools\export_windows_release.ps1 -PrecheckOnly` |
 | 导出前 | 发布 precheck 必须通过 |
 

@@ -25,9 +25,10 @@
 - 道具：`data/tools/tools.json`，由 `ToolDatabase` 加载。
 - 事件：`data/events/events.json`，由 `EventDatabase` 加载。
 - 路线：`data/routes/routes.json`，由 `RouteConfig` 加载。
-- 经济曲线：`src/core/rewards/economy_config.gd`。
+- 经济曲线：`data/economy/economy.json`，由 `EconomyConfig` 读取并保留代码默认值作为回退。
+- 策划配置 schema：`data/config/design_config_schema.json`，由 `scripts/design_config/*` 校验和导出工具使用。
 
-路线、奖励、商店、事件和经济数值不应散落在 UI 场景脚本中。
+路线、奖励、商店、事件和经济数值不应散落在 UI 场景脚本中。策划可编辑配置需要先通过 `scripts/design_config/validate_design_config.py` 校验，再进入导出或发布流程。
 
 ### 3. 逻辑与表现分离
 

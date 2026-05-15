@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "description": "Planner-facing source config map for Lost Fragments. Runtime code still owns behavior; these files expose safe numeric/content knobs.",
+  "sources": {
+    "items": {
+      "path": "data/items/*.tres",
+      "format": "godot_resource",
+      "editable_fields": [
+        "id",
+        "item_name",
+        "description",
+        "tags",
+        "price",
+        "base_cost",
+        "can_draw",
+        "can_rotate",
+        "shape",
+        "direction",
+        "transmission_mode",
+        "hit_filter_tags"
+      ]
+    },
+    "tools": {
+      "path": "data/tools/tools.json",
+      "format": "json_array",
+      "editable_fields": [
+        "id",
+        "name",
+        "category",
+        "rarity",
+        "price",
+        "target_type",
+        "tags",
+        "effect_text",
+        "enabled"
+      ]
+    },
+    "ornaments": {
+      "path": "data/ornaments/ornaments.json",
+      "format": "json_array",
+      "editable_fields": [
+        "id",
+        "name",
+        "category",
+        "rarity",
+        "earliest_act",
+        "price",
+        "tags",
+        "effect_text",
+        "effect_id",
+        "enabled"
+      ]
+    },
+    "events": {
+      "path": "data/events/events.json",
+      "format": "json_array",
+      "editable_fields": [
+        "id",
+        "title",
+        "description",
+        "earliest_act",
+        "weight",
+        "risk",
+        "reward",
+        "tags",
+        "choices"
+      ]
+    },
+    "routes": {
+      "path": "data/routes/routes.json",
+      "format": "json_object",
+      "editable_fields": [
+        "default_route_id",
+        "max_act",
+        "routes"
+      ]
+    },
+    "economy": {
+      "path": "data/economy/economy.json",
+      "format": "json_object",
+      "editable_fields": [
+        "acts",
+        "battle_rewards",
+        "shop"
+      ]
+    }
+  },
+  "allowed_values": {
+    "tool_rarity": ["道具", "罕见道具", "稀有道具"],
+    "tool_target_type": ["none", "item", "empty_cell", "item_or_empty_cell", "dreamcatcher", "discard", "ornament"],
+    "ornament_rarity": ["普通", "进阶", "稀有"],
+    "item_destination": ["deck", "backpack", "staging"],
+    "event_effect_type": [
+      "shards",
+      "item",
+      "ornament",
+      "tool",
+      "sanity",
+      "backpack_space",
+      "backpack_lock_cells",
+      "backpack_delete_cells",
+      "backpack_temp_lock_cells",
+      "backpack_force_move"
+    ],
+    "route_node_type": ["battle", "boss_battle", "shop", "event", "cutscene", "reward", "elite_battle"],
+    "route_scene": ["battle", "shop", "event", "hub"]
+  }
+}
