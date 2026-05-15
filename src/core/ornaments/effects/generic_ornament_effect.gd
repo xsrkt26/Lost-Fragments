@@ -93,6 +93,10 @@ func after_item_discarded(item_data: ItemData, old_instance: BackpackManager.Ite
 		"apple_wooden_tag":
 			if from_backpack and item_data != null and item_data.id == "apple":
 				_sow_from_instance(context, old_instance)
+		"recycling_hook":
+			if _is_waste(item_data) and int(state.get("waste_sanity_uses", 0)) < 2:
+				_change_sanity(context, 1)
+				state["waste_sanity_uses"] = int(state.get("waste_sanity_uses", 0)) + 1
 
 func after_impact_chain_resolved(source: BackpackManager.ItemInstance, actions: Array[GameAction], context: GameContext, state: Dictionary) -> void:
 	var hit_count = _count_impacts(actions)
@@ -263,6 +267,39 @@ func after_pollution_changed(instance: BackpackManager.ItemInstance, old_value: 
 				if _is_waste(instance.data):
 					_change_sanity(context, 1)
 
+func after_tool_used(tool_data, target: Dictionary, result: Dictionary, context: GameContext, state: Dictionary) -> void:
+	if tool_data == null:
+		return
+	match effect_id:
+		"tool_belt":
+			state["tool_uses"] = int(state.get("tool_uses", 0)) + 1
+			if not state.get("first_tool_scored", false):
+				_add_score(context, 3)
+				state["first_tool_scored"] = true
+			if int(state.get("tool_uses", 0)) >= 3 and not state.get("third_tool_scored", false):
+				_add_score(context, 8)
+				state["third_tool_scored"] = true
+		"specimen_pin_case":
+			if tool_data.tags.has("污染") or tool_data.tags.has("净化"):
+				_add_score(context, 3)
+				var instance = target.get("instance", null)
+				if instance != null and instance.data != null and _is_waste(instance.data):
+					_add_score(context, 3)
+		"gardening_toolkit":
+			if bool(result.get("seed_sown", false)) or bool(result.get("seed_upgraded", false)):
+				_add_score(context, 4)
+			if bool(result.get("seed_grew", false)):
+				_add_score(context, 8)
+		"recycling_hook":
+			if tool_data.tags.has("丢弃"):
+				_add_score(context, 4)
+		"calibration_screwdriver":
+			var instance = target.get("instance", null)
+			if instance != null and instance.data != null and _has_tag(instance.data, MECHANICAL_TAG):
+				instance.data.set_meta("orn_calibration_bonus_pending", 1)
+		"universal_toolbox":
+			_record_universal_toolbox_target(tool_data, target, context, state)
+
 func _add_score(context: GameContext, amount: int) -> void:
 	if context == null or amount <= 0:
 		return
@@ -276,6 +313,36 @@ func _add_score(context: GameContext, amount: int) -> void:
 func _change_sanity(context: GameContext, amount: int) -> void:
 	if context != null and amount != 0:
 		context.change_sanity(amount)
+
+func _record_universal_toolbox_target(tool_data, target: Dictionary, context: GameContext, state: Dictionary) -> void:
+	var target_type = str(target.get("type", ""))
+	match target_type:
+		"item":
+			state["used_on_item"] = true
+		"empty_cell":
+			state["used_on_empty_cell"] = true
+		"dreamcatcher":
+			state["used_on_dreamcatcher"] = true
+	if state.get("rewarded", false):
+		return
+	if state.get("used_on_item", false) and state.get("used_on_empty_cell", false) and state.get("used_on_dreamcatcher", false):
+		_add_score(context, 12)
+		_grant_common_tool(context, tool_data.id)
+		state["rewarded"] = true
+
+func _grant_common_tool(context: GameContext, excluded_tool_id: String = "") -> void:
+	if context == null or context.state == null:
+		return
+	var tool_db = context.state.get_node_or_null("/root/ToolDatabase")
+	var rm = context.state.get_node_or_null("/root/RunManager")
+	if tool_db == null or rm == null or not rm.has_method("grant_tool"):
+		return
+	var tools = tool_db.get_tools_by_rarity("道具") if tool_db.has_method("get_tools_by_rarity") else []
+	tools.sort_custom(func(a, b): return a.id < b.id)
+	for tool in tools:
+		if tool.id != excluded_tool_id:
+			rm.grant_tool(tool.id, 1, tool_db, "universal_toolbox")
+			return
 
 func _battle(context: GameContext):
 	return context.battle if context != null else null

@@ -2,7 +2,7 @@ extends GutTest
 
 const BattleManagerScript = preload("res://src/battle/battle_manager.gd")
 const RunManagerScript = preload("res://src/autoload/run_manager.gd")
-const DEFERRED_TOOL_ORNAMENT_IDS := [
+const TOOL_ORNAMENT_IDS := [
 	"tool_belt",
 	"specimen_pin_case",
 	"gardening_toolkit",
@@ -60,12 +60,12 @@ func test_ornament_database_loads_formal_table_and_filters_available_pool():
 		assert_not_null(ornament.effect)
 		if ornament.enabled:
 			enabled_count += 1
-	assert_eq(enabled_count, 50)
-	for ornament_id in DEFERRED_TOOL_ORNAMENT_IDS:
+	assert_eq(enabled_count, 56)
+	for ornament_id in TOOL_ORNAMENT_IDS:
 		var ornament = ornament_db.get_ornament_by_id(ornament_id)
 		assert_not_null(ornament)
-		assert_false(ornament.enabled)
-		assert_eq(ornament.effect_id, "deferred_tool_ornament")
+		assert_true(ornament.enabled)
+		assert_eq(ornament.effect_id, ornament_id)
 
 	var act_one = ornament_db.get_available_ornaments(1, ["old_pocket_watch"] as Array[String])
 	for ornament in act_one:
@@ -73,8 +73,9 @@ func test_ornament_database_loads_formal_table_and_filters_available_pool():
 		assert_true(ornament.id != "old_pocket_watch")
 
 	var all_available = ornament_db.get_available_ornaments(6, [] as Array[String])
-	for ornament in all_available:
-		assert_false(DEFERRED_TOOL_ORNAMENT_IDS.has(ornament.id))
+	var available_ids = all_available.map(func(ornament): return ornament.id)
+	for ornament_id in TOOL_ORNAMENT_IDS:
+		assert_true(available_ids.has(ornament_id))
 
 func test_run_manager_prevents_duplicate_ornaments():
 	var manager = autofree(RunManagerScript.new())

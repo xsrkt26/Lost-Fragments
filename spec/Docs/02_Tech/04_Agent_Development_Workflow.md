@@ -17,7 +17,7 @@
 3. `spec/Docs/01_Design` 中的正式策划文档。
 4. 现有代码行为、自动化测试和 README。
 
-`spec/Docs/01_Design/temp` 目录下内容不作为当前需求来源，只能在用户明确要求时作为参考材料。道具系统 F1 当前按用户确认暂缓，不主动实现。
+`spec/Docs/01_Design/temp` 目录下内容不作为当前需求来源，只能在用户明确要求时作为参考材料。道具系统 F1 已恢复并完成基础版本，后续只按 `ImplementationTODO.md` 中的调优项继续迭代。
 
 ## 每次接手启动检查
 
@@ -118,9 +118,9 @@ python -B scripts\run_scene_smoke_tests.py --fail-on-engine-error
 
 ## 当前未完全由代码闭环的事项
 
-- F1 道具系统：用户已确认暂缓。
+- F1 道具系统：基础版本已完成；剩余工作是掉落权重、商店价格、道具联动饰品数值和表现素材调优。
 - F7 正式捕梦动画、美术或 CG：当前缺少正式素材，代码替换点是 `MainGameUI._play_dreamcatcher_animation()`。
-- GitHub Releases 自动发布：需要 tag 策略、token 和发布权限；当前已完成本地 `package/` 归档和 manifest 记录。
+- GitHub Releases 自动发布：已接入 `v*` tag 触发、内置 `GITHUB_TOKEN` 和 Windows zip 上传；后续按试玩节奏推 tag。
 
 ## 最终交付说明
 

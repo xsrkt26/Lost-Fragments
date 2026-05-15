@@ -3,6 +3,7 @@ extends RefCounted
 
 const TYPE_ITEM := "item"
 const TYPE_ORNAMENT := "ornament"
+const TYPE_TOOL := "tool"
 const EconomyConfig = preload("res://src/core/rewards/economy_config.gd")
 const WeightedRandom = preload("res://src/core/random/weighted_random.gd")
 
@@ -12,16 +13,20 @@ static func generate_offers(run_manager: Node, item_db: Node, ornament_db: Node,
 	var offers: Array[Dictionary] = []
 	var act = max(1, int(run_manager.get("current_act"))) if run_manager != null else 1
 	var build_tags = _collect_build_tags(run_manager, item_db, ornament_db)
+	var tool_db = _get_tool_db(run_manager)
 
 	var items = _get_item_offers(item_db, act, count, build_tags, excluded_keys)
 	var ornaments = _get_ornament_offers(run_manager, ornament_db, act, count, build_tags, excluded_keys)
+	var tools = _get_tool_offers(tool_db, act, count, excluded_keys)
 
 	_append_weighted_offer(offers, items, rng)
 	_append_weighted_offer(offers, ornaments, rng)
+	_append_weighted_offer(offers, tools, rng)
 
 	var pool: Array[Dictionary] = []
 	pool.append_array(items)
 	pool.append_array(ornaments)
+	pool.append_array(tools)
 	_remove_existing_offers(pool, offers)
 
 	while offers.size() < count and not pool.is_empty():
@@ -83,6 +88,26 @@ static func _get_ornament_offers(run_manager: Node, ornament_db: Node, act: int,
 	result.sort_custom(func(a, b): return _compare_offer_priority(a, b))
 	return result.slice(0, max(count * 3, count))
 
+static func _get_tool_offers(tool_db: Node, act: int, count: int, excluded_keys: Array) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if tool_db == null or not tool_db.has_method("get_available_tools"):
+		return result
+	for tool in tool_db.get_available_tools():
+		var offer = {
+			"type": TYPE_TOOL,
+			"id": tool.id,
+			"title": tool.tool_name,
+			"description": tool.effect_text,
+			"rarity": tool.rarity,
+			"price": _calculate_tool_price(tool, act),
+			"amount": 1,
+			"weight": _get_tool_weight(tool),
+		}
+		if not excluded_keys.has(make_offer_key(offer)):
+			result.append(offer)
+	result.sort_custom(func(a, b): return _compare_offer_priority(a, b))
+	return result.slice(0, max(count * 3, count))
+
 static func _append_weighted_offer(offers: Array[Dictionary], candidates: Array[Dictionary], rng: RandomNumberGenerator = null) -> void:
 	if candidates.is_empty():
 		return
@@ -124,6 +149,9 @@ static func _calculate_item_price(item, act: int) -> int:
 static func _calculate_ornament_price(ornament, act: int) -> int:
 	return EconomyConfig.shop_ornament_price(int(ornament.price), str(ornament.rarity), act)
 
+static func _calculate_tool_price(tool, act: int) -> int:
+	return EconomyConfig.shop_item_price(int(tool.price), act)
+
 static func _get_item_weight(item, build_tags: Dictionary) -> float:
 	var price = int(item.price)
 	var weight := 7.0
@@ -155,6 +183,16 @@ static func _get_ornament_weight(ornament, act: int, build_tags: Dictionary) -> 
 		weight += 2.0
 	weight += _get_tag_affinity(ornament.tags, build_tags)
 	return max(0.1, weight)
+
+static func _get_tool_weight(tool) -> float:
+	match str(tool.rarity):
+		"道具":
+			return 7.0
+		"罕见道具":
+			return 4.0
+		"稀有道具":
+			return 2.0
+	return 3.0
 
 static func _collect_build_tags(run_manager: Node, item_db: Node, ornament_db: Node) -> Dictionary:
 	var tags := {}
@@ -192,3 +230,8 @@ static func _get_tag_affinity(candidate_tags: Array, build_tags: Dictionary) -> 
 		var tag = str(tag_value)
 		score += min(3.0, float(build_tags.get(tag, 0.0))) * TAG_WEIGHT_STEP
 	return score
+
+static func _get_tool_db(run_manager: Node):
+	if run_manager != null and run_manager.is_inside_tree():
+		return run_manager.get_node_or_null("/root/ToolDatabase")
+	return null

@@ -17,6 +17,8 @@ const MODE_BACKPACK_OVERLAY := "backpack_overlay"
 @onready var ornaments_area = $ContentLayer/OrnamentsPanel/Slots
 @onready var pending_item_panel = get_node_or_null("ContentLayer/PendingItemPanel")
 @onready var pending_item_area = get_node_or_null("ContentLayer/PendingItemPanel/PendingItemArea")
+@onready var tool_panel = get_node_or_null("ContentLayer/ToolPanel")
+@onready var tool_slot_area = get_node_or_null("ContentLayer/ToolPanel/ToolSlots")
 
 @export var draw_spawn_point_path: NodePath = "ContentLayer/DreamcatcherPanel/DrawSpawnPoint"
 
@@ -26,6 +28,9 @@ var _draw_locked: bool = false
 var _dreamcatcher_base_scale := Vector2.ONE
 var _ui_mode: String = MODE_BATTLE
 var _overlay_close_callback: Callable = Callable()
+var _selected_tool_id: String = ""
+var _dragged_tool_id: String = ""
+var _tool_drag_start: Vector2 = Vector2.ZERO
 
 func configure_for_backpack_overlay(close_callback: Callable = Callable()) -> void:
 	_ui_mode = MODE_BACKPACK_OVERLAY
@@ -52,6 +57,7 @@ func _ready():
 		draw_button.tooltip_text = "捕梦"
 	if trash_bin:
 		trash_bin.tooltip_text = "丢弃"
+	_ensure_tool_panel()
 	
 	# 容错：自动初始化逻辑
 	await get_tree().create_timer(0.1).timeout
@@ -88,6 +94,8 @@ func setup(p_battle_manager: BattleManager):
 	_render_existing_backpack_items()
 	_render_pending_items()
 	_render_ornaments()
+	_connect_tool_inventory_signal()
+	_render_tools()
 	
 	# 连接状态更新信号
 	gs = get_node_or_null("/root/GameState")
@@ -117,6 +125,7 @@ func _apply_backpack_overlay_mode() -> void:
 		"ContentLayer/PortraitPanel",
 		"ContentLayer/StatsPanel",
 		"ContentLayer/OrnamentsPanel",
+		"ContentLayer/ToolPanel",
 	]:
 		var node = get_node_or_null(path)
 		if node:
@@ -292,6 +301,8 @@ func _format_reward_button_text(reward: Dictionary) -> String:
 			return "%s\n物品/%s" % [title, _format_item_destination(reward)]
 		"ornament":
 			return "%s\n%s饰品" % [title, str(reward.get("rarity", ""))]
+		"tool":
+			return "%s\n%s" % [title, str(reward.get("rarity", "道具"))]
 		"shards":
 			return title
 	return title
@@ -392,7 +403,141 @@ func _render_ornaments():
 		slot.text = ornament.ornament_name.substr(0, min(2, ornament.ornament_name.length()))
 		slot.tooltip_text = ornament.get_tooltip_text()
 		slot.focus_mode = Control.FOCUS_NONE
+		slot.set_meta("ornament_id", ornament.id)
 		ornaments_area.add_child(slot)
+
+func _ensure_tool_panel() -> void:
+	if _is_backpack_overlay_mode():
+		return
+	if tool_panel != null and tool_slot_area != null:
+		return
+	var content_layer = get_node_or_null("ContentLayer")
+	if content_layer == null:
+		return
+	var panel = PanelContainer.new()
+	panel.name = "ToolPanel"
+	panel.custom_minimum_size = Vector2(520, 76)
+	panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	panel.offset_left = 20.0
+	panel.offset_top = -96.0
+	panel.offset_right = 540.0
+	panel.offset_bottom = -20.0
+	var slots = HBoxContainer.new()
+	slots.name = "ToolSlots"
+	slots.alignment = BoxContainer.ALIGNMENT_BEGIN
+	slots.add_theme_constant_override("separation", 8)
+	panel.add_child(slots)
+	content_layer.add_child(panel)
+	tool_panel = panel
+	tool_slot_area = slots
+
+func _connect_tool_inventory_signal() -> void:
+	var rm = get_node_or_null("/root/RunManager")
+	if rm != null and rm.has_signal("tools_changed") and not rm.tools_changed.is_connected(_on_tools_changed):
+		rm.tools_changed.connect(_on_tools_changed)
+
+func _on_tools_changed(_current_tools: Dictionary) -> void:
+	_render_tools()
+
+func _render_tools() -> void:
+	if _is_backpack_overlay_mode():
+		return
+	_ensure_tool_panel()
+	if tool_panel == null or tool_slot_area == null:
+		return
+	for child in tool_slot_area.get_children():
+		child.queue_free()
+	var rm = get_node_or_null("/root/RunManager")
+	var tool_db = get_node_or_null("/root/ToolDatabase")
+	if rm == null or tool_db == null or not rm.has_method("get_tool_inventory_entries"):
+		tool_panel.hide()
+		return
+	var entries = rm.get_tool_inventory_entries(tool_db)
+	tool_panel.visible = not entries.is_empty()
+	if entries.is_empty():
+		_selected_tool_id = ""
+		return
+	for entry in entries:
+		var tool_id = str(entry.get("id", ""))
+		var tool = tool_db.get_tool_by_id(tool_id) if tool_db.has_method("get_tool_by_id") else null
+		var button = Button.new()
+		button.custom_minimum_size = Vector2(72, 56)
+		button.focus_mode = Control.FOCUS_NONE
+		button.text = "%s\nx%d" % [str(entry.get("title", tool_id)).substr(0, 4), int(entry.get("count", 0))]
+		button.tooltip_text = tool.get_tooltip_text(int(entry.get("count", 0))) if tool != null else str(entry.get("description", ""))
+		button.set_meta("tool_id", tool_id)
+		button.gui_input.connect(func(event): _on_tool_button_gui_input(event, tool_id, button))
+		tool_slot_area.add_child(button)
+	_update_tool_selection_visuals()
+
+func _set_selected_tool(tool_id: String) -> void:
+	_selected_tool_id = "" if _selected_tool_id == tool_id else tool_id
+	_update_tool_selection_visuals()
+
+func _update_tool_selection_visuals() -> void:
+	if tool_slot_area == null:
+		return
+	for child in tool_slot_area.get_children():
+		if child is Button:
+			var is_selected = str(child.get_meta("tool_id", "")) == _selected_tool_id
+			child.modulate = Color(1.0, 0.92, 0.55) if is_selected else Color.WHITE
+
+func _on_tool_button_gui_input(event: InputEvent, tool_id: String, button: Button) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			_dragged_tool_id = tool_id
+			_tool_drag_start = _get_tool_event_position(event, button)
+		elif _dragged_tool_id == tool_id:
+			var dragged_far = _tool_drag_start.distance_to(_get_tool_event_position(event, button)) > 8.0
+			_dragged_tool_id = ""
+			if not dragged_far:
+				_set_selected_tool(tool_id)
+				var viewport = get_viewport()
+				if viewport != null:
+					viewport.set_input_as_handled()
+
+func _get_tool_event_position(event: InputEventMouseButton, button: Button) -> Vector2:
+	if button != null and button.is_inside_tree():
+		return button.get_global_transform_with_canvas() * event.position
+	return event.position
+
+func _try_use_tool_at_mouse(tool_id: String, mouse_pos: Vector2) -> bool:
+	if battle_manager == null or not battle_manager.has_method("request_use_tool"):
+		return false
+	var target = _make_tool_target_at(mouse_pos)
+	if target.is_empty():
+		return false
+	var used = battle_manager.request_use_tool(tool_id, target)
+	if used:
+		_selected_tool_id = ""
+		_render_tools()
+	return used
+
+func _make_tool_target_at(mouse_pos: Vector2) -> Dictionary:
+	if dreamcatcher_panel != null and dreamcatcher_panel.get_global_rect().has_point(mouse_pos):
+		return {"type": "dreamcatcher"}
+	if ornaments_area != null and ornaments_area.get_global_rect().has_point(mouse_pos):
+		for child in ornaments_area.get_children():
+			if child is Control and child.get_global_rect().has_point(mouse_pos) and child.has_meta("ornament_id"):
+				return {"type": "ornament", "ornament_id": str(child.get_meta("ornament_id"))}
+		return {}
+	if trash_bin != null and trash_bin.get_global_rect().has_point(mouse_pos):
+		return {"type": "discard"}
+	if backpack_ui != null and battle_manager != null:
+		var grid_pos = backpack_ui.get_grid_pos_at(mouse_pos)
+		if grid_pos != Vector2i(-1, -1):
+			if battle_manager.backpack_manager.grid.has(grid_pos):
+				return {
+					"type": "item",
+					"instance": battle_manager.backpack_manager.grid[grid_pos],
+					"x": grid_pos.x,
+					"y": grid_pos.y,
+				}
+			return {"type": "empty_cell", "x": grid_pos.x, "y": grid_pos.y}
+	return {}
+
+func _is_point_in_tool_panel(point: Vector2) -> bool:
+	return tool_panel != null and tool_panel.visible and tool_panel.get_global_rect().has_point(point)
 
 func _connect_item_ui_signals(card: Control):
 	card.dropped.connect(func(_mouse_pos, _pivot): _handle_item_dropped(card, _mouse_pos, _pivot))
@@ -459,6 +604,21 @@ func _on_draw_button_pressed():
 func _input(event):
 	# 输入权限检查
 	if not GlobalInput.can_cancel() or _is_battle_ended: return
+
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		var mouse_pos = get_global_mouse_position()
+		if not event.pressed and _dragged_tool_id != "":
+			var tool_id = _dragged_tool_id
+			var dragged_far = _tool_drag_start.distance_to(mouse_pos) > 8.0
+			_dragged_tool_id = ""
+			if dragged_far and not _is_point_in_tool_panel(mouse_pos):
+				_try_use_tool_at_mouse(tool_id, mouse_pos)
+				get_viewport().set_input_as_handled()
+				return
+		elif event.pressed and _selected_tool_id != "" and not _is_point_in_tool_panel(mouse_pos):
+			_try_use_tool_at_mouse(_selected_tool_id, mouse_pos)
+			get_viewport().set_input_as_handled()
+			return
 
 	# ESC 键撤退回整备室
 	if event.is_action_pressed("ui_cancel") or Input.is_key_pressed(KEY_ESCAPE):

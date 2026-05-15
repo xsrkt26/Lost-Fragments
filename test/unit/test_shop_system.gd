@@ -3,7 +3,7 @@ extends GutTest
 const RunManagerScript = preload("res://src/autoload/run_manager.gd")
 const ShopGeneratorScript = preload("res://src/core/rewards/shop_generator.gd")
 const ShopScene = preload("res://src/ui/shop/shop_scene.tscn")
-const DEFERRED_TOOL_ORNAMENT_IDS := [
+const TOOL_ORNAMENT_IDS := [
 	"tool_belt",
 	"specimen_pin_case",
 	"gardening_toolkit",
@@ -56,13 +56,14 @@ func test_shop_filters_owned_ornaments():
 	for offer in offers:
 		assert_false(offer.get("type", "") == "ornament" and offer.get("id", "") == "dreamcatcher_filter")
 
-func test_shop_generation_excludes_deferred_tool_ornaments():
+func test_shop_generation_includes_enabled_tool_ornaments():
 	var rm = _make_run_manager(6)
 
 	var offers = ShopGeneratorScript.generate_offers(rm, item_db, ornament_db, 80)
+	var ornament_ids = offers.filter(func(offer): return offer.get("type", "") == "ornament").map(func(offer): return str(offer.get("id", "")))
 
-	for offer in offers:
-		assert_false(offer.get("type", "") == "ornament" and DEFERRED_TOOL_ORNAMENT_IDS.has(str(offer.get("id", ""))))
+	for ornament_id in TOOL_ORNAMENT_IDS:
+		assert_true(ornament_ids.has(ornament_id))
 
 func test_shop_generation_is_reproducible_with_run_seed_and_cached_per_node():
 	var rm = _make_run_manager(2)
@@ -123,6 +124,10 @@ func test_buy_shop_offer_spends_shards_and_updates_long_term_state():
 
 	assert_false(rm.buy_shop_offer({"type": "ornament", "id": "old_pocket_watch", "price": 45}))
 	assert_eq(rm.current_shards, 48)
+
+	assert_true(rm.buy_shop_offer({"type": "tool", "id": "small_patch", "price": 8}))
+	assert_eq(rm.current_shards, 40)
+	assert_eq(rm.get_tool_count("small_patch"), 1)
 
 func test_shop_item_offer_uses_card_tooltip():
 	var shop = add_child_autofree(ShopScene.instantiate())

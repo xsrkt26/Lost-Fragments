@@ -1,0 +1,129 @@
+extends GutTest
+
+const RunManagerScript = preload("res://src/autoload/run_manager.gd")
+const BattleManagerScript = preload("res://src/battle/battle_manager.gd")
+const MainGameUIScript = preload("res://src/ui/main_game_ui.gd")
+
+var item_db
+var tool_db
+var root_rm
+var root_snapshot := {}
+
+func before_each():
+	item_db = get_node_or_null("/root/ItemDatabase")
+	tool_db = get_node_or_null("/root/ToolDatabase")
+	root_rm = get_node_or_null("/root/RunManager")
+	if item_db and item_db.items.is_empty():
+		item_db.load_all_items()
+	if tool_db and tool_db.tools.is_empty():
+		tool_db.load_all_tools()
+	if root_rm:
+		root_snapshot = root_rm.serialize_run()
+		root_rm.is_run_active = false
+		root_rm.current_tools = {}
+
+func after_each():
+	if root_rm and not root_snapshot.is_empty():
+		root_rm.deserialize_run(root_snapshot)
+	root_snapshot = {}
+
+func test_tool_database_loads_official_pool():
+	var tools = tool_db.get_all_tools()
+	var ids = tools.map(func(tool): return tool.id)
+
+	assert_eq(tools.size(), 15)
+	assert_true(ids.has("small_patch"))
+	assert_true(ids.has("dream_value_candy"))
+	assert_true(ids.has("blank_talisman"))
+
+func test_run_manager_stacks_consumes_and_restores_tools():
+	var rm = autofree(RunManagerScript.new())
+	rm.is_run_active = false
+
+	assert_true(rm.grant_tool("small_patch", 2, tool_db))
+	assert_true(rm.grant_tool("small_patch", 1, tool_db))
+	assert_eq(rm.get_tool_count("small_patch"), 3)
+	assert_true(rm.consume_tool("small_patch", 2))
+	assert_eq(rm.get_tool_count("small_patch"), 1)
+
+	var restored = autofree(RunManagerScript.new())
+	restored.deserialize_run(rm.serialize_run())
+
+	assert_eq(restored.get_tool_count("small_patch"), 1)
+
+func test_reward_shop_and_event_can_grant_tools():
+	var rm = autofree(RunManagerScript.new())
+	rm.is_run_active = false
+	rm.current_shards = 50
+
+	assert_true(rm.apply_reward({"type": "tool", "id": "black_ink_drop", "amount": 2}))
+	assert_eq(rm.get_tool_count("black_ink_drop"), 2)
+
+	assert_true(rm.buy_shop_offer({"type": "tool", "id": "small_water_drop", "price": 7}))
+	assert_eq(rm.current_shards, 43)
+	assert_eq(rm.get_tool_count("small_water_drop"), 1)
+
+	assert_true(rm.apply_event_choice({
+		"effects": [{"type": "tool", "id": "dream_value_candy", "amount": 1}]
+	}))
+	assert_eq(rm.get_tool_count("dream_value_candy"), 1)
+
+func test_tool_use_consumes_only_on_legal_target():
+	var battle = add_child_autofree(BattleManagerScript.new())
+	await get_tree().process_frame
+	var paper = _place_item(battle, "paper_ball", Vector2i(2, 2))
+	root_rm.current_tools = {"black_ink_drop": 1, "dream_value_candy": 1}
+
+	assert_false(battle.request_use_tool("dream_value_candy", {"type": "item", "instance": paper}))
+	assert_eq(root_rm.get_tool_count("dream_value_candy"), 1)
+
+	assert_true(battle.request_use_tool("black_ink_drop", {"type": "item", "instance": paper}))
+	assert_eq(root_rm.get_tool_count("black_ink_drop"), 0)
+	assert_eq(paper.current_pollution, 2)
+
+func test_seed_tool_sows_empty_cell_and_disinfectant_scores():
+	var battle = add_child_autofree(BattleManagerScript.new())
+	await get_tree().process_frame
+	battle.backpack_manager.grid.clear()
+	root_rm.current_tools = {"small_water_drop": 1, "disinfectant_spray": 1}
+
+	assert_true(battle.request_use_tool("small_water_drop", {"type": "empty_cell", "x": 2, "y": 2}))
+	assert_eq(root_rm.get_tool_count("small_water_drop"), 0)
+	assert_true(battle.backpack_manager.grid.has(Vector2i(2, 2)))
+	assert_eq(battle.backpack_manager.grid[Vector2i(2, 2)].data.id, "dream_seed_1x1")
+
+	var paper = _place_item(battle, "paper_ball", Vector2i(4, 2))
+	paper.current_pollution = 3
+	var score_before = GameState.current_score
+	assert_true(battle.request_use_tool("disinfectant_spray", {"type": "item", "instance": paper}))
+	assert_eq(paper.current_pollution, 0)
+	assert_eq(GameState.current_score, score_before + 9)
+
+func test_tool_button_click_toggles_selected_tool():
+	var ui = autofree(MainGameUIScript.new())
+	var slots = autofree(HBoxContainer.new())
+	var button = autofree(Button.new())
+	button.set_meta("tool_id", "small_patch")
+	slots.add_child(button)
+	ui.tool_slot_area = slots
+
+	var down = InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	var up = InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.pressed = false
+
+	ui._on_tool_button_gui_input(down, "small_patch", button)
+	ui._on_tool_button_gui_input(up, "small_patch", button)
+	assert_eq(ui._selected_tool_id, "small_patch")
+
+	ui._on_tool_button_gui_input(down, "small_patch", button)
+	ui._on_tool_button_gui_input(up, "small_patch", button)
+	assert_eq(ui._selected_tool_id, "")
+
+func _place_item(battle: BattleManager, item_id: String, pos: Vector2i):
+	var item = item_db.get_item_by_id(item_id)
+	assert_not_null(item)
+	assert_true(battle.backpack_manager.place_item(item, pos))
+	return battle.backpack_manager.grid[pos]

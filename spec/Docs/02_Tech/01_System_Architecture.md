@@ -9,7 +9,7 @@
 `RunManager` 维护跨场景状态，包括：
 
 - 当前路线 ID、场景层 `current_act`、路线节点下标和已完成节点。
-- 长期卡组、碎片、饰品、背包布局、暂存物品。
+- 长期卡组、碎片、饰品、道具、背包布局、暂存物品。
 - 背包可用区域、锁格、删格、临时锁格。
 - 商店节点缓存、事件节点缓存、已见事件、可序列化随机源。
 - 整局是否活跃、是否完成、失败或胜利结算。
@@ -22,6 +22,7 @@
 
 - 物品：`data/items/*.tres`，由 `ItemDatabase` 加载。
 - 饰品：`data/ornaments/ornaments.json`，由 `OrnamentDatabase` 加载。
+- 道具：`data/tools/tools.json`，由 `ToolDatabase` 加载。
 - 事件：`data/events/events.json`，由 `EventDatabase` 加载。
 - 路线：`data/routes/routes.json`，由 `RouteConfig` 加载。
 - 经济曲线：`src/core/rewards/economy_config.gd`。
@@ -33,7 +34,7 @@
 - `BackpackManager` 负责网格、物品实例、放置、旋转、播种、锁格和运行时状态。
 - `ImpactResolver` 负责撞击解析并产出 `GameAction`。
 - `SequencePlayer` 负责按动作序列播放表现并同步数值。
-- `BattleManager` 负责局内状态机、抽取、撞击队列、背包持久化和饰品触发。
+- `BattleManager` 负责局内状态机、抽取、撞击队列、道具使用、背包持久化和饰品触发。
 - UI 只发出交互请求并渲染状态，不直接改长期运行状态。
 
 ### 4. 运行时资源隔离
@@ -120,11 +121,11 @@
 - 4x4 后继续升级只提升等级，不再继续变大。
 - 变大空间不足时会掉出背包并发出失败事件，掉出后的梦境之种需要重新放入背包才继续参与结算。
 
-相关事件通过 `GlobalEventBus` 广播，供饰品和后续道具系统监听。
+相关事件通过 `GlobalEventBus` 广播，供饰品和道具系统监听。
 
 ### 6. 饰品系统
 
-饰品不占背包格，不参与撞击，不能重复获得。当前总表已加载 56 个饰品，其中 50 个非道具饰品启用并接入：
+饰品不占背包格，不参与撞击，不能重复获得。当前总表已加载并启用 56 个饰品，已接入：
 
 - 战斗开始。
 - 捕梦。
@@ -135,26 +136,40 @@
 - 种子升级。
 - 污染增加。
 - 净化。
+- 道具使用。
 - 商店折扣。
 - 奖励选项增量。
 
 机械饰品 v1.2 已接入机械传动上下文：齿轮油读取成功机械传动次数，万向轴承可在当前结算为第一次命中的机械物品追加双向传动，反冲片通过机械过滤队列发起反方向机械撞击。
 
-简单饰品通过 `GenericOrnamentEffect` 分发，复杂饰品可拆为独立脚本。道具联动饰品依赖 F1 道具系统，当前只保留 51-56 号未启用数据：`get_all_ornaments()` 可读取总表，`get_available_ornaments()` 会过滤未启用饰品，奖励/商店不会产出；直接获得时使用 no-op 效果避免报错。
+简单饰品通过 `GenericOrnamentEffect` 分发，复杂饰品可拆为独立脚本。51-56 号道具联动饰品通过 `after_tool_used`、丢弃监听和撞击上下文接入；`get_available_ornaments()` 仍负责按层数和已拥有状态过滤奖励/商店候选。
 
-### 7. 奖励、商店、事件与经济
+### 7. 道具系统
 
-`RewardGenerator` 生成奖励选项，支持物品、饰品、碎片、权重随机、Boss 稀有倾向、已有构筑标签倾向和候选为空时的安全回退。
+道具是独立于普通背包格的特殊消耗品，不参与背包撞击占格。当前正式道具池为 `data/tools/tools.json` 中 15 个道具。
 
-`ShopGenerator` 生成商店库存，支持节点缓存、刷新、已购买排除、已拥有饰品过滤、构筑倾向推荐和价格曲线。
+- `ToolData` 描述 id、名称、价格、标签、目标类型和效果说明。
+- `ToolDatabase` 作为 autoload 读取道具表，并提供按 id 查询和全量列表。
+- `RunManager.current_tools` 保存长期堆叠数量，`grant_tool()`、`consume_tool()`、`get_tool_inventory_entries()` 作为唯一库存入口，并参与存档、事件回滚、奖励和商店写入。
+- `ToolEffect.apply_tool()` 负责目标校验和效果执行；`BattleManager.request_use_tool()` 先执行效果，成功后消耗 1 个，非法目标或效果失败不消耗。
+- `MainGameUI` 渲染独立道具栏，支持点击选择、释放到目标、悬停 tooltip、数量显示和使用失败反馈。
+- 当前目标类型覆盖背包物品、空格、物品或空格、捕梦区、垃圾桶和饰品槽。
 
-奖励和商店的饰品候选统一来自 `OrnamentDatabase.get_available_ornaments()`，因此会同时过滤已拥有饰品、层数未解锁饰品和当前未启用的道具联动饰品。
+道具获取已接入奖励、商店、事件效果、饰品效果和物品效果入口。具体掉落权重和价格仍是技术假设，后续可在 `RewardGenerator`、`ShopGenerator` 和 `data/tools/tools.json` 中调优。
+
+### 8. 奖励、商店、事件与经济
+
+`RewardGenerator` 生成奖励选项，支持物品、饰品、道具、碎片、权重随机、Boss 稀有倾向、已有构筑标签倾向和候选为空时的安全回退。
+
+`ShopGenerator` 生成商店库存，支持物品、饰品、道具、节点缓存、刷新、已购买排除、已拥有饰品过滤、构筑倾向推荐和价格曲线。
+
+奖励和商店的饰品候选统一来自 `OrnamentDatabase.get_available_ornaments()`，因此会同时过滤已拥有饰品和层数未解锁饰品。
 
 `EventDatabase` 按层数、已见事件、权重、风险收益和随机源选择事件。`RunManager.apply_event_choice()` 以事务方式应用事件效果，失败会回滚。
 
 `EconomyConfig` 集中维护当前基础经济曲线：普通战斗碎片、Boss 碎片、刷新费、物品价格倍率和饰品稀有度倍率。
 
-### 8. 物品获得语义
+### 9. 物品获得语义
 
 统一物品获得入口为 `RunManager.grant_item()`，支持三种去向：
 
@@ -208,13 +223,13 @@ python -B scripts\run_scene_smoke_tests.py --fail-on-engine-error
 res://
 ├── addons/        # GUT 等第三方插件
 ├── assets/        # 美术、音频、应用图标
-├── data/          # 物品、饰品、事件、路线等静态数据
+├── data/          # 物品、饰品、道具、事件、路线等静态数据
 ├── scripts/       # 场景冒烟 runner 配置
 ├── spec/          # 设计文档、技术文档、历史日志
 ├── src/
 │   ├── autoload/  # 全局管理器和数据库
 │   ├── battle/    # 局内流程和动作播放
-│   ├── core/      # 背包、效果、事件、饰品、奖励、路线等纯逻辑
+│   ├── core/      # 背包、效果、事件、饰品、道具、奖励、路线等纯逻辑
 │   ├── debug/     # 手工调试场景
 │   └── ui/        # 场景和 UI 控制脚本
 ├── test/          # GUT 单元/集成测试
@@ -223,6 +238,5 @@ res://
 
 ## 四、仍未闭环事项
 
-- F1 道具系统：用户已确认暂缓。
 - 正式捕梦动画、美术或 CG：缺少正式素材，替换点是 `MainGameUI._play_dreamcatcher_animation()`。
-- GitHub Releases 自动发布：需要 tag 策略、token 和发布权限；当前仅完成本地归档发布流程。
+- 道具获取权重、商店价格和道具联动饰品数值仍需实机数据与策划表继续调优。

@@ -36,3 +36,7 @@ signal seed_sow_failed(source, direction: int)
 # 当污染层数变化时发出
 @warning_ignore("unused_signal")
 signal pollution_changed(instance, old_value: int, new_value: int)
+
+# 当一次道具成功使用时发出。
+@warning_ignore("unused_signal")
+signal tool_used(tool_data, target: Dictionary, result: Dictionary)

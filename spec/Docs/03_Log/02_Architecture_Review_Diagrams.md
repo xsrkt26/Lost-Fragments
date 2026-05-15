@@ -28,6 +28,7 @@ graph TD
     subgraph Data[静态数据]
         Items[data/items/*.tres]
         Ornaments[data/ornaments/ornaments.json]
+        Tools[data/tools/tools.json]
         Events[data/events/events.json]
         Routes[data/routes/routes.json]
         Economy[EconomyConfig]
@@ -42,6 +43,7 @@ graph TD
     subgraph Battle[局内逻辑]
         BM[BattleManager]
         BPM[BackpackManager]
+        TE[ToolEffect]
         IR[ImpactResolver]
         SP[SequencePlayer]
         GA[GameAction]
@@ -60,6 +62,7 @@ graph TD
     RM --> Save
     RM --> BM
     BM --> BPM
+    BM --> TE
     BM --> IR
     IR --> GA
     BM --> SP
@@ -125,5 +128,5 @@ graph TD
 ## 当前图中未覆盖的已知限制
 
 - 整理背包当前仍复用局内 UI，但已通过独立浮层模式处理基础关闭入口、输入上下文和布局覆盖；继续扩展专属功能时再拆独立 scene。
-- 道具系统暂缓，未进入运行图。
-- GitHub Releases 自动发布尚未接入。
+- 道具系统基础运行图已接入局内 UI、`BattleManager`、`RunManager` 和奖励/商店/事件入口；当前图未展开每个具体道具效果分支。
+- GitHub Releases 自动发布已接入，按 `v*` tag 触发。

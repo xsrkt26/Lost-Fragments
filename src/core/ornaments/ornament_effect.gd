@@ -34,6 +34,9 @@ func after_seed_sow_failed(_source: BackpackManager.ItemInstance, _direction: in
 func after_pollution_changed(_instance: BackpackManager.ItemInstance, _old_value: int, _new_value: int, _context: GameContext, _state: Dictionary) -> void:
 	pass
 
+func after_tool_used(_tool_data, _target: Dictionary, _result: Dictionary, _context: GameContext, _state: Dictionary) -> void:
+	pass
+
 func _count_impacts(actions: Array[GameAction]) -> int:
 	var count = 0
 	for action in actions:

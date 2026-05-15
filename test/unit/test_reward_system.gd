@@ -2,7 +2,7 @@ extends GutTest
 
 const RewardGeneratorScript = preload("res://src/core/rewards/reward_generator.gd")
 const RunManagerScript = preload("res://src/autoload/run_manager.gd")
-const DEFERRED_TOOL_ORNAMENT_IDS := [
+const TOOL_ORNAMENT_IDS := [
 	"tool_belt",
 	"specimen_pin_case",
 	"gardening_toolkit",
@@ -65,13 +65,14 @@ func test_reward_generation_is_reproducible_with_injected_random_seed():
 
 	assert_eq(_reward_keys(options_a), _reward_keys(options_b))
 
-func test_reward_generation_excludes_deferred_tool_ornaments():
+func test_reward_generation_includes_enabled_tool_ornaments():
 	var rm = _make_run_manager(6, 0)
 
 	var options = RewardGeneratorScript.generate_options(rm, item_db, ornament_db, 80)
+	var ornament_ids = options.filter(func(reward): return reward.get("type", "") == "ornament").map(func(reward): return str(reward.get("id", "")))
 
-	for reward in options:
-		assert_false(reward.get("type", "") == "ornament" and DEFERRED_TOOL_ORNAMENT_IDS.has(str(reward.get("id", ""))))
+	for ornament_id in TOOL_ORNAMENT_IDS:
+		assert_true(ornament_ids.has(ornament_id))
 
 func test_reward_generator_falls_back_to_shards_when_pools_are_empty():
 	var rm = _make_run_manager(1, 0)
@@ -95,6 +96,9 @@ func test_apply_reward_updates_long_term_state_and_blocks_duplicate_ornaments():
 	assert_true(rm.apply_reward({"type": "ornament", "id": "old_pocket_watch"}))
 	assert_false(rm.apply_reward({"type": "ornament", "id": "old_pocket_watch"}))
 	assert_eq(rm.current_ornaments, ["old_pocket_watch"])
+
+	assert_true(rm.apply_reward({"type": "tool", "id": "small_patch", "amount": 2}))
+	assert_eq(rm.get_tool_count("small_patch"), 2)
 
 func _reward_keys(options: Array[Dictionary]) -> Array[String]:
 	var keys: Array[String] = []

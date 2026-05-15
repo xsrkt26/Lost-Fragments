@@ -1,6 +1,8 @@
 class_name BattleManager
 extends Node
 
+const ToolEffectScript = preload("res://src/core/tools/tool_effect.gd")
+
 ## 战斗管理器：游戏的逻辑中枢 (Controller)
 ## 负责协调 backpack 数据、碰撞解析、序列播放和音频触发
 
@@ -50,6 +52,9 @@ var _pending_finish_reason: String = ""
 var _impact_queue: Array[Dictionary] = []
 var _impact_queue_sequence: int = 0
 var _is_processing_impact_queue: bool = false
+var _next_draw_cost_discount: int = 0
+var _tool_recycling_clip_pending: int = 0
+var _blank_talisman_refreshed_ornaments: Array[String] = []
 
 func _ready():
 	print("[BattleManager] 节点就绪")
@@ -176,6 +181,51 @@ func apply_sanity_loss(amount: int, reason: String = "effect", item_data: ItemDa
 	if gs:
 		gs.consume_sanity(modified_amount)
 	return modified_amount
+
+func add_next_draw_cost_discount(amount: int) -> void:
+	_next_draw_cost_discount += max(0, amount)
+
+func add_recycling_clip_pending(amount: int) -> void:
+	_tool_recycling_clip_pending += max(0, amount)
+
+func refresh_ornament_once(ornament_id: String) -> bool:
+	if ornament_id == "" or _blank_talisman_refreshed_ornaments.has(ornament_id):
+		return false
+	for runtime in active_ornaments:
+		var ornament = runtime.get("data")
+		if ornament == null or ornament.id != ornament_id:
+			continue
+		var state = runtime.get("state", {}) as Dictionary
+		for key in ["used", "used_draw", "scored_draw", "used_resolution_id", "last_trigger_draw"]:
+			state.erase(key)
+		runtime["state"] = state
+		_blank_talisman_refreshed_ornaments.append(ornament_id)
+		return true
+	return false
+
+func request_use_tool(tool_id: String, target: Dictionary) -> bool:
+	if battle_state != BattleState.INTERACTIVE:
+		return false
+	var rm = get_node_or_null("/root/RunManager")
+	var tool_db = get_node_or_null("/root/ToolDatabase")
+	if rm == null or tool_db == null or not rm.has_method("get_tool_count") or rm.get_tool_count(tool_id) <= 0:
+		return false
+	var tool = tool_db.get_tool_by_id(tool_id) if tool_db.has_method("get_tool_by_id") else null
+	if tool == null:
+		return false
+	var item_db = get_node_or_null("/root/ItemDatabase")
+	var ornament_db = get_node_or_null("/root/OrnamentDatabase")
+	var result = ToolEffectScript.apply_tool(tool, target, self, rm, item_db, ornament_db)
+	if not bool(result.get("success", false)):
+		return false
+	if not rm.consume_tool(tool_id, 1):
+		return false
+	_apply_ornament_tool_used(tool, target, result)
+	var bus = get_node_or_null("/root/GlobalEventBus")
+	if bus:
+		bus.tool_used.emit(tool, target, result)
+	persist_backpack_to_run()
+	return true
 
 ## 处理物品在背包内被旋转的逻辑请求
 func request_rotate_item(item_ui: Control, mouse_global_pos: Vector2, pivot_offset: Vector2i):
@@ -314,6 +364,7 @@ func request_discard_item(item_ui: Control):
 		else:
 			effect.on_discard(item_data, context)
 	_apply_ornament_item_discarded(item_data, old_instance, old_instance != null)
+	_apply_tool_item_discarded(item_data, old_instance, old_instance != null)
 	var bus = get_node_or_null("/root/GlobalEventBus")
 	if bus:
 		bus.item_discarded.emit(item_data)
@@ -497,6 +548,9 @@ func _process_new_item_acquisition(item: ItemData):
 		else:
 			# 其他数值取绝对值作为消耗，避免负数变成恢复
 			cost = abs(item.base_cost)
+		if _next_draw_cost_discount > 0:
+			cost = max(1, cost - _next_draw_cost_discount)
+			_next_draw_cost_discount = 0
 		
 		var actual_cost = apply_sanity_loss(cost, "draw", item)
 		print("[BattleManager] 捕梦消耗: ", actual_cost, " (原始: ", cost, ") | 当前抽卡次数: ", draw_count)
@@ -605,6 +659,34 @@ func _apply_ornament_item_discarded(item_data: ItemData, old_instance: BackpackM
 		var state = runtime.get("state", {}) as Dictionary
 		if ornament != null and ornament.effect != null:
 			ornament.effect.after_item_discarded(item_data, old_instance, from_backpack, context, state)
+
+func _apply_tool_item_discarded(item_data: ItemData, old_instance: BackpackManager.ItemInstance, from_backpack: bool) -> void:
+	if old_instance != null and old_instance.data != null and old_instance.data.has_meta("tool_apple_wax"):
+		if context != null:
+			context.change_sanity(2)
+		if item_data != null and item_data.id == "apple":
+			var item_db = get_node_or_null("/root/ItemDatabase")
+			if item_db != null:
+				backpack_manager.sow_seed(old_instance, old_instance.data.direction, item_db, 1)
+
+	if _tool_recycling_clip_pending > 0 and _is_waste_item(item_data):
+		_tool_recycling_clip_pending -= 1
+		if context != null:
+			context.add_score(8)
+		var rm = get_node_or_null("/root/RunManager")
+		var item_db = get_node_or_null("/root/ItemDatabase")
+		if rm != null and rm.has_method("grant_item"):
+			rm.grant_item("paper_ball", "deck", item_db, "recycling_clip")
+
+func _apply_ornament_tool_used(tool_data, target: Dictionary, result: Dictionary) -> void:
+	for runtime in active_ornaments:
+		var ornament = runtime.get("data")
+		var state = runtime.get("state", {}) as Dictionary
+		if ornament != null and ornament.effect != null and ornament.effect.has_method("after_tool_used"):
+			ornament.effect.after_tool_used(tool_data, target, result, context, state)
+
+func _is_waste_item(item_data: ItemData) -> bool:
+	return item_data != null and (item_data.tags.has("废弃物") or item_data.price < 0)
 
 func _apply_ornament_impact_chain_resolved(source: BackpackManager.ItemInstance, actions: Array[GameAction]) -> void:
 	for runtime in active_ornaments:

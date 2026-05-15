@@ -15,6 +15,7 @@ signal deck_changed(new_deck: Array)
 signal route_changed(current_act: int, route_index: int, current_node: Dictionary)
 signal ornaments_changed(current_ornaments: Array[String])
 signal pending_items_changed(pending_items: Array[Dictionary])
+signal tools_changed(current_tools: Dictionary)
 
 # --- 配置项 ---
 const INITIAL_SHARDS = 10
@@ -49,6 +50,7 @@ var current_deck: Array[String] = INITIAL_DECK.duplicate()
 var current_backpack_items: Array[Dictionary] = []
 var pending_item_rewards: Array[Dictionary] = []
 var next_pending_item_uid: int = 1
+var current_tools: Dictionary = {}
 var backpack_locked_cells: Array[Dictionary] = []
 var backpack_deleted_cells: Array[Dictionary] = []
 var temporary_backpack_locked_cells: Array[Dictionary] = []
@@ -93,6 +95,7 @@ func start_new_run():
 	current_backpack_items = _get_initial_backpack_items()
 	pending_item_rewards = []
 	next_pending_item_uid = 1
+	current_tools = {}
 	backpack_locked_cells = []
 	backpack_deleted_cells = []
 	temporary_backpack_locked_cells = []
@@ -188,6 +191,12 @@ func apply_reward(reward: Dictionary, item_db: Node = null) -> bool:
 			if not add_ornament(ornament_id):
 				return false
 			return true
+		RewardGenerator.TYPE_TOOL:
+			var tool_id = str(reward.get("id", ""))
+			var amount = max(1, int(reward.get("amount", 1)))
+			var tool_db = get_node_or_null("/root/ToolDatabase") if is_inside_tree() else null
+			if not grant_tool(tool_id, amount, tool_db, "reward", false):
+				return false
 		_:
 			return false
 	save_current_state()
@@ -237,6 +246,16 @@ func buy_shop_offer(offer: Dictionary, item_db: Node = null) -> bool:
 			current_shards -= price
 			current_ornaments.append(ornament_id)
 			ornaments_changed.emit(current_ornaments)
+		ShopGenerator.TYPE_TOOL:
+			var tool_id = str(offer.get("id", ""))
+			if tool_id == "":
+				return false
+			var amount = max(1, int(offer.get("amount", 1)))
+			var tool_db = get_node_or_null("/root/ToolDatabase") if is_inside_tree() else null
+			current_shards -= price
+			if not grant_tool(tool_id, amount, tool_db, "shop", false):
+				current_shards += price
+				return false
 		_:
 			return false
 
@@ -244,6 +263,68 @@ func buy_shop_offer(offer: Dictionary, item_db: Node = null) -> bool:
 	_record_shop_purchase(offer)
 	save_current_state()
 	return true
+
+func grant_tool(tool_id: String, amount: int = 1, tool_db: Node = null, source: String = "", save_after: bool = true) -> bool:
+	if tool_id == "" or amount <= 0:
+		return false
+	if tool_db == null and is_inside_tree():
+		tool_db = get_node_or_null("/root/ToolDatabase")
+	if tool_db != null and tool_db.has_method("get_tool_by_id") and tool_db.get_tool_by_id(tool_id) == null:
+		return false
+	current_tools[tool_id] = max(0, int(current_tools.get(tool_id, 0))) + amount
+	tools_changed.emit(get_current_tools())
+	if save_after:
+		save_current_state()
+	return true
+
+func consume_tool(tool_id: String, amount: int = 1, save_after: bool = true) -> bool:
+	if tool_id == "" or amount <= 0:
+		return false
+	var current_count = int(current_tools.get(tool_id, 0))
+	if current_count < amount:
+		return false
+	var next_count = current_count - amount
+	if next_count <= 0:
+		current_tools.erase(tool_id)
+	else:
+		current_tools[tool_id] = next_count
+	tools_changed.emit(get_current_tools())
+	if save_after:
+		save_current_state()
+	return true
+
+func get_tool_count(tool_id: String) -> int:
+	return max(0, int(current_tools.get(tool_id, 0)))
+
+func get_current_tools() -> Dictionary:
+	return current_tools.duplicate(true)
+
+func get_tool_inventory_entries(tool_db: Node = null) -> Array[Dictionary]:
+	if tool_db == null and is_inside_tree():
+		tool_db = get_node_or_null("/root/ToolDatabase")
+	var result: Array[Dictionary] = []
+	for tool_id in current_tools.keys():
+		var count = int(current_tools.get(tool_id, 0))
+		if count <= 0:
+			continue
+		var entry: Dictionary = {
+			"id": str(tool_id),
+			"count": count,
+			"title": str(tool_id),
+			"description": "",
+			"rarity": "",
+			"target_type": "",
+		}
+		if tool_db != null and tool_db.has_method("get_tool_by_id"):
+			var tool = tool_db.get_tool_by_id(str(tool_id))
+			if tool != null:
+				entry["title"] = tool.tool_name
+				entry["description"] = tool.effect_text
+				entry["rarity"] = tool.rarity
+				entry["target_type"] = tool.target_type
+		result.append(entry)
+	result.sort_custom(func(a, b): return str(a.get("id", "")) < str(b.get("id", "")))
+	return result
 
 func grant_item(item_id: String, destination: String = ITEM_DEST_DECK, item_db: Node = null, source: String = "", save_after: bool = true) -> bool:
 	if item_id == "":
@@ -425,6 +506,7 @@ func apply_event_choice(choice: Dictionary) -> bool:
 		"backpack_items": current_backpack_items.duplicate(true),
 		"pending_item_rewards": pending_item_rewards.duplicate(true),
 		"next_pending_item_uid": next_pending_item_uid,
+		"tools": current_tools.duplicate(true),
 		"backpack_locked_cells": backpack_locked_cells.duplicate(true),
 		"backpack_deleted_cells": backpack_deleted_cells.duplicate(true),
 		"temporary_backpack_locked_cells": temporary_backpack_locked_cells.duplicate(true),
@@ -460,7 +542,7 @@ func get_backpack_grid_config() -> Dictionary:
 func _apply_event_effect(effect: Dictionary) -> bool:
 	var effect_type = str(effect.get("type", ""))
 	match effect_type:
-		RewardGenerator.TYPE_SHARDS, RewardGenerator.TYPE_ITEM, RewardGenerator.TYPE_ORNAMENT:
+		RewardGenerator.TYPE_SHARDS, RewardGenerator.TYPE_ITEM, RewardGenerator.TYPE_ORNAMENT, RewardGenerator.TYPE_TOOL:
 			var item_db = get_node_or_null("/root/ItemDatabase") if is_inside_tree() else null
 			return apply_reward(effect, item_db)
 		"sanity":
@@ -671,6 +753,7 @@ func _restore_event_snapshot(snapshot: Dictionary) -> void:
 	current_backpack_items = _to_dictionary_array(snapshot.get("backpack_items", current_backpack_items))
 	pending_item_rewards = _to_dictionary_array(snapshot.get("pending_item_rewards", pending_item_rewards))
 	next_pending_item_uid = int(snapshot.get("next_pending_item_uid", next_pending_item_uid))
+	current_tools = _to_tool_counts(snapshot.get("tools", current_tools))
 	backpack_locked_cells = _to_dictionary_array(snapshot.get("backpack_locked_cells", backpack_locked_cells))
 	backpack_deleted_cells = _to_dictionary_array(snapshot.get("backpack_deleted_cells", backpack_deleted_cells))
 	temporary_backpack_locked_cells = _to_dictionary_array(snapshot.get("temporary_backpack_locked_cells", temporary_backpack_locked_cells))
@@ -681,6 +764,7 @@ func _restore_event_snapshot(snapshot: Dictionary) -> void:
 	deck_changed.emit(current_deck)
 	ornaments_changed.emit(current_ornaments)
 	pending_items_changed.emit(get_pending_item_rewards())
+	tools_changed.emit(get_current_tools())
 	save_current_state()
 
 func save_backpack_state(backpack: BackpackManager) -> void:
@@ -896,6 +980,7 @@ func serialize_run() -> Dictionary:
 		"backpack_items": current_backpack_items,
 		"pending_item_rewards": pending_item_rewards,
 		"next_pending_item_uid": next_pending_item_uid,
+		"tools": current_tools,
 		"backpack_locked_cells": backpack_locked_cells,
 		"backpack_deleted_cells": backpack_deleted_cells,
 		"temporary_backpack_locked_cells": temporary_backpack_locked_cells,
@@ -923,6 +1008,7 @@ func deserialize_run(data: Dictionary):
 	current_backpack_items = _to_dictionary_array(data.get("backpack_items", []))
 	pending_item_rewards = _to_dictionary_array(data.get("pending_item_rewards", []))
 	next_pending_item_uid = max(int(data.get("next_pending_item_uid", 1)), _get_next_pending_uid_from_entries())
+	current_tools = _to_tool_counts(data.get("tools", {}))
 	backpack_locked_cells = _to_dictionary_array(data.get("backpack_locked_cells", []))
 	backpack_deleted_cells = _to_dictionary_array(data.get("backpack_deleted_cells", []))
 	temporary_backpack_locked_cells = _to_dictionary_array(data.get("temporary_backpack_locked_cells", []))
@@ -943,6 +1029,7 @@ func deserialize_run(data: Dictionary):
 	is_run_active = data.get("is_active", true)
 	is_run_complete = data.get("is_complete", false)
 	pending_items_changed.emit(get_pending_item_rewards())
+	tools_changed.emit(get_current_tools())
 	_emit_route_changed()
 
 func _to_string_array(value: Variant) -> Array[String]:
@@ -956,6 +1043,22 @@ func _to_dictionary_array(value: Variant) -> Array[Dictionary]:
 	for entry in Array(value):
 		if entry is Dictionary:
 			result.append(entry)
+	return result
+
+func _to_tool_counts(value: Variant) -> Dictionary:
+	var result := {}
+	if value is Dictionary:
+		for key in value.keys():
+			var count = int(value.get(key, 0))
+			if count > 0:
+				result[str(key)] = count
+	elif value is Array:
+		for entry in Array(value):
+			if entry is Dictionary:
+				var tool_id = str(entry.get("id", ""))
+				var count = int(entry.get("count", entry.get("amount", 0)))
+				if tool_id != "" and count > 0:
+					result[tool_id] = int(result.get(tool_id, 0)) + count
 	return result
 
 func _get_next_pending_uid_from_entries() -> int:

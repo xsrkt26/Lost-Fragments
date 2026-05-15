@@ -247,6 +247,32 @@ func sow_seed(source_instance: ItemInstance, direction: ItemData.Direction, item
 		return upgrade_seed(instance, item_db, levels - 1)
 	return instance
 
+func sow_seed_at(target_pos: Vector2i, item_db: Node, levels: int = 1) -> ItemInstance:
+	if item_db == null:
+		_emit_seed_sow_failed(null, -1)
+		return null
+	if target_pos.x < 0 or target_pos.x >= grid_width or target_pos.y < 0 or target_pos.y >= grid_height:
+		_emit_seed_sow_failed(null, -1)
+		return null
+	if grid.has(target_pos) or not is_pos_usable(target_pos):
+		_emit_seed_sow_failed(null, -1)
+		return null
+	var seed_data = item_db.get_item_by_id("dream_seed_1x1") if item_db.has_method("get_item_by_id") else null
+	if seed_data == null:
+		_emit_seed_sow_failed(null, -1)
+		return null
+	var runtime_seed: ItemData = seed_data.duplicate(true)
+	if not runtime_seed.tags.has(DERIVED_TAG):
+		runtime_seed.tags.append(DERIVED_TAG)
+	if not place_item(runtime_seed, target_pos):
+		_emit_seed_sow_failed(null, -1)
+		return null
+	var instance = grid[target_pos]
+	_emit_seed_sown(instance)
+	if levels > 1:
+		return upgrade_seed(instance, item_db, levels - 1)
+	return instance
+
 func upgrade_seed(seed_instance: ItemInstance, item_db: Node, levels: int = 1) -> ItemInstance:
 	if not _is_dream_seed(seed_instance) or item_db == null or levels <= 0:
 		return seed_instance

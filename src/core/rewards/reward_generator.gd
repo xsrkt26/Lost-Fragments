@@ -4,6 +4,7 @@ extends RefCounted
 const TYPE_SHARDS := "shards"
 const TYPE_ITEM := "item"
 const TYPE_ORNAMENT := "ornament"
+const TYPE_TOOL := "tool"
 const EconomyConfig = preload("res://src/core/rewards/economy_config.gd")
 const RouteConfig = preload("res://src/core/route/route_config.gd")
 const WeightedRandom = preload("res://src/core/random/weighted_random.gd")
@@ -21,6 +22,7 @@ static func generate_options(run_manager: Node, item_db: Node, ornament_db: Node
 	var is_boss = run_manager.get_current_route_node_type() == RouteConfig.NODE_BOSS_BATTLE if run_manager.has_method("get_current_route_node_type") else false
 	var act = max(1, int(run_manager.get("current_act")))
 	var build_tags = _collect_build_tags(run_manager, item_db, ornament_db)
+	var tool_db = _get_tool_db(run_manager)
 
 	var ornament = _pick_ornament(run_manager, ornament_db, act, is_boss, build_tags, rng)
 	if not ornament.is_empty():
@@ -32,6 +34,10 @@ static func generate_options(run_manager: Node, item_db: Node, ornament_db: Node
 
 	if options.size() < count:
 		options.append(_make_shards_reward(act, is_boss))
+
+	var tool = _pick_tool(tool_db, rng)
+	if not tool.is_empty() and options.size() < count:
+		options.append(tool)
 
 	var backup_ornaments = _pick_additional_ornaments(run_manager, ornament_db, act, is_boss, count - options.size(), options, build_tags, rng)
 	for reward in backup_ornaments:
@@ -79,6 +85,45 @@ static func _make_item_reward(item) -> Dictionary:
 		"rarity": "",
 		"amount": 1,
 	}
+
+static func _pick_tool(tool_db: Node, rng: RandomNumberGenerator = null) -> Dictionary:
+	if tool_db == null or not tool_db.has_method("get_available_tools"):
+		return {}
+	var tools = tool_db.get_available_tools()
+	if tools.is_empty():
+		return {}
+	if rng == null:
+		tools.sort_custom(func(a, b): return int(a.price) < int(b.price) if int(a.price) != int(b.price) else a.id < b.id)
+		return _make_tool_reward(tools[0])
+	var candidates: Array[Dictionary] = []
+	for tool in tools:
+		candidates.append({"tool": tool, "weight": _get_tool_weight(tool)})
+	var picked = WeightedRandom.pick(candidates, rng)
+	if picked.is_empty():
+		return {}
+	return _make_tool_reward(picked.get("tool"))
+
+static func _make_tool_reward(tool) -> Dictionary:
+	if tool == null:
+		return {}
+	return {
+		"type": TYPE_TOOL,
+		"id": tool.id,
+		"title": tool.tool_name,
+		"description": tool.effect_text,
+		"rarity": tool.rarity,
+		"amount": 1,
+	}
+
+static func _get_tool_weight(tool) -> float:
+	match str(tool.rarity):
+		"道具":
+			return 7.0
+		"罕见道具":
+			return 4.0
+		"稀有道具":
+			return 2.0
+	return 3.0
 
 static func _get_item_weight(item, prefer_high_value: bool, build_tags: Dictionary) -> float:
 	var price = int(item.price)
@@ -232,3 +277,8 @@ static func _make_shards_reward(act: int, is_boss: bool) -> Dictionary:
 		"rarity": "",
 		"amount": amount,
 	}
+
+static func _get_tool_db(run_manager: Node):
+	if run_manager != null and run_manager.is_inside_tree():
+		return run_manager.get_node_or_null("/root/ToolDatabase")
+	return null

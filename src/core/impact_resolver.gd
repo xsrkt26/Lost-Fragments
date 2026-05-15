@@ -121,6 +121,7 @@ func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions:
 						did_hit_others = true
 						if instance.data.tags.has("机械"):
 							resolution_context.successful_mechanical_transmission_count += 1
+							_append_tool_transmission_bonus(instance, actions)
 		ItemData.TransmissionMode.OMNI:
 			for next_dir in [ItemData.Direction.UP, ItemData.Direction.DOWN, ItemData.Direction.LEFT, ItemData.Direction.RIGHT]:
 				for offset in instance.data.shape:
@@ -145,6 +146,9 @@ func _resolve_recursive(current_pos: Vector2i, dir: ItemData.Direction, actions:
 					did_hit_others = true
 
 	if _resolve_extra_ornament_transmissions(instance, actions, branch_flags):
+		did_hit_others = true
+
+	if not did_hit_others and _resolve_tool_extension_hook(instance, actions, filters, branch_flags):
 		did_hit_others = true
 
 	for effect in instance.data.effects:
@@ -183,9 +187,42 @@ func _resolve_mechanical_transmission(instance: BackpackManager.ItemInstance, di
 			hit_any = true
 			resolution_context.turn_transmission_count += 1
 			resolution_context.successful_mechanical_transmission_count += 1
+			_append_tool_transmission_bonus(instance, actions)
 	if hit_any and is_bidirectional:
 		resolution_context.bidirectional_transmission_count += 1
 	return hit_any
+
+func _resolve_tool_extension_hook(instance: BackpackManager.ItemInstance, actions: Array[GameAction], filters: Array[String], branch_flags: Dictionary) -> bool:
+	if instance == null or instance.data == null or not instance.data.get_meta("tool_extension_hook", false):
+		return false
+	var step = _direction_to_step(instance.data.direction)
+	if step == Vector2i.ZERO:
+		return false
+	var hit_any = false
+	for offset in instance.data.shape:
+		var extended_start = instance.root_pos + offset + step
+		if _resolve_recursive(extended_start, instance.data.direction, actions, instance, filters, false, branch_flags):
+			hit_any = true
+	return hit_any
+
+func _append_tool_transmission_bonus(instance: BackpackManager.ItemInstance, actions: Array[GameAction]) -> void:
+	if instance == null or instance.data == null:
+		return
+	var score := 0
+	var oil_remaining = int(instance.data.get_meta("tool_transmission_oil_remaining", 0))
+	if oil_remaining > 0:
+		score += 3
+		instance.data.set_meta("tool_transmission_oil_remaining", oil_remaining - 1)
+	var calibration_remaining = int(instance.data.get_meta("orn_calibration_bonus_pending", 0))
+	if calibration_remaining > 0:
+		score += 5
+		instance.data.set_meta("orn_calibration_bonus_pending", calibration_remaining - 1)
+	if score <= 0:
+		return
+	var action = GameAction.new(GameAction.Type.NUMERIC, "Tool transmission bonus")
+	action.item_instance = instance
+	action.value = {"type": "score", "amount": score}
+	actions.append(action)
 
 func _apply_after_resolution_effects(actions: Array[GameAction]) -> void:
 	for instance in resolution_context.hit_instances:
