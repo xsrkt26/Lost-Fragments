@@ -101,3 +101,12 @@ python -B scripts\run_scene_smoke_tests.py --fail-on-engine-error
 ```
 
 导出脚本使用 `export_presets.cfg` 中的 `Windows Desktop` preset，输出形如 `package/LostFragments-<构建时间>-<提交号>.exe`，同目录生成 `.manifest.json`，记录版本号、构建时间、分支、提交号、测试结果和导出状态。若 Godot 路径不同，可通过 `GODOT_BIN` 环境变量或 `-GodotBin` 参数覆盖。
+
+GitHub Releases 自动发布已接入。推送 `v*` tag 会触发 `.github/workflows/release.yml`，自动运行发布前检查、导出 Windows 包、生成 zip，并创建 GitHub Release：
+
+```powershell
+git tag -a v0.1.0-alpha.1 -m "v0.1.0-alpha.1"
+git push origin v0.1.0-alpha.1
+```
+
+包含 `alpha`、`beta` 或 `rc` 的 tag 会自动标记为 prerelease。workflow 使用 GitHub Actions 内置 `GITHUB_TOKEN`，正常情况下不需要额外配置 Personal Access Token。

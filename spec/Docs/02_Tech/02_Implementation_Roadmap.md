@@ -74,7 +74,7 @@
 
 ### 3. 发布自动化
 
-在确认 tag 策略和 GitHub token 权限后，可以把 `tools/export_windows_release.ps1` 接入 GitHub Releases。当前 CI 只跑 GUT 和严格场景冒烟。
+GitHub Releases 已接入基础自动发布：推送 `v*` tag 后，CI 会下载 Godot 4.6.2 与 export templates，复用 `tools/export_windows_release.ps1` 跑全量 GUT、严格场景冒烟和 Windows export，再创建 Release 并上传 zip 与 manifest。后续只需要根据试玩节奏决定具体 tag 版本号。
 
 ## 四、验证矩阵
 

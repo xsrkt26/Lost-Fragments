@@ -4,6 +4,7 @@ param(
     [string]$OutputDir = "package",
     [string]$ProductName = "LostFragments",
     [string]$Version = "",
+    [string]$PythonBin = "",
     [switch]$PrecheckOnly
 )
 
@@ -17,6 +18,9 @@ if ([string]::IsNullOrWhiteSpace($GodotBin)) {
 
 if (-not (Test-Path -LiteralPath $GodotBin)) {
     throw "Godot executable not found: $GodotBin"
+}
+if ([string]::IsNullOrWhiteSpace($PythonBin)) {
+    $PythonBin = if ($env:PYTHON_BIN) { $env:PYTHON_BIN } else { "python" }
 }
 
 $exportPresetsPath = Join-Path $repoRoot "export_presets.cfg"
@@ -88,8 +92,8 @@ $results += Invoke-RepoCommand `
 
 $results += Invoke-RepoCommand `
     -Name "strict_scene_smoke" `
-    -CommandText "python -B scripts\run_scene_smoke_tests.py --fail-on-engine-error" `
-    -Command { & python -B (Join-Path $repoRoot "scripts\run_scene_smoke_tests.py") --fail-on-engine-error }
+    -CommandText "$PythonBin -B scripts\run_scene_smoke_tests.py --fail-on-engine-error" `
+    -Command { & $PythonBin -B (Join-Path $repoRoot "scripts\run_scene_smoke_tests.py") --fail-on-engine-error }
 
 $exportStatus = "skipped"
 if (-not $PrecheckOnly) {
