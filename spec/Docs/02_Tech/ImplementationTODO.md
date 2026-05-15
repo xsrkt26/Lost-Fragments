@@ -799,6 +799,7 @@
 - 主菜单热区按 1280x720 设计稿坐标配置，并在运行时根据 `KEEP_ASPECT_COVERED` 缩放重新布局，避免不同窗口比例下背景图与点击区域漂移。
 - 无可继续存档时继续游戏热区会禁用并显示半透明遮罩，正式文字仍由美术图承载，按钮仅提供鼠标交互和 tooltip。
 - 主菜单已升级为分层 UI：背景替换为夜间纸艺森林图，菜单项使用 `assets/ui/main_menu/menu_scroll_blank.png` 透明书卷素材复制生成，中文菜单文字改由 Godot `Label` 渲染；hover 不再显示边框，而是通过全局按钮反馈放大对应书卷和文字。
+- 主菜单标题不再使用默认字体，改为复用 `assets/sourceImage/图层 1.png`、`图层 2.png`、`图层 3.png` 生成的运行时标题图 `title_shi.png`、`title_yi.png`、`title_meng.png`，在场景中以图片层组合显示“拾遗梦”。
 
 实现假设：
 

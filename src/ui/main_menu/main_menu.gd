@@ -9,7 +9,13 @@ const MENU_RECTS := {
 	"GalleryButton": Rect2(482.0, 294.0, 174.0, 374.0),
 	"SettingsButton": Rect2(648.0, 344.0, 154.0, 330.0),
 	"QuitButton": Rect2(792.0, 400.0, 134.0, 286.0),
-	"TitleLabel": Rect2(874.0, 92.0, 320.0, 110.0),
+	"TitleLogo": Rect2(728.0, 34.0, 448.0, 310.0),
+}
+const TITLE_LOGO_BASE_SIZE := Vector2(448.0, 310.0)
+const TITLE_CHAR_RECTS := {
+	"TitleShi": Rect2(0.0, 12.0, 170.0, 184.0),
+	"TitleYi": Rect2(142.0, 0.0, 172.0, 184.0),
+	"TitleMeng": Rect2(266.0, 88.0, 174.0, 203.0),
 }
 const BUTTON_LABELS := {
 	"NewGameButton": "开\n始\n游\n戏",
@@ -26,7 +32,7 @@ const DISABLED_MODULATE := Color(0.5, 0.5, 0.56, 0.72)
 @onready var gallery_button: Button = $MenuHotspots/GalleryButton
 @onready var settings_button: Button = $MenuHotspots/SettingsButton
 @onready var quit_button: Button = $MenuHotspots/QuitButton
-@onready var title_label: Label = $MenuHotspots/TitleLabel
+@onready var title_logo: Control = $MenuHotspots/TitleLogo
 @onready var settings_container: Control = $CanvasLayer/SettingsContainer
 
 func _ready() -> void:
@@ -87,7 +93,8 @@ func _update_menu_layout() -> void:
 		control.pivot_offset = target_rect.size * 0.5
 		if control is Button:
 			_update_scroll_label(control as Button, target_rect.size)
-	_update_title_label(target_rect_scale_font(scale_factor, 74.0))
+		elif control == title_logo:
+			_update_title_logo(target_rect.size)
 
 func _update_scroll_label(button: Button, button_size: Vector2) -> void:
 	var label := button.get_node_or_null("Label") as Label
@@ -103,13 +110,18 @@ func _update_scroll_label(button: Button, button_size: Vector2) -> void:
 	label.add_theme_font_size_override("font_size", int(clamp(button_size.y * 0.078, 22.0, 40.0)))
 	label.add_theme_constant_override("line_spacing", int(clamp(button_size.y * 0.012, 3.0, 8.0)))
 
-func _update_title_label(font_size: int) -> void:
-	if title_label == null:
+func _update_title_logo(logo_size: Vector2) -> void:
+	if title_logo == null:
 		return
-	title_label.add_theme_font_size_override("font_size", font_size)
-
-func target_rect_scale_font(scale_factor: float, base_size: float) -> int:
-	return int(clamp(base_size * scale_factor, 42.0, 92.0))
+	var scale_factor := minf(logo_size.x / TITLE_LOGO_BASE_SIZE.x, logo_size.y / TITLE_LOGO_BASE_SIZE.y)
+	for node_name in TITLE_CHAR_RECTS.keys():
+		var node := title_logo.get_node_or_null(node_name) as Control
+		if node == null:
+			continue
+		var source_rect: Rect2 = TITLE_CHAR_RECTS[node_name]
+		node.position = source_rect.position * scale_factor
+		node.size = source_rect.size * scale_factor
+		node.pivot_offset = node.size * 0.5
 
 func _on_new_game_button_pressed() -> void:
 	print("[MainMenu] 点击新游戏")
