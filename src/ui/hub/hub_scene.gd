@@ -29,13 +29,14 @@ func _input(event):
 	# 输入权限检查
 	if not GlobalInput.can_cancel(): return
 
-	# ESC 键处理：如果有浮窗则关闭浮窗，否则退回主菜单
+	# ESC 键处理：如果有浮窗则关闭浮窗，否则回到主界面
 	if event.is_action_pressed("ui_cancel") or Input.is_key_pressed(KEY_ESCAPE):
 		if overlay_root.get_child_count() > 0:
 			_close_backpack_overlay()
 			get_viewport().set_input_as_handled()
 		else:
-			GlobalScene.go_back()
+			_return_to_main_menu()
+			get_viewport().set_input_as_handled()
 		return
 
 	# 兼容旧触发区：当前已改为路线按钮驱动。
@@ -60,6 +61,7 @@ func _build_route_ui():
 	route_panel = Control.new()
 	route_panel.name = "RoutePanel"
 	route_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	route_panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	route_panel.custom_minimum_size = Vector2(0, 130)
 	$CanvasLayer.add_child(route_panel)
 
@@ -162,6 +164,12 @@ func _on_zone_body_exited(_body):
 	print("[Hub] 离开区域")
 
 # --- 场景切换逻辑 ---
+
+func _on_main_menu_button_pressed():
+	_return_to_main_menu()
+
+func _return_to_main_menu():
+	GlobalScene.transition_to(GlobalScene.SceneType.MAIN_MENU, false)
 
 func _enter_battle():
 	_enter_current_route_node()

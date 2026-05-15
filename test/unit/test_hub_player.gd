@@ -65,3 +65,14 @@ func test_hub_left_click_moves_player_with_mouse():
 
 	assert_true(hub_player.has_move_target)
 	assert_eq(hub_player.move_target_x, 320.0)
+
+func test_hub_exposes_mouse_return_to_main_menu_button():
+	var hub = HubScene.instantiate()
+	add_child_autofree(hub)
+	await get_tree().create_timer(0.2).timeout
+
+	var button := hub.get_node_or_null("CanvasLayer/MainMenuButton") as Button
+	assert_not_null(button)
+	assert_eq(button.text, "回主界面")
+	assert_eq(button.tooltip_text, "返回主界面")
+	assert_true(button.pressed.is_connected(Callable(hub, "_on_main_menu_button_pressed")))

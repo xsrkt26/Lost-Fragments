@@ -28,6 +28,7 @@ graph TD
     HUB -->|点击当前 shop 节点| SHOP[商店]
     HUB -->|点击当前 event 节点| EVENT[事件]
     HUB -->|整理背包按钮| BACKPACK[[整理背包浮层]]
+    HUB -->|ESC / 回主界面按钮| MENU
 
     BATTLE -->|胜利并选择奖励| HUB
     BATTLE -->|Boss 未达标/失败| MENU
@@ -98,6 +99,8 @@ sequenceDiagram
 当前整理背包由 Hub 复用 `main_game_ui.tscn` 打开，但会先调用 `configure_for_backpack_overlay()` 进入整理背包浮层模式。该模式会隐藏战斗专属元素，保持 `UI` 输入上下文，显示鼠标可点击关闭按钮，并在关闭时持久化背包布局后恢复 `WORLD`。
 
 如果后续整理背包扩展出独立道具栏、排序、筛选或多页布局，再考虑拆成独立 `backpack_setup_scene`。
+
+Hub 路线界面提供 `回主界面` 按钮；无浮层时按 ESC 也会直接返回主菜单。若整理背包浮层已打开，ESC 优先关闭并保存整理背包浮层，不触发主菜单跳转。
 
 ## 7. 输入上下文
 
