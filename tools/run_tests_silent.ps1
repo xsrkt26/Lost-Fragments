@@ -8,8 +8,9 @@ $gutScript = "addons/gut/gut_cmdln.gd"
 $timeoutSeconds = 60
 
 # Run Godot and capture BOTH output and errors to temporary files
-$tempLog = Join-Path $env:TEMP "go_dot_game_gut_stdout.tmp"
-$tempErr = Join-Path $env:TEMP "go_dot_game_gut_stderr.tmp"
+$tempRoot = if ($env:TEMP) { $env:TEMP } elseif ($env:TMPDIR) { $env:TMPDIR } else { [System.IO.Path]::GetTempPath() }
+$tempLog = Join-Path $tempRoot "go_dot_game_gut_stdout.tmp"
+$tempErr = Join-Path $tempRoot "go_dot_game_gut_stderr.tmp"
 
 # Clean up old logs
 if (Test-Path $tempLog) { Remove-Item $tempLog }
