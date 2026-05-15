@@ -1,32 +1,11 @@
-[gd_scene load_steps=7 format=3 uid="uid://main_menu_01"]
+[gd_scene load_steps=5 format=3 uid="uid://main_menu_01"]
 
 [ext_resource type="Script" path="res://src/ui/main_menu/main_menu.gd" id="1_script"]
 [ext_resource type="Texture2D" path="res://assets/ui/main_menu/main_menu_background.png" id="2_background"]
+[ext_resource type="Texture2D" path="res://assets/ui/main_menu/menu_scroll_blank.png" id="3_scroll"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hotspot_normal"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_button_transparent"]
 bg_color = Color(1, 1, 1, 0)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hotspot_hover"]
-bg_color = Color(0.92, 0.69, 0.25, 0.16)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.98, 0.84, 0.45, 0.32)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hotspot_pressed"]
-bg_color = Color(0.14, 0.09, 0.03, 0.2)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hotspot_disabled"]
-bg_color = Color(0.08, 0.06, 0.04, 0)
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -56,67 +35,214 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
+
+[node name="TitleLabel" type="Label" parent="MenuHotspots"]
+layout_mode = 0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.9, 0.85, 0.72, 1)
+theme_override_colors/font_shadow_color = Color(0.02, 0.03, 0.06, 0.72)
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 4
+theme_override_font_sizes/font_size = 74
+text = "拾梦本"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="NewGameButton" type="Button" parent="MenuHotspots"]
 layout_mode = 0
 focus_mode = 0
 mouse_default_cursor_shape = 2
 tooltip_text = "开始游戏"
-theme_override_styles/normal = SubResource("StyleBoxFlat_hotspot_normal")
-theme_override_styles/hover = SubResource("StyleBoxFlat_hotspot_hover")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_hotspot_pressed")
-theme_override_styles/disabled = SubResource("StyleBoxFlat_hotspot_disabled")
+theme_override_styles/normal = SubResource("StyleBoxFlat_button_transparent")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_transparent")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_transparent")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_button_transparent")
 text = ""
+
+[node name="Scroll" type="TextureRect" parent="MenuHotspots/NewGameButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("3_scroll")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="MenuHotspots/NewGameButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.06, 0.045, 0.035, 1)
+theme_override_colors/font_shadow_color = Color(1, 0.96, 0.85, 0.32)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="ContinueButton" type="Button" parent="MenuHotspots"]
 layout_mode = 0
 focus_mode = 0
 mouse_default_cursor_shape = 2
 tooltip_text = "继续游戏"
-theme_override_styles/normal = SubResource("StyleBoxFlat_hotspot_normal")
-theme_override_styles/hover = SubResource("StyleBoxFlat_hotspot_hover")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_hotspot_pressed")
-theme_override_styles/disabled = SubResource("StyleBoxFlat_hotspot_disabled")
+theme_override_styles/normal = SubResource("StyleBoxFlat_button_transparent")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_transparent")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_transparent")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_button_transparent")
 text = ""
+
+[node name="Scroll" type="TextureRect" parent="MenuHotspots/ContinueButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("3_scroll")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="MenuHotspots/ContinueButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.06, 0.045, 0.035, 1)
+theme_override_colors/font_shadow_color = Color(1, 0.96, 0.85, 0.32)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="GalleryButton" type="Button" parent="MenuHotspots"]
 layout_mode = 0
 focus_mode = 0
 mouse_default_cursor_shape = 2
 tooltip_text = "图鉴"
-theme_override_styles/normal = SubResource("StyleBoxFlat_hotspot_normal")
-theme_override_styles/hover = SubResource("StyleBoxFlat_hotspot_hover")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_hotspot_pressed")
-theme_override_styles/disabled = SubResource("StyleBoxFlat_hotspot_disabled")
+theme_override_styles/normal = SubResource("StyleBoxFlat_button_transparent")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_transparent")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_transparent")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_button_transparent")
 text = ""
+
+[node name="Scroll" type="TextureRect" parent="MenuHotspots/GalleryButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("3_scroll")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="MenuHotspots/GalleryButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.06, 0.045, 0.035, 1)
+theme_override_colors/font_shadow_color = Color(1, 0.96, 0.85, 0.32)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="SettingsButton" type="Button" parent="MenuHotspots"]
 layout_mode = 0
 focus_mode = 0
 mouse_default_cursor_shape = 2
 tooltip_text = "设置"
-theme_override_styles/normal = SubResource("StyleBoxFlat_hotspot_normal")
-theme_override_styles/hover = SubResource("StyleBoxFlat_hotspot_hover")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_hotspot_pressed")
-theme_override_styles/disabled = SubResource("StyleBoxFlat_hotspot_disabled")
+theme_override_styles/normal = SubResource("StyleBoxFlat_button_transparent")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_transparent")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_transparent")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_button_transparent")
 text = ""
+
+[node name="Scroll" type="TextureRect" parent="MenuHotspots/SettingsButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("3_scroll")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="MenuHotspots/SettingsButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.06, 0.045, 0.035, 1)
+theme_override_colors/font_shadow_color = Color(1, 0.96, 0.85, 0.32)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="QuitButton" type="Button" parent="MenuHotspots"]
 layout_mode = 0
 focus_mode = 0
 mouse_default_cursor_shape = 2
 tooltip_text = "退出"
-theme_override_styles/normal = SubResource("StyleBoxFlat_hotspot_normal")
-theme_override_styles/hover = SubResource("StyleBoxFlat_hotspot_hover")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_hotspot_pressed")
-theme_override_styles/disabled = SubResource("StyleBoxFlat_hotspot_disabled")
+theme_override_styles/normal = SubResource("StyleBoxFlat_button_transparent")
+theme_override_styles/hover = SubResource("StyleBoxFlat_button_transparent")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_button_transparent")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_button_transparent")
 text = ""
 
-[node name="ContinueDisabledOverlay" type="ColorRect" parent="MenuHotspots"]
-visible = false
-layout_mode = 0
+[node name="Scroll" type="TextureRect" parent="MenuHotspots/QuitButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
-color = Color(0.11, 0.08, 0.04, 0.3)
+texture = ExtResource("3_scroll")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="MenuHotspots/QuitButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.06, 0.045, 0.035, 1)
+theme_override_colors/font_shadow_color = Color(1, 0.96, 0.85, 0.32)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 

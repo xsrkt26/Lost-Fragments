@@ -798,6 +798,7 @@
 - 主菜单已接入正式美术图，运行时资源为 `assets/ui/main_menu/main_menu_background.png`，原始素材来自 `assets/sourceImage/主界面.png`；场景改为全屏背景图加透明按钮热区，开始、继续、图鉴、设置和退出仍走原有导航逻辑。
 - 主菜单热区按 1280x720 设计稿坐标配置，并在运行时根据 `KEEP_ASPECT_COVERED` 缩放重新布局，避免不同窗口比例下背景图与点击区域漂移。
 - 无可继续存档时继续游戏热区会禁用并显示半透明遮罩，正式文字仍由美术图承载，按钮仅提供鼠标交互和 tooltip。
+- 主菜单已升级为分层 UI：背景替换为夜间纸艺森林图，菜单项使用 `assets/ui/main_menu/menu_scroll_blank.png` 透明书卷素材复制生成，中文菜单文字改由 Godot `Label` 渲染；hover 不再显示边框，而是通过全局按钮反馈放大对应书卷和文字。
 
 实现假设：
 
