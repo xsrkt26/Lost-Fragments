@@ -4,12 +4,12 @@ extends Control
 
 const BASE_MENU_SIZE := Vector2(1280.0, 720.0)
 const HOTSPOT_RECTS := {
-	"NewGameButton": Rect2(72.0, 154.0, 194.0, 504.0),
-	"ContinueButton": Rect2(252.0, 224.0, 204.0, 432.0),
-	"GalleryButton": Rect2(438.0, 294.0, 176.0, 362.0),
-	"SettingsButton": Rect2(598.0, 358.0, 170.0, 300.0),
-	"QuitButton": Rect2(756.0, 410.0, 170.0, 248.0),
-	"ContinueDisabledOverlay": Rect2(252.0, 224.0, 204.0, 432.0),
+	"NewGameButton": Rect2(66.0, 148.0, 210.0, 520.0),
+	"ContinueButton": Rect2(244.0, 218.0, 218.0, 446.0),
+	"GalleryButton": Rect2(428.0, 288.0, 194.0, 376.0),
+	"SettingsButton": Rect2(590.0, 348.0, 184.0, 316.0),
+	"QuitButton": Rect2(748.0, 400.0, 184.0, 264.0),
+	"ContinueDisabledOverlay": Rect2(244.0, 218.0, 218.0, 446.0),
 }
 
 @onready var continue_button: Button = $MenuHotspots/ContinueButton

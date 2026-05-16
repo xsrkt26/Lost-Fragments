@@ -15,16 +15,11 @@ OUTPUT_DIR = Path("assets/ui/main_menu")
 # They include a small margin around each scroll so the hover scale has enough
 # painted edge to grow from.
 SCROLL_RECTS = {
-	"new_game": (72.0, 154.0, 194.0, 504.0),
-	"continue": (252.0, 224.0, 204.0, 432.0),
-	"gallery": (438.0, 294.0, 176.0, 362.0),
-	"settings": (598.0, 358.0, 170.0, 300.0),
-	"quit": (756.0, 410.0, 170.0, 248.0),
-}
-BOTTOM_ALPHA_LIMITS = {
-	"new_game": 0.84,
-	"continue": 0.92,
-	"gallery": 0.92,
+	"new_game": (66.0, 148.0, 210.0, 520.0),
+	"continue": (244.0, 218.0, 218.0, 446.0),
+	"gallery": (428.0, 288.0, 194.0, 376.0),
+	"settings": (590.0, 348.0, 184.0, 316.0),
+	"quit": (748.0, 400.0, 184.0, 264.0),
 }
 
 
@@ -44,24 +39,32 @@ def _shape_mask(size: tuple[int, int]) -> np.ndarray:
 	mask = Image.new("L", size, 0)
 	draw = ImageDraw.Draw(mask)
 
-	# Parchment body, including torn side strips.
+	# Parchment body, including the irregular torn side strips. The mask is
+	# intentionally generous: small background overlaps are less noticeable than
+	# missing paper edges when the button scales on hover.
 	draw.polygon(
 		[
-			(width * 0.18, height * 0.15),
-			(width * 0.82, height * 0.15),
-			(width * 0.80, height * 0.91),
-			(width * 0.16, height * 0.91),
+			(width * 0.14, height * 0.13),
+			(width * 0.86, height * 0.13),
+			(width * 0.88, height * 0.29),
+			(width * 0.83, height * 0.47),
+			(width * 0.87, height * 0.68),
+			(width * 0.79, height * 0.97),
+			(width * 0.18, height * 0.97),
+			(width * 0.11, height * 0.72),
+			(width * 0.17, height * 0.52),
+			(width * 0.12, height * 0.33),
 		],
 		fill=255,
 	)
 	# Top roll and the short curled lip on the right.
 	draw.rounded_rectangle(
-		(width * 0.18, height * 0.02, width * 0.82, height * 0.17),
+		(width * 0.14, height * 0.01, width * 0.86, height * 0.19),
 		radius=max(8, int(height * 0.045)),
 		fill=255,
 	)
 	draw.ellipse(
-		(width * 0.76, height * 0.03, width * 0.94, height * 0.16),
+		(width * 0.75, height * 0.025, width * 0.95, height * 0.18),
 		fill=255,
 	)
 	shape = np.array(mask, dtype=np.uint8)
@@ -69,17 +72,9 @@ def _shape_mask(size: tuple[int, int]) -> np.ndarray:
 	return shape
 
 
-def _extract_alpha(crop_bgr: np.ndarray, name: str) -> np.ndarray:
+def _extract_alpha(crop_bgr: np.ndarray) -> np.ndarray:
 	height, width = crop_bgr.shape[:2]
 	alpha = _shape_mask((width, height))
-	b, g, r = cv2.split(crop_bgr)
-	yy = np.arange(height)[:, None]
-	lower_crop = yy > int(height * 0.70)
-	leaf_like = lower_crop & (g > r + 8) & (g > b + 18)
-	mushroom_like = lower_crop & (yy > int(height * 0.80)) & (r > g + 60) & (r > b + 60) & (r > 175)
-	alpha[leaf_like | mushroom_like] = 0
-	if name in BOTTOM_ALPHA_LIMITS:
-		alpha[int(height * BOTTOM_ALPHA_LIMITS[name]) :, :] = 0
 	close_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
 	open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
 	alpha = cv2.morphologyEx(alpha, cv2.MORPH_CLOSE, close_kernel)
@@ -97,7 +92,7 @@ def main() -> None:
 	for name, rect in SCROLL_RECTS.items():
 		x, y, width, height = _scaled_rect(rect, image_size)
 		crop_bgr = source[y : y + height, x : x + width]
-		alpha = _extract_alpha(crop_bgr, name)
+		alpha = _extract_alpha(crop_bgr)
 		crop_rgba = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2RGBA)
 		crop_rgba[:, :, 3] = alpha
 		output = OUTPUT_DIR / f"main_menu_scroll_{name}.png"
