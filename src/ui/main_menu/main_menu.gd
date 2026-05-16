@@ -80,10 +80,7 @@ func _update_menu_hotspots() -> void:
 
 func _on_new_game_button_pressed() -> void:
 	print("[MainMenu] 点击新游戏")
-	var rm = get_node_or_null("/root/RunManager")
-	if rm:
-		rm.start_new_run()
-		GlobalScene.transition_to(GlobalScene.SceneType.HUB)
+	GlobalScene.transition_to(GlobalScene.SceneType.NEW_GAME)
 
 func _on_continue_button_pressed() -> void:
 	print("[MainMenu] 点击继续游戏")
